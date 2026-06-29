@@ -1,0 +1,190 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>eOne</groupId>
+	<artifactId>ticket</artifactId>
+	<packaging>war</packaging>
+	<version>0.0.1</version>
+	<name>ticket Maven Webapp</name>
+	<url>http://maven.apache.org</url>
+
+	<repositories>
+		<repository>
+			<id>org.eclnt</id>
+			<url>https://www.captaincasa.com/mavenrepository</url>
+		</repository>
+		<repository>
+			<id>mvnrepository.com</id>
+			<url>https://mvnrepository.com/repos/central</url>
+		</repository>
+		<repository>
+			<id>org.outerj</id>
+			<url>https://maven.atlassian.com/3rdparty/</url>
+		</repository>
+	</repositories>
+
+	<properties>
+		<!-- CaptainCasa version -->
+		<cc.version>20251124</cc.version>
+
+		<!-- SAP Cloud SDK version -->
+		<sap.cloud.sdk.version>5.15.0</sap.cloud.sdk.version>
+
+		<!-- Java 17 -->
+		<maven.compiler.release>17</maven.compiler.release>
+		<maven.compiler.source>17</maven.compiler.source>
+		<maven.compiler.target>17</maven.compiler.target>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+	</properties>
+
+	<dependencies>
+		<!-- ================================== -->
+		<!-- CAPTAINCASA CORE                   -->
+		<!-- ================================== -->
+		<dependency>
+			<groupId>org.eclnt</groupId>
+			<artifactId>eclntjsfserverRISC_jakarta</artifactId>
+			<version>${cc.version}</version>
+		</dependency>
+
+		<!-- ================================== -->
+		<!-- SAP BTP Connectivity               -->
+		<!-- ================================== -->
+		<dependency>
+			<groupId>com.sap.cloud.sdk.cloudplatform</groupId>
+			<artifactId>connectivity-destination-service</artifactId>
+			<version>${sap.cloud.sdk.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>com.sap.cloud.sdk.cloudplatform</groupId>
+			<artifactId>connectivity-apache-httpclient5</artifactId>
+			<version>${sap.cloud.sdk.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>com.sap.cloud.sdk.s4hana</groupId>
+			<artifactId>s4hana-connectivity</artifactId>
+			<version>${sap.cloud.sdk.version}</version>
+		</dependency>
+
+		<!-- ================================== -->
+		<!-- LOGGING - SLF4J 2.x                -->
+		<!-- ================================== -->
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-api</artifactId>
+			<version>2.0.9</version>
+		</dependency>
+
+		<dependency>
+			<groupId>ch.qos.logback</groupId>
+			<artifactId>logback-classic</artifactId>
+			<version>1.4.14</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.apache.logging.log4j</groupId>
+			<artifactId>log4j-to-slf4j</artifactId>
+			<version>2.22.1</version>
+		</dependency>
+
+		<!-- ================================== -->
+		<!-- JAKARTA EE APIs (provided)         -->
+		<!-- ================================== -->
+		<dependency>
+			<groupId>jakarta.faces</groupId>
+			<artifactId>jakarta.faces-api</artifactId>
+			<version>3.0.0</version>
+			<scope>provided</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>jakarta.servlet</groupId>
+			<artifactId>jakarta.servlet-api</artifactId>
+			<version>5.0.0</version>
+			<scope>provided</scope>
+		</dependency>
+
+		<!-- ================================== -->
+		<!-- HTTP CLIENT & REST                 -->
+		<!-- ================================== -->
+		<dependency>
+			<groupId>org.json</groupId>
+			<artifactId>json</artifactId>
+			<version>20231013</version>
+		</dependency>
+
+		<!-- ================================== -->
+		<!-- OFFICE DOCUMENTS                   -->
+		<!-- ================================== -->
+		<dependency>
+			<groupId>org.apache.poi</groupId>
+			<artifactId>poi-ooxml</artifactId>
+			<version>5.2.5</version>
+		</dependency>
+
+		<!-- ================================== -->
+		<!-- JSON & DATA PROCESSING             -->
+		<!-- ================================== -->
+		<dependency>
+			<groupId>com.fasterxml.jackson.core</groupId>
+			<artifactId>jackson-databind</artifactId>
+			<version>2.17.0</version>
+		</dependency>
+
+		<!-- ============================================================ -->
+		<!-- DIPENDENZE DA AGGIUNGERE AL pom.xml ESISTENTE             -->
+		<!-- Inserire dentro il tag <dependencies>                      -->
+		<!-- ============================================================ -->
+
+		<!-- PostgreSQL JDBC Driver -->
+		<dependency>
+			<groupId>org.postgresql</groupId>
+			<artifactId>postgresql</artifactId>
+			<version>42.7.3</version>
+		</dependency>
+
+		<!-- HikariCP — Connection Pool -->
+		<dependency>
+			<groupId>com.zaxxer</groupId>
+			<artifactId>HikariCP</artifactId>
+			<version>5.1.0</version>
+		</dependency>
+
+		<!-- ============================================================ -->
+		<!-- NOTE:                                                        -->
+		<!-- - NON aggiungere commons-fileupload: il fileupload in CC    -->
+		<!--   RISC è gestito nativamente da BaseActionEventUpload       -->
+		<!-- - HikariCP richiede slf4j-api, già presente nel pom         -->
+		<!-- ============================================================ -->
+
+	</dependencies>
+
+	<build>
+		<finalName>ticket</finalName>
+		<plugins>
+			<!-- Maven WAR Plugin -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-war-plugin</artifactId>
+				<version>3.3.2</version>
+			</plugin>
+
+			<!-- Maven Compiler Plugin -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.11.0</version>
+				<configuration>
+					<source>17</source>
+					<target>17</target>
+					<release>17</release>
+					<encoding>UTF-8</encoding>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>

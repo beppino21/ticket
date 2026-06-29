@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<t:layoutdefinition xmlns:t="http://www.captaincasa.com/controllibrary/t" >
+
+<t:beanprocessing id="g_1" beanbinding="#{d.LogonUI}" />
+<t:row id="g_2" >
+<t:pane id="g_7" height="100%" width="50%" >
+<t:row id="g_32" >
+<t:image id="g_33" height="100%" image="/images/mechanic_woman.jpg" keepratiofitmode="cover" width="100%" />
+</t:row>
+</t:pane>
+<t:pane id="g_12" height="100%" width="50%" >
+<t:rowdistance id="g_13" height="100%" />
+<t:row id="g_8" >
+<t:coldistance id="g_10" width="100%" />
+<t:foldablepane id="g_9" enabled="false" rowdistance="5" text="Logon" width="100%" >
+<t:row id="g_18" >
+<t:field id="g_19" labeltext="User name" requestfocus="creation" text="#{d.LogonUI.userName}" width="200" />
+</t:row>
+<t:row id="g_21" >
+<t:password id="g_22" actionListener="#{d.LogonUI.onRequestNewPasswordAction}" labeltext="Password" text="#{d.LogonUI.password}" width="200" />
+</t:row>
+<t:rowdistance id="g_16" height="20" />
+<t:row id="g_14" >
+<t:button id="g_15" actionListener="#{d.LogonUI.onLogonAction}" hotkey="10" text="Logon" width="100+" />
+</t:row>
+<t:rowdistance id="g_28" height="20" />
+<t:row id="g_29" >
+<t:link id="g_30" font="size:10" text="Request new password" />
+</t:row>
+</t:foldablepane>
+<t:coldistance id="g_26" width="100%" />
+</t:row>
+<t:rowdistance id="g_24" height="100%" />
+</t:pane>
+</t:row>
+
+</t:layoutdefinition>

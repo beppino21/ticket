@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<t:layoutdefinition xmlns:t="http://www.captaincasa.com/controllibrary/t" >
+
+<t:beanprocessing id="g_1" beanbinding="#{d.TicketListUI}" />
+<t:rowtitlebar id="g_2" text="Lista Ticket" />
+<t:rowheader id="g_3" >
+<t:field id="g_10" labeltext="Cliente:" text="#{d.TicketListUI.filterKunnr}" width="120" />
+<t:coldistance id="g_11" />
+<t:field id="g_12" labeltext="Richiedente:" text="#{d.TicketListUI.filterReqid}" width="120" />
+<t:coldistance id="g_13" />
+<t:button id="g_14" actionListener="#{d.TicketListUI.searchTickets}" text="Cerca" width="80" />
+<t:coldistance id="g_15" />
+<t:button id="g_16" actionListener="#{d.TicketListUI.clearFilters}" text="Reset" width="80" />
+<t:coldistance id="g_17" />
+<t:button id="g_18" actionListener="#{d.TicketListUI.refreshTickets}" text="Aggiorna" width="80" />
+</t:rowheader>
+<t:rowdistance id="g_20" height="10" />
+<t:rowbodypane id="g_30" >
+<t:row id="g_31" >
+<t:label id="g_32" font="size:12;#{d.TicketListUI.hasError ? &#39;color:#ff0000;weight:bold&#39; : &#39;color:#00aa00;weight:bold&#39;}" text="#{d.TicketListUI.statusMessage}" />
+</t:row>
+<t:rowdistance id="g_33" height="10" />
+<t:row id="g_40" >
+<t:pane id="g_41" height="100%" width="100%" >
+<t:row id="g_42" >
+<t:coldistance id="g_43" width="100%" />
+<t:link id="g_44" actionListener="#{d.TicketListUI.gridTickets.onEditColumnDetails}" text="Colonne..." />
+<t:coldistance id="g_45" />
+<t:link id="g_46" actionListener="#{d.TicketListUI.gridTickets.onOpenGridExportFunctions}" text="Export" />
+</t:row>
+<t:row id="g_50" >
+<t:fixgrid id="g_51" height="100%" objectbinding="#{d.TicketListUI.gridTickets}" sbvisibleamount="30" width="100%" >
+<t:gridcol id="g_60" text="Ticket" width="100" >
+<t:label id="g_61" stylevariant="ccbig" text=".{tickt}" />
+</t:gridcol>
+<t:gridcol id="g_62" text="Oggetto" width="280" >
+<t:label id="g_63" text=".{title}" />
+</t:gridcol>
+<t:gridcol id="g_64" text="Stato" width="80" >
+<t:label id="g_65" text=".{rstat}" />
+</t:gridcol>
+<t:gridcol id="g_66" text="Priorità" width="80" >
+<t:label id="g_67" stylevariant="ccbig" text=".{rprio}" />
+</t:gridcol>
+<t:gridcol id="g_68" text="Data" width="90" >
+<t:label id="g_93" text=".{erdat}" timezone="UTC" />
+</t:gridcol>
+<t:gridcol id="g_70" text="Cliente" width="90" >
+<t:label id="g_71" text=".{kunnr}" />
+</t:gridcol>
+<t:gridcol id="g_72" text="Richiedente" width="100" >
+<t:label id="g_73" text=".{reqid}" />
+</t:gridcol>
+<t:gridcol id="g_74" text="Categoria" width="100" >
+<t:label id="g_75" text=".{categ}" />
+</t:gridcol>
+<t:gridcol id="g_76" text="Prodotto" width="100" >
+<t:label id="g_77" text=".{prdct}" />
+</t:gridcol>
+<t:gridcol id="g_78" text="Modulo" width="100" >
+<t:label id="g_79" text=".{modul}" />
+</t:gridcol>
+<t:gridcol id="g_80" text="AMS" width="100" >
+<t:label id="g_81" text=".{amusr}" />
+</t:gridcol>
+<t:gridcol id="g_82" text="Referente" width="100" >
+<t:label id="g_83" text=".{refer}" />
+</t:gridcol>
+<t:gridcol id="g_84" text="Commenti" width="90" >
+<t:button id="g_85" actionListener=".{onOpenComments}" text="Commenti" width="80" />
+</t:gridcol>
+</t:fixgrid>
+</t:row>
+</t:pane>
+</t:row>
+<t:row id="g_90" >
+<t:label id="g_91" font="weight:bold" text="Totale ticket: #{d.TicketListUI.ticketCount}" />
+</t:row>
+</t:rowbodypane>
+
+</t:layoutdefinition>
