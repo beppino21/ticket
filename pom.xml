@@ -160,6 +160,13 @@
 		<!-- - HikariCP richiede slf4j-api, già presente nel pom         -->
 		<!-- ============================================================ -->
 
+		<!-- BCrypt per hashing password (logon su PostgreSQL) -->
+		<dependency>
+			<groupId>org.mindrot</groupId>
+			<artifactId>jbcrypt</artifactId>
+			<version>0.4</version>
+		</dependency>
+
 	</dependencies>
 
 	<build>

@@ -17,7 +17,7 @@
 <t:field id="g_19" labeltext="User name" requestfocus="creation" text="#{d.LogonUI.userName}" width="200" />
 </t:row>
 <t:row id="g_21" >
-<t:password id="g_22" actionListener="#{d.LogonUI.onRequestNewPasswordAction}" labeltext="Password" text="#{d.LogonUI.password}" width="200" />
+<t:password id="g_22" labeltext="Password" text="#{d.LogonUI.password}" width="200" />
 </t:row>
 <t:rowdistance id="g_16" height="20" />
 <t:row id="g_14" >
@@ -25,7 +25,7 @@
 </t:row>
 <t:rowdistance id="g_28" height="20" />
 <t:row id="g_29" >
-<t:link id="g_30" font="size:10" text="Request new password" />
+<t:link id="g_30" actionListener="#{d.LogonUI.onRequestNewPasswordAction}" font="size:10" text="Cambia password..." />
 </t:row>
 </t:foldablepane>
 <t:coldistance id="g_26" width="100%" />

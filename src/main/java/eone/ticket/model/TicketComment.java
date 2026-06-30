@@ -9,6 +9,13 @@ import java.util.List;
  * Modello per un commento associato a un ticket.
  * I commenti sono in ordine cronologico e agganciati al numero ticket SAP.
  * autore_tipo: 'CLIENTE' o 'ASSISTENZA'
+ *
+ * Stato del commento (statoTicket): 7 valori, distinti per chi li può impostare.
+ * I colori seguono una scala "termica" basata sullo spettro visibile:
+ * urgenza crescente verso il rosso (infrarosso), calma crescente verso il
+ * violetto (ultravioletto). Gli stati di chiusura sono "freddi" (blu/viola),
+ * gli stati di attesa neutra sono al centro (verde/giallo), i solleciti
+ * sono "caldi" (arancione/rosso).
  */
 public class TicketComment implements Serializable {
 
@@ -18,12 +25,16 @@ public class TicketComment implements Serializable {
     public static final String TIPO_CLIENTE    = "CLIENTE";
     public static final String TIPO_ASSISTENZA = "ASSISTENZA";
 
-    // Valori costanti per stato_ticket
-    public static final String STATO_WAIT_AMS    = "WAIT_AMS";
-    public static final String STATO_WAIT_CLI    = "WAIT_CLI";
-    public static final String STATO_IN_PROGRESS = "IN_PROGRESS";
-    public static final String STATO_RESOLVED    = "RESOLVED";
-    public static final String STATO_CLOSED      = "CLOSED";
+    // Valori costanti per stato_ticket — settabili dal CLIENTE
+    public static final String STATO_CLI_ATTESA_ASSISTENZA    = "CLI_ATTESA_ASSISTENZA";
+    public static final String STATO_CLI_SOLLECITO_ASSISTENZA = "CLI_SOLLECITO_ASSISTENZA";
+    public static final String STATO_CLI_RICHIESTA_CHIUSURA   = "CLI_RICHIESTA_CHIUSURA";
+    public static final String STATO_CLI_RISOLTO              = "CLI_RISOLTO";
+
+    // Valori costanti per stato_ticket — settabili dall'ASSISTENZA
+    public static final String STATO_ASS_ATTESA_CLIENTE    = "ASS_ATTESA_CLIENTE";
+    public static final String STATO_ASS_SOLLECITO_CLIENTE = "ASS_SOLLECITO_CLIENTE";
+    public static final String STATO_ASS_CONCLUSO          = "ASS_CONCLUSO";
 
     private long          id;
     private String        tickt;
@@ -97,12 +108,45 @@ public class TicketComment implements Serializable {
     public String getStatoTicketLabel() {
         if (statoTicket == null) return "";
         switch (statoTicket) {
-            case STATO_WAIT_AMS:    return "Attesa Servizio Assistenza";
-            case STATO_WAIT_CLI:    return "Attesa risposta Cliente";
-            case STATO_IN_PROGRESS: return "In lavorazione";
-            case STATO_RESOLVED:    return "Risolto";
-            case STATO_CLOSED:      return "Chiuso";
-            default:                return statoTicket;
+            case STATO_CLI_ATTESA_ASSISTENZA:    return "Attesa attività Assistenza";
+            case STATO_CLI_SOLLECITO_ASSISTENZA: return "Sollecito attività Assistenza";
+            case STATO_CLI_RICHIESTA_CHIUSURA:   return "Richiesta chiusura ticket";
+            case STATO_CLI_RISOLTO:              return "Ticket risolto";
+            case STATO_ASS_ATTESA_CLIENTE:       return "Attesa attività Cliente";
+            case STATO_ASS_SOLLECITO_CLIENTE:    return "Sollecito attività Cliente";
+            case STATO_ASS_CONCLUSO:             return "Ticket concluso";
+            default:                             return statoTicket;
+        }
+    }
+
+    /**
+     * Colore associato allo stato, su scala "termica" dello spettro visibile.
+     * Freddo (viola/blu) = stati conclusi/risolti.
+     * Centrale (verde/giallo) = attese neutre.
+     * Caldo (arancione/rosso) = solleciti, massima urgenza.
+     */
+    public String getStatoColor() {
+        if (statoTicket == null) return "#CCCCCC";
+        switch (statoTicket) {
+            case STATO_ASS_CONCLUSO:             return "#7B68EE"; // viola
+            case STATO_CLI_RISOLTO:              return "#4A90D9"; // blu
+            case STATO_CLI_RICHIESTA_CHIUSURA:   return "#26A69A"; // ciano
+            case STATO_ASS_ATTESA_CLIENTE:       return "#66BB6A"; // verde
+            case STATO_CLI_ATTESA_ASSISTENZA:    return "#FBC02D"; // giallo
+            case STATO_ASS_SOLLECITO_CLIENTE:    return "#FB8C00"; // arancione
+            case STATO_CLI_SOLLECITO_ASSISTENZA: return "#E53935"; // rosso
+            default:                             return "#CCCCCC";
+        }
+    }
+
+    /** Testo contrastante (bianco/nero) leggibile sopra getStatoColor() */
+    public String getStatoTextColor() {
+        if (statoTicket == null) return "#000000";
+        switch (statoTicket) {
+            case STATO_CLI_ATTESA_ASSISTENZA: // giallo, troppo chiaro per testo bianco
+                return "#3A3000";
+            default:
+                return "#FFFFFF";
         }
     }
 

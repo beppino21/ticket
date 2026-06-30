@@ -4,14 +4,7 @@
 <t:beanprocessing id="g_1" beanbinding="#{d.TicketListUI}" />
 <t:rowtitlebar id="g_2" text="Lista Ticket" />
 <t:rowheader id="g_3" >
-<t:field id="g_10" labeltext="Cliente:" text="#{d.TicketListUI.filterKunnr}" width="120" />
-<t:coldistance id="g_11" />
-<t:field id="g_12" labeltext="Richiedente:" text="#{d.TicketListUI.filterReqid}" width="120" />
-<t:coldistance id="g_13" />
-<t:button id="g_14" actionListener="#{d.TicketListUI.searchTickets}" text="Cerca" width="80" />
-<t:coldistance id="g_15" />
-<t:button id="g_16" actionListener="#{d.TicketListUI.clearFilters}" text="Reset" width="80" />
-<t:coldistance id="g_17" />
+<t:coldistance id="g_3cd" width="100%" />
 <t:button id="g_18" actionListener="#{d.TicketListUI.refreshTickets}" text="Aggiorna" width="80" />
 </t:rowheader>
 <t:rowdistance id="g_20" height="10" />
@@ -27,44 +20,65 @@
 <t:link id="g_44" actionListener="#{d.TicketListUI.gridTickets.onEditColumnDetails}" text="Colonne..." />
 <t:coldistance id="g_45" />
 <t:link id="g_46" actionListener="#{d.TicketListUI.gridTickets.onOpenGridExportFunctions}" text="Export" />
+<t:coldistance id="g_47" />
+<t:link id="g_48" actionListener="#{d.TicketListUI.onResetColFilters}" text="Reset filtri colonna" />
 </t:row>
 <t:row id="g_50" >
 <t:fixgrid id="g_51" height="100%" objectbinding="#{d.TicketListUI.gridTickets}" sbvisibleamount="30" width="100%" >
+<t:gridheader id="g_h0" rendered="true" rowheight="30" >
+<t:field id="g_h60" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterTickt}" />
+<t:field id="g_h62" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterTitle}" />
+<t:field id="g_h64" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterRstat}" />
+<t:label id="g_h66" background="#C0C0C0" />
+<t:label id="g_h68" background="#C0C0C0" />
+<t:field id="g_h70" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterKunnr}" />
+<t:field id="g_h72" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterReqidNome}" />
+<t:label id="g_h74" background="#C0C0C0" />
+<t:label id="g_h76" background="#C0C0C0" />
+<t:label id="g_h78" background="#C0C0C0" />
+<t:label id="g_h80" background="#C0C0C0" />
+<t:label id="g_h82" background="#C0C0C0" />
+<t:field id="g_h86" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterEncUltimoStato}" />
+<t:label id="g_h84" background="#C0C0C0" />
+</t:gridheader>
 <t:gridcol id="g_60" text="Ticket" width="100" >
-<t:label id="g_61" stylevariant="ccbig" text=".{tickt}" />
+<t:label id="g_61" align="right!" stylevariant="ccbig" text=".{tickt}" />
 </t:gridcol>
-<t:gridcol id="g_62" text="Oggetto" width="280" >
+<t:gridcol id="g_62" text="Oggetto" width="260" >
 <t:label id="g_63" text=".{title}" />
 </t:gridcol>
-<t:gridcol id="g_64" text="Stato" width="80" >
-<t:label id="g_65" text=".{rstat}" />
+<t:gridcol id="g_64" text="Stato SAP" width="180" >
+<t:label id="g_65" background=".{encRstatColor}" font="size:11;weight:bold;color:.{encRstatTextColor}" text=".{encRstatLabel}" />
 </t:gridcol>
-<t:gridcol id="g_66" text="Priorità" width="80" >
+<t:gridcol id="g_66" text="Priorità" width="75" >
 <t:label id="g_67" stylevariant="ccbig" text=".{rprio}" />
 </t:gridcol>
-<t:gridcol id="g_68" text="Data" width="90" >
+<t:gridcol id="g_68" text="Data" width="88" >
 <t:label id="g_93" text=".{erdat}" timezone="UTC" />
 </t:gridcol>
-<t:gridcol id="g_70" text="Cliente" width="90" >
+<t:gridcol id="g_70" text="Cliente" width="85" >
 <t:label id="g_71" text=".{kunnr}" />
 </t:gridcol>
-<t:gridcol id="g_72" text="Richiedente" width="100" >
-<t:label id="g_73" text=".{reqid}" />
+<t:gridcol id="g_72" text="Richiedente" width="180" >
+<t:label id="g_73" text=".{reqidNome}" />
 </t:gridcol>
-<t:gridcol id="g_74" text="Categoria" width="100" >
+<t:gridcol id="g_74" text="Categoria" width="90" >
 <t:label id="g_75" text=".{categ}" />
 </t:gridcol>
-<t:gridcol id="g_76" text="Prodotto" width="100" >
+<t:gridcol id="g_76" text="Prodotto" width="90" >
 <t:label id="g_77" text=".{prdct}" />
 </t:gridcol>
-<t:gridcol id="g_78" text="Modulo" width="100" >
+<t:gridcol id="g_78" text="Modulo" width="90" >
 <t:label id="g_79" text=".{modul}" />
 </t:gridcol>
-<t:gridcol id="g_80" text="AMS" width="100" >
+<t:gridcol id="g_80" text="AMS" width="90" >
 <t:label id="g_81" text=".{amusr}" />
 </t:gridcol>
-<t:gridcol id="g_82" text="Referente" width="100" >
+<t:gridcol id="g_82" text="Referente" width="90" >
 <t:label id="g_83" text=".{refer}" />
+</t:gridcol>
+<t:gridcol id="g_86" text="Stato commento" width="170" >
+<t:label id="g_87" background=".{encUltimoStatoColor}" font="size:11;weight:bold;color:.{encUltimoStatoTextColor}" text=".{encUltimoStatoLabel}" />
 </t:gridcol>
 <t:gridcol id="g_84" text="Commenti" width="90" >
 <t:button id="g_85" actionListener=".{onOpenComments}" text="Commenti" width="80" />

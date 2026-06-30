@@ -36,9 +36,16 @@ public class Ticket {
 
     private int    encNumCommenti   = 0;     // Numero totale commenti
     private int    encNumAllegati   = 0;     // Numero totale allegati (su tutti i commenti)
-    private String encUltimoStato   = "";    // Stato dell'ultimo commento
+    private String encUltimoStato   = "";    // Stato dell'ultimo commento (codice grezzo, retrocompatibilità)
+    private String encUltimoStatoLabel = "";  // Etichetta leggibile dell'ultimo stato commento
+    private String encUltimoStatoColor = "#CCCCCC"; // Colore badge (scala termica) dell'ultimo stato
+    private String encUltimoStatoTextColor = "#000000"; // Colore testo contrastante sul badge
     private String encUltimaData    = "";    // Data/ora dell'ultimo commento (formattata)
     private String encUltimoTesto   = "";    // Testo (troncato) dell'ultimo commento
+    private String encNomeRichiedente = "";  // "REQID — Nome Cognome" da ticket_user (EnrichmentService)
+    private String encRstatLabel = "";       // Descrizione completa stato SAP: "CODICE - Descrizione"
+    private String encRstatColor = "#CCCCCC"; // Colore badge stato SAP
+    private String encRstatTextColor = "#000000"; // Colore testo contrastante
 
     // =========================
     // COSTRUTTORI
@@ -132,11 +139,32 @@ public class Ticket {
     public String getEncUltimoStato()                { return encUltimoStato != null ? encUltimoStato : ""; }
     public void setEncUltimoStato(String s)          { this.encUltimoStato = s; }
 
+    public String getEncUltimoStatoLabel()           { return encUltimoStatoLabel != null ? encUltimoStatoLabel : ""; }
+    public void setEncUltimoStatoLabel(String s)     { this.encUltimoStatoLabel = s; }
+
+    public String getEncUltimoStatoColor()           { return encUltimoStatoColor != null ? encUltimoStatoColor : "#CCCCCC"; }
+    public void setEncUltimoStatoColor(String s)     { this.encUltimoStatoColor = s; }
+
+    public String getEncUltimoStatoTextColor()       { return encUltimoStatoTextColor != null ? encUltimoStatoTextColor : "#000000"; }
+    public void setEncUltimoStatoTextColor(String s) { this.encUltimoStatoTextColor = s; }
+
     public String getEncUltimaData()                 { return encUltimaData != null ? encUltimaData : ""; }
     public void setEncUltimaData(String s)           { this.encUltimaData = s; }
 
     public String getEncUltimoTesto()                { return encUltimoTesto != null ? encUltimoTesto : ""; }
     public void setEncUltimoTesto(String s)          { this.encUltimoTesto = s; }
+
+    public String getEncNomeRichiedente()            { return encNomeRichiedente != null ? encNomeRichiedente : ""; }
+    public void setEncNomeRichiedente(String s)      { this.encNomeRichiedente = s; }
+
+    public String getEncRstatLabel()                 { return encRstatLabel != null ? encRstatLabel : ""; }
+    public void setEncRstatLabel(String s)           { this.encRstatLabel = s; }
+
+    public String getEncRstatColor()                 { return encRstatColor != null ? encRstatColor : "#CCCCCC"; }
+    public void setEncRstatColor(String s)           { this.encRstatColor = s; }
+
+    public String getEncRstatTextColor()             { return encRstatTextColor != null ? encRstatTextColor : "#000000"; }
+    public void setEncRstatTextColor(String s)       { this.encRstatTextColor = s; }
 
     /** True se esiste almeno un commento da PostgreSQL */
     public boolean getEncHasCommenti()               { return encNumCommenti > 0; }

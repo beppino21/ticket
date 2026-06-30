@@ -3,124 +3,127 @@
 
 <t:beanprocessing id="c_0" beanbinding="#{d.CommentUI}" >
 <t:filedownload id="c_dl" trigger="#{d.CommentUI.downloadTrigger}" url="#{d.CommentUI.downloadUrl}" />
-<t:popupscrollingpane id="c_exp" trigger="#{d.CommentUI.expandTrigger}" text="#{d.CommentUI.testoEspanso}" title="Testo commento completo" width="600" height="350" />
 </t:beanprocessing>
 <t:rowtitlebar id="c_1" text="Commenti — Ticket #{d.CommentUI.currentTickt}" />
-<t:rowbodypane id="c_10" height="280" >
-<t:row id="c_11" >
-<t:fixgrid id="c_12" avoidrowstretching="true" dynamicheightsizing="true" height="100%" objectbinding="#{d.CommentUI.gridComments}" rowheight="28" sbvisibleamount="10" width="100%" >
-<t:gridcol id="c_13" text="Data/Ora" width="115" >
-<t:label id="c_14" text=".{createdAt}" />
-</t:gridcol>
-<t:gridcol id="c_15" text="Tipo" width="85" >
-<t:label id="c_16" font="weight:bold;color:#{.{isFromCliente} ? &#39;#1565C0&#39; : &#39;#2E7D32&#39;}" text=".{autoreTipo}" />
-</t:gridcol>
-<t:gridcol id="c_17" text="Autore" width="100" >
-<t:label id="c_18" text=".{autoreId}" />
-</t:gridcol>
-<t:gridcol id="c_19" text="Stato" width="155" >
-<t:label id="c_20" font="weight:bold" text=".{statoLabel}" />
-</t:gridcol>
-<t:gridcol id="c_21" text="Testo" width="300" >
-<t:textpane id="c_22" text=".{testo}" width="100%" />
-</t:gridcol>
-<t:gridcol id="c_23" text="Allegati" width="90" >
-<t:button id="c_24a" actionListener=".{onMostraAllegati}" text=".{allegatiLabel}" width="80" />
+<t:row id="c_main" >
+<t:splitpane id="c_split" dividerlocation="35%" height="100%" orientation="horizontal" width="100%" >
+<t:splitpanesplit id="c_left" padding="4" >
+<t:row id="c_left_title" >
+<t:label id="c_left_lbl" font="weight:bold" text="Commenti" />
+</t:row>
+<t:rowdistance id="c_left_dist" height="4" />
+<t:row id="c_left_grid_row" >
+<t:fixgrid id="c_left_grid" avoidrowstretching="true" dynamicheightsizing="true" height="100%" objectbinding="#{d.CommentUI.gridComments}" rowheight="76" sbvisibleamount="20" singleclickexecute="false" width="100%" selectonrowfocus="true" >
+<t:gridcol id="c_lg_col" width="100%" >
+<t:pane id="c_lg_pane" background=".{rowBackground}" padding="6" width="100%" >
+<t:row id="c_lg_r1" coldistance="6" >
+<t:label id="c_lg_data" font="size:11;color:#777777" text=".{createdAt}" />
+<t:label id="c_lg_tipo" font="size:11;weight:bold;#{.{isFromCliente} ? &#39;color:#1565C0&#39; : &#39;color:#2E7D32&#39;}" text=".{autoreTipo}" />
+<t:coldistance id="c_lg_cd" width="100%" />
+<t:label id="c_lg_all" font="size:10;color:#888888" text=".{allegatiLabel}" />
+</t:row>
+<t:row id="c_lg_r1b" >
+<t:label id="c_lg_stato_badge" background=".{statoColor}" font="size:10;weight:bold;color:.{statoTextColor}" text=".{statoLabel}" />
+</t:row>
+<t:rowdistance id="c_lg_r1c" height="2" />
+<t:row id="c_lg_r2" >
+<t:label id="c_lg_testo" text=".{anteprimaTesto}" width="100%" />
+</t:row>
+</t:pane>
 </t:gridcol>
 </t:fixgrid>
-</t:row>
-</t:rowbodypane>
-<t:rowbodypane id="c_att_pane" border="#1565C0" rendered="#{d.CommentUI.attachListVisible}" >
-<t:rowtitlebar id="c_att_title" text="Dettaglio commento selezionato" />
-<t:row id="c_att_row1" >
-<t:splitpane id="c_att_split" dividerlocation="55%" height="160" orientation="horizontal" width="100%" >
-<t:splitpanesplit id="c_att_left" padding="8" >
-<t:row id="c_att_left_title" >
-<t:label id="c_att_left_lbl" font="weight:bold;color:#1565C0" text="Testo commento" />
-</t:row>
-<t:rowdistance id="c_att_left_dist" height="4" />
-<t:row id="c_att_left_text" >
-<t:textarea id="c_att_testo" enabled="false" height="110" text="#{d.CommentUI.selectedCommentTesto}" width="100%" />
 </t:row>
 </t:splitpanesplit>
-<t:splitpanesplit id="c_att_right" padding="8" >
-<t:row id="c_att_right_title" >
-<t:label id="c_att_right_lbl" font="weight:bold;color:#1565C0" text="Allegati" />
+<t:splitpanesplit id="c_right" >
+<t:row id="c_right_main" >
+<t:splitpane id="c_right_split" dividerlocation="45%" height="100%" orientation="vertical" width="100%" >
+<t:splitpanesplit id="c_detail" padding="8" >
+<t:row id="c_detail_norow" rendered="#{!d.CommentUI.hasSelectedComment}" >
+<t:label id="c_detail_empty" font="color:#999999" text="Seleziona un commento dalla lista per vederne il dettaglio." />
 </t:row>
-<t:rowdistance id="c_att_right_dist" height="4" />
-<t:row id="c_att_row_grid" >
-<t:fixgrid id="c_att_grid" height="100%" objectbinding="#{d.CommentUI.gridAttachList}" sbvisibleamount="5" width="100%" >
-<t:gridcol id="c_att_col1" text="File" width="100%" >
-<t:label id="c_att_lbl1" text=".{filename}" />
+<t:row id="c_detail_header_row" coldistance="8" rendered="#{d.CommentUI.hasSelectedComment}" >
+<t:label id="c_detail_header" font="weight:bold;color:#1565C0" text="#{d.CommentUI.selectedCommentHeader}" />
+<t:coldistance id="c_detail_header_cd" width="100%" />
+<t:label id="c_detail_stato_badge" background="#{d.CommentUI.selectedStatoColor}" font="size:11;weight:bold;color:#{d.CommentUI.selectedStatoTextColor}" text="#{d.CommentUI.selectedStatoLabel}" />
+</t:row>
+<t:rowdistance id="c_detail_dist1" height="6" rendered="#{d.CommentUI.hasSelectedComment}" />
+<t:row id="c_detail_text_row" rendered="#{d.CommentUI.hasSelectedComment}" >
+<t:scrollpane id="c_detail_scroll" height="100%" width="100%" >
+<t:row id="c_detail_scroll_row" >
+<t:textpane id="c_detail_testo" text="#{d.CommentUI.selectedCommentTesto}" width="100%" />
+</t:row>
+</t:scrollpane>
+</t:row>
+<t:rowdistance id="c_detail_dist2" height="6" rendered="#{d.CommentUI.selectedHasAttachments}" />
+<t:row id="c_detail_att_title" rendered="#{d.CommentUI.selectedHasAttachments}" >
+<t:label id="c_detail_att_lbl" font="weight:bold;size:11" text="Allegati" />
+</t:row>
+<t:row id="c_detail_att_row" rendered="#{d.CommentUI.selectedHasAttachments}" >
+<t:fixgrid id="c_detail_att_grid" height="90" objectbinding="#{d.CommentUI.gridAttachList}" sbvisibleamount="3" width="100%" >
+<t:gridcol id="c_da_col1" text="File" width="100%" >
+<t:label id="c_da_lbl1" text=".{filename}" />
 </t:gridcol>
-<t:gridcol id="c_att_col2" text="Dim." width="80" >
-<t:label id="c_att_lbl2" text=".{fileSizeFormatted}" />
+<t:gridcol id="c_da_col2" text="Dim." width="80" >
+<t:label id="c_da_lbl2" text=".{fileSizeFormatted}" />
 </t:gridcol>
-<t:gridcol id="c_att_col3" width="80" >
-<t:button id="c_att_btn_dl" actionListener=".{onDownload}" text="Scarica" width="70" />
+<t:gridcol id="c_da_col3" width="80" >
+<t:button id="c_da_btn" actionListener=".{onDownload}" text="Scarica" width="70" />
 </t:gridcol>
 </t:fixgrid>
+</t:row>
+</t:splitpanesplit>
+<t:splitpanesplit id="c_form" padding="8" >
+<t:row id="c_form_title" >
+<t:label id="c_form_lbl" font="weight:bold" text="Aggiungi commento" />
+</t:row>
+<t:rowdistance id="c_form_dist1" height="6" />
+<t:row id="c_form_stato_row" coldistance="8" >
+<t:label id="c_form_stato_lbl" labeltext="Stato ticket:" width="110" />
+<t:combobox id="c_form_stato_cli" flush="true" rendered="#{d.CommentUI.isCliente}" value="#{d.CommentUI.newCommentStato}" width="280" >
+<t:comboboxitem id="c_fsc_a" />
+<t:comboboxitem id="c_fsc_b" text="Attesa attività Assistenza" value="CLI_ATTESA_ASSISTENZA" />
+<t:comboboxitem id="c_fsc_c" text="Sollecito attività Assistenza" value="CLI_SOLLECITO_ASSISTENZA" />
+<t:comboboxitem id="c_fsc_d" text="Richiesta chiusura ticket" value="CLI_RICHIESTA_CHIUSURA" />
+<t:comboboxitem id="c_fsc_e" text="Ticket risolto" value="CLI_RISOLTO" />
+</t:combobox>
+<t:combobox id="c_form_stato_ass" flush="true" rendered="#{d.CommentUI.isAssistenza}" value="#{d.CommentUI.newCommentStato}" width="280" >
+<t:comboboxitem id="c_fsa_a" />
+<t:comboboxitem id="c_fsa_b" text="Attesa attività Cliente" value="ASS_ATTESA_CLIENTE" />
+<t:comboboxitem id="c_fsa_c" text="Sollecito Attività Cliente" value="ASS_SOLLECITO_CLIENTE" />
+<t:comboboxitem id="c_fsa_d" text="Ticket concluso" value="ASS_CONCLUSO" />
+</t:combobox>
+</t:row>
+<t:rowdistance id="c_form_dist2" height="6" />
+<t:row id="c_form_text_row" >
+<t:textarea id="c_form_text" height="70" text="#{d.CommentUI.newCommentText}" width="100%" />
+</t:row>
+<t:rowdistance id="c_form_dist3" height="6" />
+<t:row id="c_form_upload_row" coldistance="8" >
+<t:fileuploadbutton id="c_form_upload" actionListener="#{d.CommentUI.onFileUpload}" maxfilesize="5000000" multiselect="true" text="Allega file..." width="160" />
+<t:label id="c_form_upload_hint" font="size:10;color:#888888" text="(max 5 MB per file)" />
+</t:row>
+<t:row id="c_form_pending_row" rendered="#{d.CommentUI.hasPending}" >
+<t:fixgrid id="c_form_pending_grid" height="60" objectbinding="#{d.CommentUI.gridPending}" sbvisibleamount="3" width="100%" >
+<t:gridcol id="c_fp_col1" text="File" width="100%" >
+<t:label id="c_fp_lbl1" text=".{filename}" />
+</t:gridcol>
+<t:gridcol id="c_fp_col2" text="Dim." width="70" >
+<t:label id="c_fp_lbl2" text=".{fileSizeFormatted}" />
+</t:gridcol>
+<t:gridcol id="c_fp_col3" width="55" >
+<t:button id="c_fp_btn" actionListener=".{onRemove}" text="X" width="50" />
+</t:gridcol>
+</t:fixgrid>
+</t:row>
+<t:rowdistance id="c_form_dist4" height="8" />
+<t:row id="c_form_save_row" >
+<t:button id="c_form_save" actionListener="#{d.CommentUI.saveComment}" hotkey="10" text="Salva commento" width="160" />
 </t:row>
 </t:splitpanesplit>
 </t:splitpane>
 </t:row>
-<t:rowdistance id="c_att_dist" height="4" />
-<t:row id="c_att_row2" >
-<t:coldistance id="g_2" width="100%" />
-<t:button id="c_att_close" actionListener="#{d.CommentUI.closeAttachList}" text="Chiudi" width="80" />
-<t:coldistance id="g_3" width="8" />
+</t:splitpanesplit>
+</t:splitpane>
 </t:row>
-<t:rowdistance id="c_att_dist2" height="4" />
-</t:rowbodypane>
-<t:rowdistance id="c_30b" height="8" />
-<t:rowtitlebar id="c_31" text="Aggiungi commento" />
-<t:rowbodypane id="c_40" >
-<t:row id="c_41" coldistance="8" >
-<t:label id="c_42" labeltext="Stato ticket:" width="130" />
-<t:combobox id="c_43" flush="true" value="#{d.CommentUI.newCommentStato}" width="300" >
-<t:comboboxitem id="c_43a" />
-<t:comboboxitem id="c_43b" text="Attesa Servizio Assistenza" value="WAIT_AMS" />
-<t:comboboxitem id="c_43c" text="Attesa risposta Cliente" value="WAIT_CLI" />
-<t:comboboxitem id="c_43d" text="In lavorazione" value="IN_PROGRESS" />
-<t:comboboxitem id="c_43e" text="Risolto" value="RESOLVED" />
-<t:comboboxitem id="c_43f" text="Chiuso" value="CLOSED" />
-</t:combobox>
-</t:row>
-<t:rowdistance id="c_44" height="6" />
-<t:row id="c_45" coldistance="8" >
-<t:label id="c_46" labeltext="Testo:" rowalignmenty="top" width="130" />
-<t:textarea id="c_47" height="80" text="#{d.CommentUI.newCommentText}" width="100%;500" />
-</t:row>
-<t:rowdistance id="c_50" height="6" />
-<t:row id="c_51" coldistance="8" >
-<t:label id="c_52" labeltext="Allega file:" width="130" />
-<t:fileuploadbutton id="c_53" actionListener="#{d.CommentUI.onFileUpload}" maxfilesize="5000000" multiselect="true" text="Seleziona file..." width="200" />
-<t:label id="c_54" font="size:10;color:#888888" text="(max 5 MB per file)" />
-</t:row>
-<t:rowdistance id="c_55" height="4" />
-<t:row id="c_56" coldistance="8" >
-<t:coldistance id="c_57" width="130" />
-<t:pane id="c_58" border="#CCCCCC" height="80" rendered="#{d.CommentUI.hasPending}" width="100%;500" >
-<t:fixgrid id="c_59" height="100%" objectbinding="#{d.CommentUI.gridPending}" sbvisibleamount="5" width="100%" >
-<t:gridcol id="c_60" text="File" width="320" >
-<t:label id="c_61" text=".{filename}" />
-</t:gridcol>
-<t:gridcol id="c_62" text="Dim." width="80" >
-<t:label id="c_63" text=".{fileSizeFormatted}" />
-</t:gridcol>
-<t:gridcol id="c_64" width="60" >
-<t:button id="c_65" actionListener=".{onRemove}" text="Rimuovi" width="55" />
-</t:gridcol>
-</t:fixgrid>
-</t:pane>
-</t:row>
-<t:rowdistance id="c_70" height="10" />
-<t:row id="c_71" coldistance="8" >
-<t:coldistance id="c_72" width="130" />
-<t:button id="c_73" actionListener="#{d.CommentUI.saveComment}" text="Salva commento" width="160" />
-<t:label id="c_74" font="size:10;color:#555555" rendered="#{d.CommentUI.hasPending}" text="#{d.CommentUI.pendingCount} allegato/i in attesa" />
-</t:row>
-<t:rowdistance id="c_80" height="8" />
-</t:rowbodypane>
 
 </t:layoutdefinition>

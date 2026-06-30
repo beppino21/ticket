@@ -19,6 +19,15 @@ import eone.ticket.model.TicketAttachment;
 import eone.ticket.model.TicketComment;
 import eone.ticket.service.CommentService;
 
+/**
+ * CommentUI v2 - layout a due colonne (split verticale):
+ *   sinistra: elenco commenti stile "lista messaggi" (click riga = seleziona)
+ *   destra in alto: dettaglio del commento selezionato (testo completo + allegati)
+ *   destra in basso: form di inserimento nuovo commento
+ *
+ * Eliminato il bottone "Dettaglio"/"Espandi": la selezione di riga sostituisce
+ * entrambi i meccanismi precedenti.
+ */
 @CCGenClass(expressionBase = "#{d.CommentUI}")
 public class CommentUI extends PageBean implements Serializable {
 
@@ -27,22 +36,23 @@ public class CommentUI extends PageBean implements Serializable {
     private final CommentService commentService = new CommentService();
 
     private String m_currentTickt;
-    private FIXGRIDListBinding<GridCommentItem>    m_gridComments   = new FIXGRIDListBinding<>();
+
+    // Lista commenti (colonna sinistra)
+    private FIXGRIDListBinding<GridCommentItem> m_gridComments = new FIXGRIDListBinding<>();
+
+    // Commento attualmente selezionato (pannello destro in alto)
+    private TicketComment m_selectedComment;
     private FIXGRIDListBinding<GridAttachListItem> m_gridAttachList = new FIXGRIDListBinding<>();
-    private FIXGRIDListBinding<GridAttachItem>     m_gridPending    = new FIXGRIDListBinding<>();
-    private List<TicketAttachment> m_pendingAttachments             = new ArrayList<>();
-    private boolean m_attachListVisible = false;
-    private String  m_selectedCommentTesto = "";
-    private String  m_newCommentText;
-    private String  m_newCommentStato;
+
+    // Form nuovo commento (pannello destro in basso)
+    private String m_newCommentText;
+    private String m_newCommentStato;
+    private FIXGRIDListBinding<GridAttachItem> m_gridPending = new FIXGRIDListBinding<>();
+    private List<TicketAttachment> m_pendingAttachments      = new ArrayList<>();
+
+    // Download
     private Trigger m_downloadTrigger = new Trigger();
     private String  m_downloadUrl;
-    private String  m_testoEspanso;
-    private Trigger m_expandTrigger = new Trigger();
-
-    // =========================
-    // INNER CLASS — GRID COMMENTI
-    // =========================
 
     public class GridCommentItem extends FIXGRIDItem implements Serializable {
         private static final long serialVersionUID = 1L;
@@ -50,57 +60,49 @@ public class CommentUI extends PageBean implements Serializable {
 
         public GridCommentItem(TicketComment c) { this.comment = c; }
 
-        public long   getCommentId()    { return comment.getId(); }
-        public String getCreatedAt()    { return comment.getCreatedAtFormatted(); }
-        public String getAutoreId()     { return nn(comment.getAutoreId()); }
-        public String getAutoreTipo()   { return nn(comment.getAutoreTipo()); }
-        public String getStatoLabel()   { return comment.getStatoTicketLabel(); }
-        public boolean isFromCliente()  { return comment.isFromCliente(); }
+        public long   getCommentId()   { return comment.getId(); }
+        public String getCreatedAt()   { return comment.getCreatedAtFormatted(); }
+        public String getAutoreId()    { return nn(comment.getAutoreId()); }
+        public String getAutoreTipo()  { return nn(comment.getAutoreTipo()); }
+        public String getStatoLabel()  { return comment.getStatoTicketLabel(); }
+        public boolean isFromCliente() { return comment.isFromCliente(); }
+        public int    getAttachCount() { return comment.getAttachCount(); }
 
-        /** Testo completo — textpane con dynamicheightsizing gestisce l'altezza */
-        public String getTesto() {
-            return comment.getTesto() != null ? comment.getTesto() : "";
+        public String getAnteprimaTesto() {
+            String t = comment.getTesto();
+            if (t == null) return "";
+            int nl = t.indexOf('\n');
+            String prima = (nl > 0) ? t.substring(0, nl) : t;
+            return prima.length() > 80 ? prima.substring(0, 77) + "..." : prima;
         }
 
-        /**
-         * Label bottone allegati: "N all." se presenti, "" altrimenti.
-         * Bottone sempre presente — click su stringa vuota non fa nulla di visibile.
-         */
         public String getAllegatiLabel() {
             int n = comment.getAttachCount();
-            if (n == 0) return "Dettaglio";
-            return n == 1 ? "1 all." : n + " all.";
+            if (n == 0) return "";
+            return n == 1 ? "1 allegato" : n + " allegati";
         }
 
-        public void onEspandi(ActionEvent ae) {
-            if (comment.getTesto() == null) return;
-            m_testoEspanso = comment.getTesto();
-            m_expandTrigger.trigger();
-        }
-
-        public void onMostraAllegati(ActionEvent ae) {
-        	
-            m_gridAttachList.getItems().clear();
-            String testoCompleto = comment.getTesto();
-            System.out.println("[DEBUG] onMostraAllegati - lunghezza testo: " + 
-                (testoCompleto != null ? testoCompleto.length() : "NULL"));
-            m_selectedCommentTesto = testoCompleto != null ? testoCompleto : "";
-            
-            m_gridAttachList.getItems().clear();
-            m_selectedCommentTesto = comment.getTesto() != null ? comment.getTesto() : "";
-            List<TicketAttachment> atts = comment.getAttachments();
-            if (atts != null) {
-                for (TicketAttachment a : atts) {
-                    m_gridAttachList.getItems().add(new GridAttachListItem(a));
-                }
+        public String getRowBackground() {
+            if (m_selectedComment != null && m_selectedComment.getId() == comment.getId()) {
+                return "#D6E8FB";
             }
-            m_attachListVisible = true;
+            return isFromCliente() ? "#FAFAFA" : "#FFFFFF";
         }
-    }
 
-    // =========================
-    // INNER CLASS — ALLEGATI COMMENTO SELEZIONATO
-    // =========================
+        /** Colore del badge di stato (scala termica) */
+        public String getStatoColor()     { return comment.getStatoColor(); }
+        public String getStatoTextColor() { return comment.getStatoTextColor(); }
+
+        /** Click riga: seleziona il commento e popola il pannello destro */
+        @Override
+        public void onRowSelect() {
+            selectComment(comment);
+        }
+        @Override
+        public void onRowExecute() { onRowSelect(); }
+
+        private String nn(String s) { return s != null ? s : ""; }
+    }
 
     public class GridAttachListItem extends FIXGRIDItem implements Serializable {
         private static final long serialVersionUID = 1L;
@@ -114,11 +116,9 @@ public class CommentUI extends PageBean implements Serializable {
         public void onDownload(ActionEvent ae) {
             prepareDownload(attachment.getId());
         }
-    }
 
-    // =========================
-    // INNER CLASS — ALLEGATI PENDING
-    // =========================
+        private String nn(String s) { return s != null ? s : ""; }
+    }
 
     public class GridAttachItem extends FIXGRIDItem implements Serializable {
         private static final long serialVersionUID = 1L;
@@ -133,11 +133,9 @@ public class CommentUI extends PageBean implements Serializable {
             m_pendingAttachments.remove(attachment);
             rebuildGridPending();
         }
-    }
 
-    // =========================
-    // COSTRUTTORE / INIT
-    // =========================
+        private String nn(String s) { return s != null ? s : ""; }
+    }
 
     public CommentUI() {}
 
@@ -145,8 +143,7 @@ public class CommentUI extends PageBean implements Serializable {
         this.m_currentTickt = tickt;
         m_newCommentText    = null;
         m_newCommentStato   = null;
-        m_testoEspanso      = null;
-        m_attachListVisible = false;
+        m_selectedComment   = null;
         m_pendingAttachments.clear();
         m_gridPending.getItems().clear();
         m_gridAttachList.getItems().clear();
@@ -155,12 +152,16 @@ public class CommentUI extends PageBean implements Serializable {
 
     private void loadComments() {
         m_gridComments.getItems().clear();
-        m_gridAttachList.getItems().clear();
-        m_attachListVisible = false;
         try {
             List<TicketComment> list = commentService.getComments(m_currentTickt);
             for (TicketComment c : list) {
                 m_gridComments.getItems().add(new GridCommentItem(c));
+            }
+            if (!list.isEmpty()) {
+                selectComment(list.get(list.size() - 1));
+            } else {
+                m_selectedComment = null;
+                m_gridAttachList.getItems().clear();
             }
         } catch (Exception e) {
             Statusbar.outputError("Errore caricamento commenti: " + e.getMessage());
@@ -169,13 +170,17 @@ public class CommentUI extends PageBean implements Serializable {
         }
     }
 
-    public void closeAttachList(ActionEvent ae) {
+    private void selectComment(TicketComment comment) {
+        m_selectedComment = comment;
         m_gridAttachList.getItems().clear();
-        m_attachListVisible = false;
+        if (comment != null && comment.getAttachments() != null) {
+            for (TicketAttachment a : comment.getAttachments()) {
+                m_gridAttachList.getItems().add(new GridAttachListItem(a));
+            }
+        }
     }
 
     public void saveComment(ActionEvent ae) {
-        System.out.println(">>> saveComment: stato=[" + m_newCommentStato + "] testo=[" + m_newCommentText + "]");
         if (m_newCommentText == null || m_newCommentText.trim().isEmpty()) {
             Statusbar.outputWarning("Il testo del commento è obbligatorio");
             return;
@@ -184,9 +189,10 @@ public class CommentUI extends PageBean implements Serializable {
             Statusbar.outputWarning("Selezionare lo stato del ticket");
             return;
         }
+
         ViewSessionContext ctx = ViewSessionContext.instance();
         String kunnr = ctx.getKunnr();
-        String autoreTipo = (kunnr != null && !kunnr.trim().isEmpty())
+        String autoreTipo = ctx.isCliente()
             ? TicketComment.TIPO_CLIENTE : TicketComment.TIPO_ASSISTENZA;
 
         TicketComment comment = new TicketComment();
@@ -206,17 +212,27 @@ public class CommentUI extends PageBean implements Serializable {
             loadComments();
             Statusbar.outputSuccess("Commento salvato correttamente");
         } catch (Exception e) {
-            Statusbar.outputError("Errore salvataggio: " + e.getMessage());
+            Statusbar.outputError("Errore salvataggio commento: " + e.getMessage());
             System.err.println("[CommentUI] Errore saveComment: " + e.getMessage());
             e.printStackTrace();
         }
     }
 
-    public void setStatoWaitAms(ActionEvent ae)    { m_newCommentStato = "WAIT_AMS"; }
-    public void setStatoWaitCli(ActionEvent ae)    { m_newCommentStato = "WAIT_CLI"; }
-    public void setStatoInProgress(ActionEvent ae) { m_newCommentStato = "IN_PROGRESS"; }
-    public void setStatoResolved(ActionEvent ae)   { m_newCommentStato = "RESOLVED"; }
-    public void setStatoClosed(ActionEvent ae)     { m_newCommentStato = "CLOSED"; }
+    // Metodi legacy non più usati direttamente (la combobox usa value= diretto),
+    // mantenuti come scorciatoie eventualmente richiamabili da bottoni rapidi.
+    public void setStatoCliAttesaAss(ActionEvent ae)    { m_newCommentStato = TicketComment.STATO_CLI_ATTESA_ASSISTENZA; }
+    public void setStatoCliSollecitoAss(ActionEvent ae) { m_newCommentStato = TicketComment.STATO_CLI_SOLLECITO_ASSISTENZA; }
+    public void setStatoCliRichChiusura(ActionEvent ae) { m_newCommentStato = TicketComment.STATO_CLI_RICHIESTA_CHIUSURA; }
+    public void setStatoCliRisolto(ActionEvent ae)      { m_newCommentStato = TicketComment.STATO_CLI_RISOLTO; }
+    public void setStatoAssAttesaCli(ActionEvent ae)    { m_newCommentStato = TicketComment.STATO_ASS_ATTESA_CLIENTE; }
+    public void setStatoAssSollecitoCli(ActionEvent ae) { m_newCommentStato = TicketComment.STATO_ASS_SOLLECITO_CLIENTE; }
+    public void setStatoAssConcluso(ActionEvent ae)     { m_newCommentStato = TicketComment.STATO_ASS_CONCLUSO; }
+
+    /** True se l'utente loggato è CLIENTE — pilota quali opzioni di stato mostrare nel form */
+    public boolean getIsCliente() { return ViewSessionContext.instance().isCliente(); }
+
+    /** True se l'utente loggato è ASSISTENZA */
+    public boolean getIsAssistenza() { return ViewSessionContext.instance().isAms(); }
 
     public void onFileUpload(ActionEvent ae) {
         if (!(ae instanceof BaseActionEventUpload)) return;
@@ -224,11 +240,16 @@ public class CommentUI extends PageBean implements Serializable {
         for (int i = 0; i < bae.getNumberOfUploadedFiles(); i++) {
             String filename = bae.getClientFileName(i);
             String hex = bae.getHexByteString(i);
-            if (hex == null || hex.isEmpty()) { Statusbar.outputWarning("File vuoto: " + filename); continue; }
+            if (hex == null || hex.isEmpty()) {
+                Statusbar.outputWarning("File vuoto ignorato: " + filename);
+                continue;
+            }
             byte[] data = hexToBytes(hex);
             TicketAttachment a = new TicketAttachment();
-            a.setFilename(filename); a.setFileData(data);
-            a.setFileSize(data.length); a.setMimeType(CommentService.detectMimeType(filename));
+            a.setFilename(filename);
+            a.setFileData(data);
+            a.setFileSize(data.length);
+            a.setMimeType(CommentService.detectMimeType(filename));
             m_pendingAttachments.add(a);
         }
         rebuildGridPending();
@@ -236,51 +257,91 @@ public class CommentUI extends PageBean implements Serializable {
     }
 
     private byte[] hexToBytes(String hex) {
-        int len = hex.length(); byte[] data = new byte[len / 2];
-        for (int i = 0; i < len; i += 2)
-            data[i / 2] = (byte) ((Character.digit(hex.charAt(i), 16) << 4) + Character.digit(hex.charAt(i + 1), 16));
+        int len = hex.length();
+        byte[] data = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(hex.charAt(i), 16) << 4)
+                                 + Character.digit(hex.charAt(i + 1), 16));
+        }
         return data;
     }
 
     private void rebuildGridPending() {
         m_gridPending.getItems().clear();
-        for (TicketAttachment a : m_pendingAttachments)
+        for (TicketAttachment a : m_pendingAttachments) {
             m_gridPending.getItems().add(new GridAttachItem(a));
+        }
     }
 
     void prepareDownload(long attachmentId) {
         try {
             TicketAttachment a = commentService.getAttachmentData(attachmentId);
-            if (a == null) { Statusbar.outputError("Allegato non trovato (id=" + attachmentId + ")"); return; }
+            if (a == null) {
+                Statusbar.outputError("Allegato non trovato (id=" + attachmentId + ")");
+                return;
+            }
             m_downloadUrl = TempFileManager.saveTempFile(
                 a.getFilename(),
                 a.getMimeType() != null ? a.getMimeType() : "application/octet-stream",
-                a.getFileData());
+                a.getFileData()
+            );
             m_downloadTrigger.trigger();
         } catch (Exception e) {
-            Statusbar.outputError("Errore download: " + e.getMessage());
+            Statusbar.outputError("Errore download allegato: " + e.getMessage());
+            System.err.println("[CommentUI] Errore download: " + e.getMessage());
         }
     }
-
-    private String nn(String s) { return s != null ? s : ""; }
 
     @Override public String getPageName()                 { return "/CommentDialog.xml"; }
     @Override public String getRootExpressionUsedInPage() { return "#{d.CommentUI}"; }
 
-    public String getCurrentTickt()             { return m_currentTickt; }
+    public String getCurrentTickt() { return m_currentTickt; }
+
     public FIXGRIDListBinding<GridCommentItem>    getGridComments()   { return m_gridComments; }
     public FIXGRIDListBinding<GridAttachItem>     getGridPending()    { return m_gridPending; }
     public FIXGRIDListBinding<GridAttachListItem> getGridAttachList() { return m_gridAttachList; }
-    public boolean getAttachListVisible()       { return m_attachListVisible; }
-    public String  getSelectedCommentTesto()    { return m_selectedCommentTesto; }
-    public String getNewCommentText()           { return m_newCommentText; }
-    public void setNewCommentText(String t)     { this.m_newCommentText = t; }
-    public String getNewCommentStato()          { return m_newCommentStato; }
-    public void setNewCommentStato(String s)    { this.m_newCommentStato = s; }
-    public Trigger getDownloadTrigger()         { return m_downloadTrigger; }
-    public String  getDownloadUrl()             { return m_downloadUrl; }
-    public Trigger getExpandTrigger()           { return m_expandTrigger; }
-    public String  getTestoEspanso()            { return m_testoEspanso != null ? m_testoEspanso : ""; }
-    public boolean getHasPending()              { return !m_pendingAttachments.isEmpty(); }
-    public int     getPendingCount()            { return m_pendingAttachments.size(); }
+
+    public boolean getHasSelectedComment() { return m_selectedComment != null; }
+
+    public String getSelectedCommentTesto() {
+        return m_selectedComment != null && m_selectedComment.getTesto() != null
+            ? m_selectedComment.getTesto() : "";
+    }
+
+    public String getSelectedCommentHeader() {
+        if (m_selectedComment == null) return "";
+        return m_selectedComment.getCreatedAtFormatted() + " - "
+             + nn(m_selectedComment.getAutoreId()) + " ("
+             + m_selectedComment.getStatoTicketLabel() + ")";
+    }
+
+    public String getSelectedStatoColor() {
+        return m_selectedComment != null ? m_selectedComment.getStatoColor() : "#CCCCCC";
+    }
+
+    public String getSelectedStatoTextColor() {
+        return m_selectedComment != null ? m_selectedComment.getStatoTextColor() : "#000000";
+    }
+
+    public String getSelectedStatoLabel() {
+        return m_selectedComment != null ? m_selectedComment.getStatoTicketLabel() : "";
+    }
+
+    public boolean getSelectedHasAttachments() {
+        return m_selectedComment != null && m_selectedComment.getAttachCount() > 0;
+    }
+
+    public String getNewCommentText()        { return m_newCommentText; }
+    public void setNewCommentText(String t)  { this.m_newCommentText = t; }
+
+    public String getNewCommentStato()       { return m_newCommentStato; }
+    public void setNewCommentStato(String s) { this.m_newCommentStato = s; }
+
+    public Trigger getDownloadTrigger() { return m_downloadTrigger; }
+    public String  getDownloadUrl()     { return m_downloadUrl; }
+
+    public boolean getHasPending()  { return !m_pendingAttachments.isEmpty(); }
+    public int     getPendingCount() { return m_pendingAttachments.size(); }
+
+    private String nn(String s) { return s != null ? s : ""; }
 }
