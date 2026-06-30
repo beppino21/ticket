@@ -9,6 +9,8 @@ import java.sql.SQLException;
 /**
  * Configurazione DataSource PostgreSQL.
  * Il pool viene creato lazy e ricreato automaticamente se shut down.
+ * Credenziali lette da AppConfig (file config.properties esterno,
+ * con fallback alle variabili d'ambiente con lo stesso nome).
  */
 public class DBConfig {
 
@@ -24,9 +26,9 @@ public class DBConfig {
             }
 
             HikariConfig cfg = new HikariConfig();
-            cfg.setJdbcUrl (getEnvOrDefault("TICKET_DB_URL",  "jdbc:postgresql://localhost:5432/ticketdb"));
-            cfg.setUsername(getEnvOrDefault("TICKET_DB_USER", "ticket_app"));
-            cfg.setPassword(getEnvOrDefault("TICKET_DB_PASS", "changeme"));
+            cfg.setJdbcUrl (AppConfig.get("TICKET_DB_URL",  "jdbc:postgresql://localhost:5432/ticketdb"));
+            cfg.setUsername(AppConfig.get("TICKET_DB_USER", "ticket_app"));
+            cfg.setPassword(AppConfig.get("TICKET_DB_PASS", "changeme"));
 
             cfg.setMaximumPoolSize(10);
             cfg.setMinimumIdle(2);
@@ -45,10 +47,5 @@ public class DBConfig {
 
     public static Connection getConnection() throws SQLException {
         return getDataSource().getConnection();
-    }
-
-    private static String getEnvOrDefault(String key, String def) {
-        String v = System.getenv(key);
-        return (v != null && !v.isEmpty()) ? v : def;
     }
 }

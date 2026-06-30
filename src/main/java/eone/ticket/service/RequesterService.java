@@ -81,20 +81,68 @@ public class RequesterService {
                 }
 
                 // Autenticazione riuscita
-                RequesterInfo info = new RequesterInfo();
-                info.setId_user  (rs.getString  ("id_user"));
-                info.setKunnr    (rs.getString  ("kunnr"));
-                info.setReqid    (rs.getString  ("reqid"));
-                info.setNome     (rs.getString  ("nome"));
-                info.setEmail    (rs.getString  ("email"));
-                info.setRuolo    (rs.getString  ("ruolo"));
-                info.setVedeTutti(rs.getBoolean ("vede_tutti"));
+                RequesterInfo info = mapRow(rs);
 
                 System.out.println("[RequesterService] ✅ Autenticazione OK: " + id_user +
                                    " ruolo=" + info.getRuolo() + " kunnr=" + info.getKunnr());
                 return info;
             }
         }
+    }
+
+    /**
+     * Cerca un utente per id_user, senza verifica password.
+     * Usato per risolvere i destinatari delle notifiche email (es. campo amusr).
+     */
+    public RequesterInfo getById(String id_user) throws SQLException {
+        if (id_user == null || id_user.trim().isEmpty()) return null;
+
+        String sql = "SELECT id_user, kunnr, reqid, nome, email, password_hash, ruolo, vede_tutti, attivo " +
+                     "FROM ticket_user WHERE id_user = ? AND attivo = TRUE";
+
+        try (Connection con = DBConfig.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, id_user.trim());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return null;
+                return mapRow(rs);
+            }
+        }
+    }
+
+    /**
+     * Cerca il richiedente (CLIENTE) collegato a una coppia kunnr+reqid.
+     * Usato per risolvere il destinatario cliente delle notifiche email.
+     * Nota: reqid non è univoco da solo — kunnr+reqid identifica il richiedente.
+     */
+    public RequesterInfo getByKunnrReqid(String kunnr, String reqid) throws SQLException {
+        if (kunnr == null || reqid == null) return null;
+
+        String sql = "SELECT id_user, kunnr, reqid, nome, email, password_hash, ruolo, vede_tutti, attivo " +
+                     "FROM ticket_user WHERE kunnr = ? AND reqid = ? AND attivo = TRUE LIMIT 1";
+
+        try (Connection con = DBConfig.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, kunnr.trim());
+            ps.setString(2, reqid.trim());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return null;
+                return mapRow(rs);
+            }
+        }
+    }
+
+    /** Mapping comune ResultSet -> RequesterInfo, riusato da authenticate/getById/getByKunnrReqid */
+    private RequesterInfo mapRow(ResultSet rs) throws SQLException {
+        RequesterInfo info = new RequesterInfo();
+        info.setId_user  (rs.getString  ("id_user"));
+        info.setKunnr    (rs.getString  ("kunnr"));
+        info.setReqid    (rs.getString  ("reqid"));
+        info.setNome     (rs.getString  ("nome"));
+        info.setEmail    (rs.getString  ("email"));
+        info.setRuolo    (rs.getString  ("ruolo"));
+        info.setVedeTutti(rs.getBoolean ("vede_tutti"));
+        return info;
     }
 
     // =========================================================

@@ -51,6 +51,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
     private List<Ticket> tickets;
 
     private String  m_selectedTicketNumber;
+    private Ticket  m_selectedTicketObj;
     private Boolean m_enableTicketDetail = false;
 
     // =========================
@@ -121,12 +122,13 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
         public String getEncSommario()      { return nn(ticket.getEncSommario()); }
         public boolean getEncHasCommenti()  { return ticket.getEncHasCommenti(); }
 
-        public void onRowSelect()  { m_selectedTicketNumber = ticket.getTickt(); m_enableTicketDetail = true; }
+        public void onRowSelect()  { m_selectedTicketNumber = ticket.getTickt(); m_selectedTicketObj = ticket; m_enableTicketDetail = true; }
         public void onRowExecute() { onRowSelect(); }
 
         public void onOpenComments(ActionEvent ae) {
             System.out.println("[TicketListUI] onOpenComments ticket=" + ticket.getTickt());
             m_selectedTicketNumber = ticket.getTickt();
+            m_selectedTicketObj    = ticket;
             openComments();
         }
 
@@ -143,14 +145,33 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
     }
 
     public void init() {
-        String kunnr  = ViewSessionContext.instance().getKunnr();
-        String reqid  = ViewSessionContext.instance().getRichiedente();
-        String utente = ViewSessionContext.instance().getUtente();
+        ViewSessionContext ctx = ViewSessionContext.instance();
+        String kunnr   = ctx.getKunnr();
+        String reqid   = ctx.getRichiedente();
+        String utente  = ctx.getUtente();
+        boolean vedeTutti = "ALL".equalsIgnoreCase(ctx.getOwnAll());
 
         if (kunnr != null && !kunnr.isEmpty()) {
-            System.out.println("[TicketListUI] init() — Kunnr: " + kunnr + ", Reqid: " + reqid);
-            loadTicketsForUser(kunnr, reqid, utente);
+            // CLIENTE: filtro SAP nativo per kunnr (+ reqid, a meno che vede_tutti=true
+            // nel qual caso il reqid non viene passato e SAP restituisce tutti i ticket
+            // del cliente indipendentemente dal richiedente specifico).
+            String reqidPerFiltro = vedeTutti ? null : reqid;
+            System.out.println("[TicketListUI] init() — Kunnr: " + kunnr + ", Reqid: " + reqidPerFiltro +
+                               (vedeTutti ? " (vede_tutti=true)" : ""));
+            loadTicketsForUser(kunnr, reqidPerFiltro, utente);
+        } else if (ctx.isAms() && ctx.getUsername() != null && !ctx.getUsername().trim().isEmpty()) {
+            if (vedeTutti) {
+                // AMS con vede_tutti=true: nessun filtro per amusr, vede tutto.
+                System.out.println("[TicketListUI] init() — AMS: " + ctx.getUsername() + " (vede_tutti=true)");
+                loadAllTickets();
+            } else {
+                // AMS normale: nessun filtro SAP per amusr disponibile — carico tutto
+                // e filtro client-side sui ticket assegnati a questo operatore.
+                System.out.println("[TicketListUI] init() — AMS: " + ctx.getUsername() + ", filtro per amusr");
+                loadTicketsForAms(ctx.getUsername());
+            }
         } else {
+            // ADMIN o ruolo non gestito esplicitamente: vede tutto
             System.err.println("[TicketListUI] init() — kunnr mancante, carico tutti i ticket");
             loadAllTickets();
         }
@@ -166,7 +187,10 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
             return;
         }
         final CommentUI commentUI = new CommentUI();
-        commentUI.init(m_selectedTicketNumber);
+        String kunnr = m_selectedTicketObj != null ? m_selectedTicketObj.getKunnr() : "";
+        String reqid = m_selectedTicketObj != null ? m_selectedTicketObj.getReqid() : "";
+        String amusr = m_selectedTicketObj != null ? m_selectedTicketObj.getAmusr() : "";
+        commentUI.init(m_selectedTicketNumber, kunnr, reqid, amusr);
 
         ModalPopup popup = openModalPopup(
             commentUI,
@@ -271,6 +295,27 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
             if (response.isSuccess()) {
                 tickets = response.getTickets();
                 populateGrid(tickets, "Caricati " + tickets.size() + " ticket");
+            } else { setError("Errore SAP: " + response.getErrorMessage()); }
+        } catch (Exception e) { setError("Eccezione: " + e.getMessage()); e.printStackTrace(); }
+    }
+
+    /**
+     * Carica tutti i ticket SAP e filtra client-side quelli assegnati
+     * all'operatore AMS corrente (campo amusr). Nessun filtro nativo SAP
+     * disponibile per amusr, quindi il filtro avviene in memoria dopo
+     * il caricamento completo — coerente con l'approccio già usato per
+     * i filtri colonna nella grid.
+     */
+    private void loadTicketsForAms(String idUserAms) {
+        try {
+            tickets = null;
+            TicketResponse response = ticketService.getAllTickets();
+            if (response.isSuccess()) {
+                List<Ticket> all = response.getTickets();
+                tickets = all.stream()
+                    .filter(t -> idUserAms.equalsIgnoreCase(t.getAmusr()))
+                    .collect(java.util.stream.Collectors.toList());
+                populateGrid(tickets, "Trovati " + tickets.size() + " ticket assegnati a " + idUserAms);
             } else { setError("Errore SAP: " + response.getErrorMessage()); }
         } catch (Exception e) { setError("Eccezione: " + e.getMessage()); e.printStackTrace(); }
     }

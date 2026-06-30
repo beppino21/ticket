@@ -202,10 +202,10 @@ public class LogonUI extends PageBean implements Serializable {
      */
     private UserSessionData buildUserSessionData(RequesterInfo info) {
         UserSessionData usd = new UserSessionData();
-        usd.setUsername   (info.getReqid());
+        usd.setUsername   (info.getId_user());      // chiave di login, sempre valorizzata
         usd.setUtente     (info.getNomeOReqid());   // nome visualizzabile
         usd.setKunnr      (info.getKunnr() != null ? info.getKunnr() : "");
-        usd.setRichiedente(info.getReqid());
+        usd.setRichiedente(info.getReqid());         // può essere vuoto per AMS/ADMIN
         usd.setOwnAll     (info.isVedeTutti() ? "ALL" : "");
         usd.setHasError   (false);
         // Salva anche il RequesterInfo completo per uso futuro

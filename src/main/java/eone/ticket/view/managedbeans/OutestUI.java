@@ -70,6 +70,7 @@ public class OutestUI
         ctx.setKunnr       (m_userData.getKunnr());
         ctx.setRichiedente (m_userData.getRichiedente());
         ctx.setUsername    (m_userData.getUsername());
+        ctx.setOwnAll      (m_userData.getOwnAll());
 
         // Dati estesi da PostgreSQL (nuovo)
         if (m_userData.getRequesterInfo() != null) {

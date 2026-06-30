@@ -15,9 +15,12 @@ import org.eclnt.jsfserver.pagebean.PageBean;
 import org.eclnt.jsfserver.util.tempfile.TempFileManager;
 
 import eone.ticket.context.ViewSessionContext;
+import eone.ticket.model.RequesterInfo;
 import eone.ticket.model.TicketAttachment;
 import eone.ticket.model.TicketComment;
 import eone.ticket.service.CommentService;
+import eone.ticket.service.MailService;
+import eone.ticket.service.RequesterService;
 
 /**
  * CommentUI v2 - layout a due colonne (split verticale):
@@ -34,8 +37,13 @@ public class CommentUI extends PageBean implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private final CommentService commentService = new CommentService();
+    private final RequesterService requesterService = new RequesterService();
+    private final MailService mailService = new MailService();
 
     private String m_currentTickt;
+    private String m_currentKunnr;
+    private String m_currentReqid;
+    private String m_currentAmusr;
 
     // Lista commenti (colonna sinistra)
     private FIXGRIDListBinding<GridCommentItem> m_gridComments = new FIXGRIDListBinding<>();
@@ -139,8 +147,16 @@ public class CommentUI extends PageBean implements Serializable {
 
     public CommentUI() {}
 
+    /** Mantenuto per compatibilità — apre senza dati per le notifiche (usare la versione estesa) */
     public void init(String tickt) {
+        init(tickt, null, null, null);
+    }
+
+    public void init(String tickt, String kunnr, String reqid, String amusr) {
         this.m_currentTickt = tickt;
+        this.m_currentKunnr = kunnr;
+        this.m_currentReqid = reqid;
+        this.m_currentAmusr = amusr;
         m_newCommentText    = null;
         m_newCommentStato   = null;
         m_selectedComment   = null;
@@ -205,6 +221,10 @@ public class CommentUI extends PageBean implements Serializable {
 
         try {
             commentService.saveComment(comment, m_pendingAttachments);
+
+            // Notifica email a cliente + AMS assegnato (esclude l'autore stesso)
+            inviaNotifiche(comment, m_pendingAttachments);
+
             m_newCommentText  = null;
             m_newCommentStato = null;
             m_pendingAttachments.clear();
@@ -228,11 +248,29 @@ public class CommentUI extends PageBean implements Serializable {
     public void setStatoAssSollecitoCli(ActionEvent ae) { m_newCommentStato = TicketComment.STATO_ASS_SOLLECITO_CLIENTE; }
     public void setStatoAssConcluso(ActionEvent ae)     { m_newCommentStato = TicketComment.STATO_ASS_CONCLUSO; }
 
-    /** True se l'utente loggato è CLIENTE — pilota quali opzioni di stato mostrare nel form */
-    public boolean getIsCliente() { return ViewSessionContext.instance().isCliente(); }
+    /** True se la combobox CLIENTE va mostrata: utente CLIENTE oppure ADMIN (vede tutto) */
+    public boolean getIsCliente() {
+        ViewSessionContext ctx = ViewSessionContext.instance();
+        return ctx.isCliente() || isAdminOrUnknown(ctx);
+    }
 
-    /** True se l'utente loggato è ASSISTENZA */
-    public boolean getIsAssistenza() { return ViewSessionContext.instance().isAms(); }
+    /** True se la combobox ASSISTENZA va mostrata: utente AMS oppure ADMIN (vede tutto) */
+    public boolean getIsAssistenza() {
+        ViewSessionContext ctx = ViewSessionContext.instance();
+        return ctx.isAms() || isAdminOrUnknown(ctx);
+    }
+
+    /**
+     * True se il ruolo è ADMIN, oppure se non è risolvibile a CLIENTE/AMS
+     * (fallback di sicurezza: meglio mostrare entrambe le combobox che
+     * lasciare l'utente senza alcuna opzione di stato selezionabile).
+     */
+    private boolean isAdminOrUnknown(ViewSessionContext ctx) {
+        String ruolo = ctx.getRuolo();
+        if (ruolo == null || ruolo.trim().isEmpty()) return true;
+        String r = ruolo.trim().toUpperCase();
+        return "ADMIN".equals(r) || (!"CLIENTE".equals(r) && !"AMS".equals(r));
+    }
 
     public void onFileUpload(ActionEvent ae) {
         if (!(ae instanceof BaseActionEventUpload)) return;
@@ -254,6 +292,61 @@ public class CommentUI extends PageBean implements Serializable {
         }
         rebuildGridPending();
         Statusbar.outputSuccess(bae.getNumberOfUploadedFiles() + " file aggiunto/i");
+    }
+
+    /**
+     * Risolve i destinatari (cliente collegato via kunnr+reqid, AMS assegnato
+     * via amusr) ed invia la notifica email per ciascuno, escludendo l'autore
+     * del commento stesso. Errori nella notifica non bloccano il salvataggio
+     * (già avvenuto) — vengono solo loggati.
+     */
+    private void inviaNotifiche(TicketComment comment, List<TicketAttachment> allegati) {
+        String autoreId = comment.getAutoreId();
+        String statoLabel = comment.getStatoTicketLabel();
+
+        // Destinatario CLIENTE: il richiedente collegato a kunnr+reqid del ticket
+        try {
+            if (m_currentKunnr != null && m_currentReqid != null) {
+                RequesterInfo cliente = requesterService.getByKunnrReqid(m_currentKunnr, m_currentReqid);
+                if (cliente != null
+                        && !java.util.Objects.equals(cliente.getId_user(), autoreId)
+                        && cliente.getEmail() != null && !cliente.getEmail().trim().isEmpty()) {
+                    mailService.sendNotificaCommento(
+                        cliente.getEmail(), m_currentTickt, statoLabel,
+                        autoreId, comment.getTesto(), allegati);
+                } else {
+                    System.out.println("[CommentUI] Notifica CLIENTE saltata (autore stesso, email mancante, o utente non trovato per kunnr="
+                        + m_currentKunnr + " reqid=" + m_currentReqid + ")");
+                }
+            } else {
+                System.out.println("[CommentUI] Notifica CLIENTE saltata: kunnr/reqid del ticket non disponibili");
+            }
+        } catch (Exception e) {
+            System.err.println("[CommentUI] Errore invio notifica CLIENTE: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        // Destinatario ASSISTENZA: l'AMS assegnato al ticket (campo amusr)
+        try {
+            if (m_currentAmusr != null && !m_currentAmusr.trim().isEmpty()) {
+                RequesterInfo ams = requesterService.getById(m_currentAmusr);
+                if (ams != null
+                        && !java.util.Objects.equals(ams.getId_user(), autoreId)
+                        && ams.getEmail() != null && !ams.getEmail().trim().isEmpty()) {
+                    mailService.sendNotificaCommento(
+                        ams.getEmail(), m_currentTickt, statoLabel,
+                        autoreId, comment.getTesto(), allegati);
+                } else {
+                    System.out.println("[CommentUI] Notifica AMS saltata (autore stesso, email mancante, o utente non trovato per amusr="
+                        + m_currentAmusr + ")");
+                }
+            } else {
+                System.out.println("[CommentUI] Notifica AMS saltata: campo amusr del ticket non disponibile");
+            }
+        } catch (Exception e) {
+            System.err.println("[CommentUI] Errore invio notifica AMS: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     private byte[] hexToBytes(String hex) {
