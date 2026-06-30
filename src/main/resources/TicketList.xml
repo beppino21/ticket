@@ -4,6 +4,7 @@
 <t:beanprocessing id="g_1" beanbinding="#{d.TicketListUI}" />
 <t:rowtitlebar id="g_2" text="Lista Ticket" />
 <t:rowheader id="g_3" >
+<t:button id="g_17m" actionListener="#{d.TicketListUI.backToMenu}" text="« Menu" width="80" />
 <t:coldistance id="g_3cd" width="100%" />
 <t:button id="g_18" actionListener="#{d.TicketListUI.refreshTickets}" text="Aggiorna" width="80" />
 </t:rowheader>
@@ -24,7 +25,7 @@
 <t:link id="g_48" actionListener="#{d.TicketListUI.onResetColFilters}" text="Reset filtri colonna" />
 </t:row>
 <t:row id="g_50" >
-<t:fixgrid id="g_51" height="100%" objectbinding="#{d.TicketListUI.gridTickets}" sbvisibleamount="30" width="100%" >
+<t:fixgrid id="g_51" height="100%" objectbinding="#{d.TicketListUI.gridTickets}" persistid="TICKET_LIST_GRID" sbvisibleamount="30" width="100%" >
 <t:gridheader id="g_h0" rendered="true" rowheight="30" >
 <t:field id="g_h60" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterTickt}" />
 <t:field id="g_h62" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterTitle}" />

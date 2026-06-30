@@ -78,7 +78,45 @@ public class OutestUI
             System.out.println("[OutestUI] RequesterInfo in sessione: " + m_userData.getRequesterInfo());
         }
 
+        showMenuUI();
+    }
+
+    // =========================================================
+    // MENU PRINCIPALE
+    // =========================================================
+
+    private void showMenuUI() {
+        System.out.println("[OutestUI] showMenuUI()");
+        MenuUI menu = new MenuUI();
+        menu.prepare(new MenuUI.IListener() {
+            @Override
+            public void reactOnMenuChoice(String choiceId) {
+                System.out.println("[OutestUI] reactOnMenuChoice — " + choiceId);
+                switch (choiceId) {
+                    case "TICKET_LIST":
+                        showTicketList();
+                        break;
+                    case "NEW_TICKET":
+                        // Non ancora implementato — in attesa di dettagli SAP OData
+                        // sull'entity set di creazione ticket.
+                        break;
+                    default:
+                        System.err.println("[OutestUI] Scelta menu non gestita: " + choiceId);
+                }
+            }
+        });
+        m_contentUI = menu;
+    }
+
+    private void showTicketList() {
         TicketListUI ui = new TicketListUI(getOwningDispatcher());
+        ui.prepare(new TicketListUI.IListener() {
+            @Override
+            public void reactOnBackToMenu() {
+                System.out.println("[OutestUI] reactOnBackToMenu — torno al menu");
+                showMenuUI();
+            }
+        });
         ui.init();
         m_contentUI = ui;
     }

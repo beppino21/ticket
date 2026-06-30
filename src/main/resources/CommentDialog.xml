@@ -103,7 +103,7 @@
 <t:label id="c_form_upload_hint" font="size:10;color:#888888" text="(max 5 MB per file)" />
 </t:row>
 <t:row id="c_form_pending_row" rendered="#{d.CommentUI.hasPending}" >
-<t:fixgrid id="c_form_pending_grid" height="60" objectbinding="#{d.CommentUI.gridPending}" sbvisibleamount="3" width="100%" >
+<t:fixgrid id="c_form_pending_grid" avoidrowstretching="true" dynamicheightsizing="true" height="90" objectbinding="#{d.CommentUI.gridPending}" rowheight="26" sbvisibleamount="3" width="100%" >
 <t:gridcol id="c_fp_col1" text="File" width="100%" >
 <t:label id="c_fp_lbl1" text=".{filename}" />
 </t:gridcol>

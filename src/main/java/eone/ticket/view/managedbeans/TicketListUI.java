@@ -26,6 +26,13 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
 
     private static final long serialVersionUID = 1L;
 
+    /** Listener per tornare al menu principale (OutestUI) */
+    public interface IListener extends Serializable {
+        void reactOnBackToMenu();
+    }
+
+    private IListener m_listener;
+
     private SAPTicketService  ticketService     = null;
     private EnrichmentService enrichmentService = new EnrichmentService();
 
@@ -142,6 +149,17 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
     public TicketListUI(IWorkpageDispatcher dispatcher) {
         super(dispatcher);
         this.ticketService = new SAPTicketService();
+    }
+
+    public void prepare(IListener listener) {
+        this.m_listener = listener;
+    }
+
+    public void backToMenu(ActionEvent ae) {
+        System.out.println("[TicketListUI] backToMenu() chiamato, listener=" + (m_listener != null));
+        if (m_listener != null) {
+            m_listener.reactOnBackToMenu();
+        }
     }
 
     public void init() {

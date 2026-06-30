@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<t:layoutdefinition xmlns:t="http://www.captaincasa.com/controllibrary/t" >
+
+<t:rowtitlebar id="m_1" text="Benvenuto, #{d.MenuUI.utenteLabel}" />
+<t:rowbodypane id="m_2" padding="20" >
+<t:row id="m_3" >
+<t:label id="m_4" font="size:14;weight:bold;color:#555555" text="Cosa vuoi fare?" />
+</t:row>
+<t:rowdistance id="m_5" height="16" />
+<t:row id="m_6" >
+<t:fixgrid id="m_7" avoidrowstretching="true" dynamicheightsizing="true" height="100%" objectbinding="#{d.MenuUI.items}" rowheight="90" sbvisibleamount="6" width="450" >
+<t:gridcol id="m_8" width="100%" >
+<t:pane id="m_9" actionListener=".{onSelect}" background=".{background}" border="#CCCCCC" invokeevent="leftclick" padding="14" width="100%" >
+<t:row id="m_10" >
+<t:label id="m_11" font="size:13;weight:bold;color:.{textColor}" text=".{titolo}" />
+</t:row>
+<t:rowdistance id="m_12" height="4" />
+<t:row id="m_13" >
+<t:label id="m_14" font="size:11;color:.{textColor}" text=".{descrizione}" width="400" />
+</t:row>
+</t:pane>
+</t:gridcol>
+</t:fixgrid>
+</t:row>
+</t:rowbodypane>
+
+</t:layoutdefinition>

@@ -28,13 +28,19 @@ public class SAPODataConfig {
     public static final String HEADER_ACCEPT = "Accept";
     public static final String HEADER_AUTHORIZATION = "Authorization";
     public static final String CONTENT_TYPE_JSON = "application/json";
+
     public static final String SAP_CLIENT = "300";
-    
     // Credenziali Basic Auth per il servizio SAP
     // NOTA: In produzione, gestire queste credenziali in modo sicuro
     private static final String BASIC_AUTH_USER = "EONE";
-    private static final String BASIC_AUTH_PASSWORD = "thebest";
-
+    private static final String BASIC_AUTH_PASSWORD = "thebest";    
+    
+//    public static final String SAP_CLIENT = "100"; 
+//    // Credenziali Basic Auth per il servizio SAP
+//    // NOTA: In produzione, gestire queste credenziali in modo sicuro
+//    private static final String BASIC_AUTH_USER = "GLINI";
+//    private static final String BASIC_AUTH_PASSWORD = "dicembre2012";    
+    
     /**
      * Genera l'header Authorization per Basic Auth
      * @return String con il valore dell'header Authorization
