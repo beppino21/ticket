@@ -1,0 +1,28 @@
+# ============================================================
+# Configurazione applicazione ticket — file ESTERNO al WAR.
+# Sopravvive a redeploy/aggiornamenti dell'applicazione.
+#
+# Percorso atteso (il primo che esiste viene usato):
+#   - valore della system property -Dticket.config.path=...
+#   - /opt/eone/ticket/config.properties        (Linux)
+#   - C:\eone\ticket\config.properties          (Windows)
+#
+# Rinominare questo file in "config.properties" e posizionarlo
+# in uno dei percorsi sopra (o impostare ticket.config.path).
+# ============================================================
+
+# --- PostgreSQL ---
+TICKET_DB_URL=jdbc:postgresql://localhost:5432/ticketdb
+TICKET_DB_USER=ticket_app
+TICKET_DB_PASS=changeme
+
+# --- SMTP (Office 365 / Exchange Online) ---
+MAIL_HOST=smtp.office365.com
+MAIL_PORT=587
+MAIL_USER=noreply@eone.it
+MAIL_PASS=changeme
+MAIL_FROM=noreply@eone.it
+
+# MAIL_DRY_RUN=true  -> logga l'email invece di inviarla (default se MAIL_HOST assente)
+# MAIL_DRY_RUN=false -> invia davvero tramite SMTP
+MAIL_DRY_RUN=true

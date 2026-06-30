@@ -1,0 +1,29 @@
+SETUP del file di configurazione esterno
+=========================================
+
+1) Su Windows Server (dove gira Tomcat), creare la cartella:
+     C:\eone\ticket\
+
+2) Copiare config.properties.esempio in quella cartella, rinominandolo:
+     C:\eone\ticket\config.properties
+
+3) Modificare i valori reali (password DB, credenziali SMTP quando arrivano).
+
+4) Nessuna variabile d'ambiente di sistema da impostare: il file viene
+   letto direttamente da AppConfig al primo utilizzo.
+
+5) Se si preferisce un percorso diverso da C:\eone\ticket\config.properties,
+   aggiungere alla riga di avvio di Tomcat (es. in setenv.bat o nelle
+   opzioni del servizio Windows):
+     -Dticket.config.path=D:\altro\percorso\config.properties
+
+6) Per applicare modifiche al file SENZA riavviare Tomcat:
+   non è ancora esposto un comando per farlo da UI — per ora un riavvio
+   del servizio Tomcat è il modo più semplice. (Possiamo aggiungere un
+   bottone "Ricarica configurazione" in futuro se serve, richiama
+   AppConfig.reload()).
+
+7) Compatibilità: se il file non esiste, l'app NON si rompe — DBConfig
+   e MailService ricadono comunque sulle variabili d'ambiente (comportamento
+   precedente), e infine sui valori di default hardcoded. Il passaggio al
+   file è quindi sicuro anche se per qualche motivo non viene trovato subito.
