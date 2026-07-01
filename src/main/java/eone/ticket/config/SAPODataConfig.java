@@ -70,5 +70,12 @@ public class SAPODataConfig {
      */
     public static String getTicketsEndpoint() {
         return LIST_OF_TICKETS_ENDPOINT;
-    }    
+    }
+    /**
+     * Restituisce il numero di mandante SAP.
+     * Aggiunto per compatibilità con SAPTicketService.
+     */
+    public static String getSapClient() {
+        return SAP_CLIENT;
+    }
 }

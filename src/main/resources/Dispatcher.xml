@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<t:layoutdefinition xmlns:t="http://www.captaincasa.com/controllibrary/t" >
+
+<t:beanprocessing id="dp_0" beanbinding="#{d.DispatcherUI}" />
+<t:rowtitlebar id="dp_1" text="Smistamento ticket DRAFT" />
+<t:rowheader id="dp_h" >
+<t:button id="dp_back" actionListener="#{d.DispatcherUI.backToMenu}" text="« Menu" width="80" />
+<t:coldistance id="dp_hcd" width="100%" />
+<t:label id="dp_count" font="weight:bold" text="#{d.DispatcherUI.draftCount} ticket in attesa" />
+<t:coldistance id="dp_hcd2" width="12" />
+<t:button id="dp_ref" actionListener="#{d.DispatcherUI.refresh}" text="Aggiorna" width="80" />
+</t:rowheader>
+<t:rowbodypane id="dp_body" >
+<t:row id="dp_r1" >
+<t:splitpane id="dp_split" dividerlocation="60%" height="100%" orientation="horizontal" width="100%" >
+<t:splitpanesplit id="dp_left" padding="8" >
+<t:row id="dp_lt" >
+<t:label id="dp_ltl" font="weight:bold;color:#1565C0" text="Ticket DRAFT in attesa" />
+</t:row>
+<t:rowdistance id="dp_ld" height="6" />
+<t:row id="dp_lg" >
+<t:fixgrid id="dp_grid" avoidrowstretching="true" dynamicheightsizing="true" height="100%" objectbinding="#{d.DispatcherUI.gridDrafts}" rowheight="28" sbvisibleamount="20" width="100%" >
+<t:gridcol id="dp_gc0" text="ID" width="80" >
+<t:label id="dp_gl0" background=".{rowBackground}" font="weight:bold" text=".{ticktKey}" />
+</t:gridcol>
+<t:gridcol id="dp_gc1" text="Data" width="120" >
+<t:label id="dp_gl1" background=".{rowBackground}" text=".{createdAt}" />
+</t:gridcol>
+<t:gridcol id="dp_gc2" text="Cliente" width="85" >
+<t:label id="dp_gl2" background=".{rowBackground}" text=".{kunnr}" />
+</t:gridcol>
+<t:gridcol id="dp_gc3" text="Utente" width="100" >
+<t:label id="dp_gl3" background=".{rowBackground}" text=".{idUser}" />
+</t:gridcol>
+<t:gridcol id="dp_gc4" text="Titolo" width="100%" >
+<t:label id="dp_gl4" background=".{rowBackground}" text=".{titolo}" />
+</t:gridcol>
+</t:fixgrid>
+</t:row>
+</t:splitpanesplit>
+<t:splitpanesplit id="dp_right" padding="8" >
+<t:row id="dp_nosel" rendered="#{!d.DispatcherUI.hasSelected}" >
+<t:label id="dp_nosel_lbl" font="color:#999999" text="Seleziona un ticket DRAFT dalla lista per procedere alla fusione con SAP." />
+</t:row>
+<t:row id="dp_sel_r1" rendered="#{d.DispatcherUI.hasSelected}" >
+<t:label id="dp_sel_lbl" font="weight:bold;color:#1565C0" text="Ticket selezionato: #{d.DispatcherUI.selectedTicktKey}" />
+</t:row>
+<t:rowdistance id="dp_sel_d1" height="8" rendered="#{d.DispatcherUI.hasSelected}" />
+<t:row id="dp_sel_r2" coldistance="8" rendered="#{d.DispatcherUI.hasSelected}" >
+<t:label id="dp_sel_tit_lbl" labeltext="Titolo:" width="80" />
+<t:label id="dp_sel_tit" font="weight:bold" text="#{d.DispatcherUI.selectedTitolo}" />
+</t:row>
+<t:rowdistance id="dp_sel_d2" height="4" rendered="#{d.DispatcherUI.hasSelected}" />
+<t:row id="dp_sel_r3" coldistance="8" rendered="#{d.DispatcherUI.hasSelected}" >
+<t:label id="dp_sel_cli_lbl" labeltext="Cliente:" width="80" />
+<t:label id="dp_sel_cli" text="#{d.DispatcherUI.selectedKunnr}" />
+<t:coldistance id="g_2" width="12" />
+<t:label id="dp_sel_usr_lbl" labeltext="Utente:" width="60" />
+<t:label id="dp_sel_usr" text="#{d.DispatcherUI.selectedIdUser}" />
+</t:row>
+<t:rowdistance id="dp_sel_d3" height="16" rendered="#{d.DispatcherUI.hasSelected}" />
+<t:row id="dp_sel_r4" coldistance="8" rendered="#{d.DispatcherUI.hasSelected}" >
+<t:label id="dp_sap_lbl" font="weight:bold" labeltext="N. ticket SAP:" width="120" />
+<t:field id="dp_sap_field" flush="true" text="#{d.DispatcherUI.ticktSapInput}" width="160" />
+</t:row>
+<t:rowdistance id="dp_sel_d4" height="4" rendered="#{d.DispatcherUI.hasSelected}" />
+<t:row id="dp_sel_hint" rendered="#{d.DispatcherUI.hasSelected}" >
+<t:coldistance id="g_3" width="128" />
+<t:label id="dp_sel_hint_lbl" font="size:10;color:#888888" text="Inserire il numero ticket creato in SAP backoffice, poi confermare la fusione." />
+</t:row>
+<t:rowdistance id="dp_sel_d5" height="12" rendered="#{d.DispatcherUI.hasSelected}" />
+<t:row id="dp_sel_r5" rendered="#{d.DispatcherUI.hasSelected and d.DispatcherUI.notWaitingConfirm}" >
+<t:coldistance id="g_4" width="128" />
+<t:button id="dp_merge_btn" actionListener="#{d.DispatcherUI.mergeDraft}" text="Fondi in SAP »" width="140" />
+</t:row>
+<t:row id="dp_warn_r1" rendered="#{d.DispatcherUI.waitingConfirm}" >
+<t:pane id="dp_warn_pane" border="#E53935" padding="8" width="100%" >
+<t:repeat id="dp_warn_rep" listbinding="#{d.DispatcherUI.warningItems}" >
+<t:row id="dp_warn_rep_r" >
+<t:label id="dp_warn_rep_lbl" font="weight:bold;color:#E53935" text=".{testo}" width="100%" />
+</t:row>
+<t:rowdistance id="dp_warn_rep_d" height="4" />
+</t:repeat>
+</t:pane>
+</t:row>
+<t:rowdistance id="dp_warn_d" height="8" rendered="#{d.DispatcherUI.waitingConfirm}" />
+<t:row id="dp_warn_r2" coldistance="8" rendered="#{d.DispatcherUI.waitingConfirm}" >
+<t:button id="dp_confirm_btn" actionListener="#{d.DispatcherUI.mergeDraftConfirmed}" text="Confermo, procedi »" width="170" />
+<t:button id="dp_cancel_btn" actionListener="#{d.DispatcherUI.annullaConferma}" text="Annulla" width="80" />
+</t:row>
+</t:splitpanesplit>
+</t:splitpane>
+</t:row>
+</t:rowbodypane>
+
+</t:layoutdefinition>

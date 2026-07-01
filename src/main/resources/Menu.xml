@@ -21,6 +21,26 @@
 </t:pane>
 </t:gridcol>
 </t:fixgrid>
+<t:coldistance id="g_2" width="24" />
+<t:pane id="m_sum" border="#DDDDDD" padding="16" rendered="#{d.MenuUI.hasSummary}" rowalignmenty="top" width="320" >
+<t:row id="m_sum_t" >
+<t:label id="m_sum_tl" font="size:14;weight:bold;color:#1565C0" text="Riepilogo ticket" />
+<t:coldistance id="g_3" width="100%" />
+<t:label id="m_sum_tot" align="right!" font="size:26;weight:bold;color:#1565C0" text="#{d.MenuUI.summaryTotale}" />
+</t:row>
+<t:rowdistance id="m_sum_d0" height="14" />
+<t:row id="m_sum_grid_row" >
+<t:pane id="m_sum_badges" width="100%" >
+<t:repeat id="m_sum_rep" listbinding="#{d.MenuUI.summaryVoci}" >
+<t:row id="m_sum_rep_r" coldistance="8" >
+<t:label id="m_sum_rep_lbl" background=".{color}" font="size:20;weight:bold" text=".{label}" width="200" />
+<t:label id="m_sum_rep_cnt" align="right!" font="size:24;weight:bold" text=".{count}" width="50" />
+</t:row>
+<t:rowdistance id="m_sum_rep_d" height="5" />
+</t:repeat>
+</t:pane>
+</t:row>
+</t:pane>
 </t:row>
 </t:rowbodypane>
 

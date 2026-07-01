@@ -17,9 +17,12 @@ import org.eclnt.workplace.WorkpageDispatchedPageBean;
 
 import eone.ticket.context.ViewSessionContext;
 import eone.ticket.model.Ticket;
+import eone.ticket.model.TicketDraft;
+import eone.ticket.model.TicketSummary;
 import eone.ticket.service.EnrichmentService;
 import eone.ticket.service.SAPTicketService;
 import eone.ticket.service.SAPTicketService.TicketResponse;
+import eone.ticket.service.TicketDraftService;
 
 @CCGenClass(expressionBase = "#{d.TicketListUI}")
 public class TicketListUI extends WorkpageDispatchedPageBean implements Serializable {
@@ -29,12 +32,14 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
     /** Listener per tornare al menu principale (OutestUI) */
     public interface IListener extends Serializable {
         void reactOnBackToMenu();
+        default void reactOnSummaryUpdated(TicketSummary summary) {} // opzionale
     }
 
     private IListener m_listener;
 
     private SAPTicketService  ticketService     = null;
     private EnrichmentService enrichmentService = new EnrichmentService();
+    private TicketDraftService draftService     = new TicketDraftService();
 
     private FIXGRIDListBinding<GridTicketItem> m_gridTickets = new FIXGRIDListBinding<>();
 
@@ -162,36 +167,34 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
         }
     }
 
-    public void init() {
+    public void init() { init(false); }
+
+    public void init(boolean archivio) {
+        m_archivio = archivio;
         ViewSessionContext ctx = ViewSessionContext.instance();
-        String kunnr   = ctx.getKunnr();
-        String reqid   = ctx.getRichiedente();
-        String utente  = ctx.getUtente();
+        String kunnr      = ctx.getKunnr();
+        String reqid      = ctx.getRichiedente();
+        String utente     = ctx.getUtente();
         boolean vedeTutti = "ALL".equalsIgnoreCase(ctx.getOwnAll());
+        // Lista normale esclude CLO, archivio carica solo CLO
+        String rstatFilter = archivio ? "CLO" : "ne:CLO";
 
         if (kunnr != null && !kunnr.isEmpty()) {
-            // CLIENTE: filtro SAP nativo per kunnr (+ reqid, a meno che vede_tutti=true
-            // nel qual caso il reqid non viene passato e SAP restituisce tutti i ticket
-            // del cliente indipendentemente dal richiedente specifico).
             String reqidPerFiltro = vedeTutti ? null : reqid;
             System.out.println("[TicketListUI] init() — Kunnr: " + kunnr + ", Reqid: " + reqidPerFiltro +
-                               (vedeTutti ? " (vede_tutti=true)" : ""));
-            loadTicketsForUser(kunnr, reqidPerFiltro, utente);
+                               (archivio ? " [ARCHIVIO]" : "") + (vedeTutti ? " (vede_tutti=true)" : ""));
+            loadTicketsForUser(kunnr, reqidPerFiltro, utente, rstatFilter);
         } else if (ctx.isAms() && ctx.getUsername() != null && !ctx.getUsername().trim().isEmpty()) {
             if (vedeTutti) {
-                // AMS con vede_tutti=true: nessun filtro per amusr, vede tutto.
                 System.out.println("[TicketListUI] init() — AMS: " + ctx.getUsername() + " (vede_tutti=true)");
-                loadAllTickets();
+                loadAllTickets(rstatFilter);
             } else {
-                // AMS normale: nessun filtro SAP per amusr disponibile — carico tutto
-                // e filtro client-side sui ticket assegnati a questo operatore.
                 System.out.println("[TicketListUI] init() — AMS: " + ctx.getUsername() + ", filtro per amusr");
-                loadTicketsForAms(ctx.getUsername());
+                loadTicketsForAms(ctx.getUsername(), rstatFilter);
             }
         } else {
-            // ADMIN o ruolo non gestito esplicitamente: vede tutto
             System.err.println("[TicketListUI] init() — kunnr mancante, carico tutti i ticket");
-            loadAllTickets();
+            loadAllTickets(rstatFilter);
         }
     }
 
@@ -236,7 +239,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
         if (ticketsEnriched == null || ticketsEnriched.isEmpty()) return;
         try {
             enrichmentService.enrichTickets(ticketsEnriched);
-            rebuildGridWithColFilters();
+            rebuildGridWithColFilters(); // include i DRAFT dalla draftsCache automaticamente
         } catch (Exception e) {
             System.err.println("[TicketListUI] Errore refresh dopo popup commenti: " + e.getMessage());
         }
@@ -246,16 +249,91 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
     // CARICAMENTO
     // =========================
 
-    private List<Ticket> ticketsEnriched; // lista arricchita, usata per il filtro colonna in-memory
+    private List<Ticket> ticketsEnriched; // ticket SAP arricchiti, usati per il filtro colonna
+    private List<Ticket> draftsCache;     // ticket DRAFT locali — persistono tra i rebuild della grid
+    private boolean      m_archivio = false; // true = vista archivio (solo CLO)
 
     private void populateGrid(List<Ticket> ticketList, String statusMsg) {
+        // Filtro client-side: SAP non supporta 'ne' come operatore OData
+        // quindi filtriamo qui dopo aver ricevuto tutti i ticket.
+        if (m_archivio) {
+            // Archivio: tieni solo CLO e CAN
+            ticketList = ticketList.stream()
+                .filter(t -> "CLO".equals(t.getRstat()) || "CAN".equals(t.getRstat()))
+                .collect(java.util.stream.Collectors.toList());
+        } else {
+            // Lista operativa: escludi CLO e CAN
+            ticketList = ticketList.stream()
+                .filter(t -> !"CLO".equals(t.getRstat()) && !"CAN".equals(t.getRstat()))
+                .collect(java.util.stream.Collectors.toList());
+        }
+
         enrichmentService.enrichTickets(ticketList);
         ticketsEnriched = ticketList;
+
+        // DRAFT in cache solo per la lista operativa, non per l'archivio
+        draftsCache = null;
+        if (!m_archivio) {
+            ViewSessionContext ctx = ViewSessionContext.instance();
+            if (ctx.isCliente() && ctx.getKunnr() != null && !ctx.getKunnr().isEmpty()) {
+                draftsCache = buildDraftTickets(ctx.getKunnr(), ctx.getRichiedente());
+            }
+        }
+
         rebuildGridWithColFilters();
         m_hasError      = false;
         m_hasTickets    = !ticketList.isEmpty();
         m_statusMessage = statusMsg;
         Statusbar.outputSuccess(statusMsg);
+
+        // Aggiorna il summary SOLO dalla lista operativa (non dall'archivio)
+        // per mantenere il riepilogo stabile e coerente nel menu.
+        if (!m_archivio && m_listener != null) {
+            int draftCount = draftsCache != null ? draftsCache.size() : 0;
+            m_listener.reactOnSummaryUpdated(TicketSummary.build(ticketsEnriched, draftCount));
+        }
+    }
+
+    /**
+     * Costruisce la lista di Ticket "virtuali" dai DRAFT locali del richiedente.
+     * Restituisce la lista invece di aggiungerla direttamente alla grid,
+     * così viene memorizzata in draftsCache e riusata da ogni rebuild.
+     */
+    private List<Ticket> buildDraftTickets(String kunnr, String reqid) {
+        List<Ticket> result = new java.util.ArrayList<>();
+        try {
+            List<TicketDraft> drafts = draftService.getDraftsByRequester(kunnr, reqid);
+            for (TicketDraft d : drafts) {
+                if (!d.isDraft()) continue;
+                Ticket t = new Ticket();
+                t.setTickt (d.getTicktKey());
+                t.setTitle (d.getTitolo());
+                t.setRstat ("DRAFT");
+                t.setKunnr (stripLeadingZeros(d.getKunnr()));
+                t.setReqid (d.getReqid());
+                if (d.getCreatedAt() != null) {
+                    t.setErdat(String.format("%04d%02d%02d",
+                        d.getCreatedAt().getYear(),
+                        d.getCreatedAt().getMonthValue(),
+                        d.getCreatedAt().getDayOfMonth()));
+                }
+                t.setEncRstatLabel    ("DRAFT - In attesa di smistamento");
+                t.setEncRstatColor    ("#FF8F00");
+                t.setEncRstatTextColor("#FFFFFF");
+                result.add(t);
+            }
+            System.out.println("[TicketListUI] DRAFT in cache: " + result.size());
+        } catch (Exception e) {
+            System.err.println("[TicketListUI] Errore caricamento DRAFT: " + e.getMessage());
+        }
+        return result;
+    }
+
+    /** Rimuove gli zeri iniziali da un codice cliente (es. "0003000004" → "3000004") */
+    private String stripLeadingZeros(String s) {
+        if (s == null) return "";
+        String stripped = s.replaceFirst("^0+(?!$)", "");
+        return stripped.isEmpty() ? "0" : stripped;
     }
 
     /**
@@ -264,8 +342,20 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
      */
     private void rebuildGridWithColFilters() {
         m_gridTickets.getItems().clear();
-        if (ticketsEnriched == null) return;
 
+        // DRAFT in cima — sempre, applicando gli stessi filtri colonna
+        if (draftsCache != null) {
+            for (Ticket t : draftsCache) {
+                if (!matches(t.getTickt(), m_colFilterTickt)) continue;
+                if (!matches(t.getTitle(), m_colFilterTitle)) continue;
+                if (!matches(t.getRstat(), m_colFilterRstat)) continue;
+                if (!matches(t.getKunnr(), m_colFilterKunnr)) continue;
+                m_gridTickets.getItems().add(new GridTicketItem(t));
+            }
+        }
+
+        // Ticket SAP
+        if (ticketsEnriched == null) return;
         for (Ticket t : ticketsEnriched) {
             if (!matches(t.getTickt(), m_colFilterTickt)) continue;
             if (!matches(t.getTitle(), m_colFilterTitle)) continue;
@@ -295,10 +385,10 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
         rebuildGridWithColFilters();
     }
 
-    private void loadTicketsForUser(String kunnr, String reqid, String utente) {
+    private void loadTicketsForUser(String kunnr, String reqid, String utente, String rstatFilter) {
         try {
             tickets = null;
-            TicketResponse response = ticketService.getTickets(kunnr, reqid, null, null, null);
+            TicketResponse response = ticketService.getTickets(kunnr, reqid, null, null, null, rstatFilter);
             if (response.isSuccess()) {
                 tickets = response.getTickets();
                 populateGrid(tickets, "Trovati " + tickets.size() + " ticket per " + utente);
@@ -306,10 +396,10 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
         } catch (Exception e) { setError("Eccezione: " + e.getMessage()); e.printStackTrace(); }
     }
 
-    private void loadAllTickets() {
+    private void loadAllTickets(String rstatFilter) {
         try {
             tickets = null;
-            TicketResponse response = ticketService.getAllTickets();
+            TicketResponse response = ticketService.getTickets(null, null, null, null, null, rstatFilter);
             if (response.isSuccess()) {
                 tickets = response.getTickets();
                 populateGrid(tickets, "Caricati " + tickets.size() + " ticket");
@@ -317,17 +407,10 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
         } catch (Exception e) { setError("Eccezione: " + e.getMessage()); e.printStackTrace(); }
     }
 
-    /**
-     * Carica tutti i ticket SAP e filtra client-side quelli assegnati
-     * all'operatore AMS corrente (campo amusr). Nessun filtro nativo SAP
-     * disponibile per amusr, quindi il filtro avviene in memoria dopo
-     * il caricamento completo — coerente con l'approccio già usato per
-     * i filtri colonna nella grid.
-     */
-    private void loadTicketsForAms(String idUserAms) {
+    private void loadTicketsForAms(String idUserAms, String rstatFilter) {
         try {
             tickets = null;
-            TicketResponse response = ticketService.getAllTickets();
+            TicketResponse response = ticketService.getTickets(null, null, null, null, null, rstatFilter);
             if (response.isSuccess()) {
                 List<Ticket> all = response.getTickets();
                 tickets = all.stream()

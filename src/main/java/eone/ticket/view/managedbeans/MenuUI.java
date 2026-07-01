@@ -8,8 +8,9 @@ import org.eclnt.jsfserver.defaultscreens.Statusbar;
 import org.eclnt.jsfserver.elements.impl.FIXGRIDItem;
 import org.eclnt.jsfserver.elements.impl.FIXGRIDListBinding;
 import org.eclnt.jsfserver.pagebean.PageBean;
-
 import eone.ticket.context.ViewSessionContext;
+import eone.ticket.model.TicketSummary;
+
 
 /**
  * Menu principale post-logon: punto di ingresso che mostra le funzioni
@@ -20,6 +21,7 @@ import eone.ticket.context.ViewSessionContext;
  * Ogni voce richiama un callback su OutestUI per sostituire il contentUI
  * con la pagina corrispondente, esattamente come avviene oggi dopo il logon.
  */
+
 @CCGenClass(expressionBase = "#{d.MenuUI}")
 public class MenuUI extends PageBean implements Serializable {
 
@@ -31,6 +33,22 @@ public class MenuUI extends PageBean implements Serializable {
 
     private IListener m_listener;
     private FIXGRIDListBinding<MenuItemInfo> m_items = new FIXGRIDListBinding<>();
+    private TicketSummary m_summary;
+    private boolean m_summaryLoaded = false;
+
+    public void updateSummary(TicketSummary summary) {
+        // Non sovrascrivere il summary completo caricato al logon
+        // con quello parziale della lista operativa (che esclude CLO/CAN)
+        if (m_summaryLoaded) return;
+        this.m_summary = summary;
+        m_summaryLoaded = true;
+    }
+
+    /** Forza l'aggiornamento — usato solo da OutestUI al logon */
+    public void forceUpdateSummary(TicketSummary summary) {
+        this.m_summary = summary;
+        m_summaryLoaded = true;
+    }
 
     // =========================
     // INNER CLASS — VOCE DI MENU
@@ -88,21 +106,64 @@ public class MenuUI extends PageBean implements Serializable {
 
     private void buildMenu() {
         m_items.getItems().clear();
+        ViewSessionContext ctx = ViewSessionContext.instance();
+        boolean isCliente    = ctx.isCliente();
+        boolean isAms        = ctx.isAms();
+        boolean isDispatcher = "DISPATCHER".equalsIgnoreCase(ctx.getRuolo());
+        boolean isAdmin      = "ADMIN".equalsIgnoreCase(ctx.getRuolo());
 
+        // Gestione ticket: visibile a tutti
         m_items.getItems().add(new MenuItemInfo(
             "TICKET_LIST",
             "Gestione ticket",
             "Visualizza, commenta e gestisci i ticket esistenti",
             true));
 
-        m_items.getItems().add(new MenuItemInfo(
-            "NEW_TICKET",
-            "Nuovo ticket",
-            "Apertura di un nuovo ticket (in arrivo)",
-            false));
+        // Nuovo ticket: solo per CLIENTE (o ADMIN in test)
+        if (isCliente || isAdmin) {
+            m_items.getItems().add(new MenuItemInfo(
+                "NEW_TICKET",
+                "Apri nuovo ticket",
+                "Apri una nuova richiesta di assistenza",
+                true));
+        }
 
-        // Voci future (analisi, reportistica, ecc.) si aggiungono qui
-        // seguendo lo stesso pattern: m_items.getItems().add(new MenuItemInfo(...))
+        // Smistamento DRAFT: solo per DISPATCHER (o ADMIN)
+        if (isDispatcher || isAdmin) {
+            m_items.getItems().add(new MenuItemInfo(
+                "DISPATCHER",
+                "Smistamento ticket",
+                "Gestisci i ticket in attesa di fusione con SAP",
+                true));
+        }
+
+        // Archivio ticket chiusi: visibile a tutti
+        m_items.getItems().add(new MenuItemInfo(
+            "ARCHIVIO",
+            "Archivio ticket chiusi",
+            "Consulta i ticket in stato CLOSED",
+            true));
+    }
+
+    // =========================
+    // GETTERS SUMMARY
+    // =========================
+
+    public boolean getHasSummary() { return m_summary != null; }
+    public boolean needsSummaryLoad() { return !m_summaryLoaded; }
+    public int getSummaryTotale()  { return m_summary != null ? m_summary.getTotale() : 0; }
+    public int getSummaryDraft()   { return m_summary != null ? m_summary.getTotaleDraft() : 0; }
+    public java.util.List<TicketSummary.StatoCount> getSummaryVoci() {
+        return m_summary != null ? m_summary.getVoci() : java.util.Collections.emptyList();
+    }
+
+    /** Etichetta sintesi da mostrare nel menu sotto "Gestione ticket" */
+    public String getSummaryLabel() {
+        if (m_summary == null) return "Clicca per aggiornare";
+        long attivi = m_summary.getVoci().stream()
+            .filter(v -> !"CLO".equals(v.getRstat()) && !"CAN".equals(v.getRstat()) && !"DRAFT".equals(v.getRstat()))
+            .mapToInt(TicketSummary.StatoCount::getCount).sum();
+        return attivi > 0 ? "Ticket attivi: " + attivi : "Nessun ticket attivo";
     }
 
     // =========================

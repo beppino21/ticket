@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<t:layoutdefinition xmlns:t="http://www.captaincasa.com/controllibrary/t" >
+
+<t:beanprocessing id="nt_0" beanbinding="#{d.NewTicketUI}" />
+<t:rowtitlebar id="nt_1" text="Apri nuovo ticket" />
+<t:rowheader id="nt_h" >
+<t:button id="nt_back" actionListener="#{d.NewTicketUI.backToMenu}" text="« Menu" width="80" />
+</t:rowheader>
+<t:rowbodypane id="nt_body" padding="16" >
+<t:row id="nt_r1" coldistance="12" >
+<t:label id="nt_l1" labeltext="Titolo:" rowalignmenty="center" width="120" />
+<t:field id="nt_f1" flush="true" text="#{d.NewTicketUI.titolo}" width="100%;500" />
+</t:row>
+<t:rowdistance id="nt_d1" height="10" />
+<t:row id="nt_r1b" coldistance="12" >
+<t:label id="nt_l1b" labeltext="Stato ticket:" rowalignmenty="center" width="120" />
+<t:combobox id="nt_stato" flush="true" value="#{d.NewTicketUI.commentoStato}" width="280" >
+<t:comboboxitem id="nt_s0" />
+<t:comboboxitem id="nt_s1" text="Attesa attività Assistenza" value="CLI_ATTESA_ASSISTENZA" />
+<t:comboboxitem id="nt_s2" text="Sollecito attività Assistenza" value="CLI_SOLLECITO_ASSISTENZA" />
+<t:comboboxitem id="nt_s3" text="Richiesta chiusura ticket" value="CLI_RICHIESTA_CHIUSURA" />
+<t:comboboxitem id="nt_s4" text="Ticket risolto" value="CLI_RISOLTO" />
+</t:combobox>
+</t:row>
+<t:rowdistance id="nt_d1b" height="10" />
+<t:row id="nt_r2" coldistance="12" >
+<t:label id="nt_l2" labeltext="Descrizione:" rowalignmenty="top" width="120" />
+<t:textarea id="nt_ta" height="120" text="#{d.NewTicketUI.commentoTesto}" width="100%;500" />
+</t:row>
+<t:rowdistance id="nt_d2" height="10" />
+<t:row id="nt_r3" coldistance="12" >
+<t:label id="nt_l3" labeltext="Allega file:" rowalignmenty="center" width="120" />
+<t:fileuploadbutton id="nt_upload" actionListener="#{d.NewTicketUI.onFileUpload}" maxfilesize="5000000" multiselect="true" text="Seleziona file..." width="180" />
+<t:label id="nt_hint" font="size:10;color:#888888" text="(max 5 MB per file)" />
+</t:row>
+<t:row id="nt_r4" rendered="#{d.NewTicketUI.hasPending}" >
+<t:coldistance id="g_2" width="132" />
+<t:fixgrid id="nt_grid" avoidrowstretching="true" dynamicheightsizing="true" height="90" objectbinding="#{d.NewTicketUI.gridPending}" rowheight="26" sbvisibleamount="3" width="100%;500" >
+<t:gridcol id="nt_gc1" text="File" width="100%" >
+<t:label id="nt_gl1" text=".{filename}" />
+</t:gridcol>
+<t:gridcol id="nt_gc2" text="Dim." width="70" >
+<t:label id="nt_gl2" text=".{fileSizeFormatted}" />
+</t:gridcol>
+<t:gridcol id="nt_gc3" width="55" >
+<t:button id="nt_gb3" actionListener=".{onRemove}" text="X" width="50" />
+</t:gridcol>
+</t:fixgrid>
+</t:row>
+<t:rowdistance id="nt_d3" height="16" />
+<t:row id="nt_r5" coldistance="12" >
+<t:coldistance id="g_3" width="120" />
+<t:button id="nt_save" actionListener="#{d.NewTicketUI.saveDraft}" text="Invia ticket" width="140" />
+<t:label id="nt_pending_lbl" font="size:10;color:#555555" rendered="#{d.NewTicketUI.hasPending}" text="#{d.NewTicketUI.pendingCount} allegato/i" />
+</t:row>
+</t:rowbodypane>
+
+</t:layoutdefinition>

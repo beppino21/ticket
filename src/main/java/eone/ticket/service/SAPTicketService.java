@@ -45,8 +45,18 @@ public class SAPTicketService {
      * @return TicketResponse con la lista dei ticket
      * @throws Exception In caso di errore durante la chiamata
      */
-    public TicketResponse getTickets(String kunnr, String reqid, String ownAll, 
+    public TicketResponse getTickets(String kunnr, String reqid, String ownAll,
                                      String fromDate, String toDate) throws Exception {
+        return getTickets(kunnr, reqid, ownAll, fromDate, toDate, null);
+    }
+
+    /**
+     * Versione estesa con filtro opzionale per stato ticket (rstat).
+     * rstat="CLO"    -> Rstat eq 'CLO'   (solo chiusi, filtro SAP)
+     * rstat="ne:CLO" -> escludi CLO lato client (SAP non supporta 'ne' in questo servizio)
+     */
+    public TicketResponse getTickets(String kunnr, String reqid, String ownAll,
+                                     String fromDate, String toDate, String rstatFilter) throws Exception {
         TicketResponse ticketResponse = new TicketResponse();
 
         System.out.println("================================================================================");
@@ -54,34 +64,34 @@ public class SAPTicketService {
         System.out.println("================================================================================");
 
         try {
-            // Costruisci l'URL base
             String baseUrl = SAPODataConfig.getTicketsEndpoint();
-            
-            // Costruisci i filtri OData
             List<String> filters = new ArrayList<>();
-            
+
             if (kunnr != null && !kunnr.isEmpty()) {
                 filters.add("Kunnr eq '" + kunnr + "'");
             }
-            
             if (reqid != null && !reqid.isEmpty()) {
                 filters.add("Reqid eq '" + reqid + "'");
             }
-            
             if (fromDate != null && !fromDate.isEmpty()) {
                 filters.add("Erdat ge '" + fromDate + "'");
             }
-            
             if (toDate != null && !toDate.isEmpty()) {
                 filters.add("Erdat le '" + toDate + "'");
             }
-            
-            // Costruisci la query string
+            if (rstatFilter != null && !rstatFilter.isEmpty()) {
+                if (rstatFilter.startsWith("ne:")) {
+                    // 'ne' non supportato da questo SAP Gateway — filtro gestito client-side
+                    System.out.println("[TICKETS] Filtro ne:" + rstatFilter.substring(3) +
+                                       " applicato client-side (SAP non supporta 'ne')");
+                } else {
+                    filters.add("Rstat eq '" + rstatFilter + "'");
+                }
+            }
+
             StringBuilder queryString = new StringBuilder();
-            
             if (!filters.isEmpty()) {
                 String filterExpression = String.join(" and ", filters);
-                // ✅ Sostituisci SOLO gli spazi con %20 (non encodare tutto!)
                 String encodedFilter = filterExpression.replace(" ", "%20");
                 queryString.append("$filter=").append(encodedFilter);
                 queryString.append("&$format=json");
@@ -99,7 +109,7 @@ public class SAPTicketService {
             String authHeader = SAPODataConfig.getBasicAuthHeader();
             request.setHeader(SAPODataConfig.HEADER_AUTHORIZATION, authHeader);
             request.setHeader(SAPODataConfig.HEADER_ACCEPT, SAPODataConfig.CONTENT_TYPE_JSON);
-            request.setHeader(SAPODataConfig.HEADER_SAP_CLIENT, SAPODataConfig.SAP_CLIENT);
+            request.setHeader(SAPODataConfig.HEADER_SAP_CLIENT, SAPODataConfig.getSapClient());
 
             System.out.println("[TICKETS] Headers inviati:");
             for (Header header : request.getAllHeaders()) {
@@ -180,6 +190,69 @@ public class SAPTicketService {
      */
     public TicketResponse getTicketsByKunnr(String kunnr) throws Exception {
         return getTickets(kunnr, null, null, null, null);
+    }
+
+    /**
+     * Overload con filtro aggiuntivo arbitrario (es. "Tickt eq '14'").
+     * Usato internamente da getTicketById.
+     */
+    private TicketResponse getTickets(String kunnr, String reqid, String ownAll,
+                                      String fromDate, String toDate,
+                                      String rstatFilter, String extraFilter) throws Exception {
+        // Costruisce i filtri normali e aggiunge extraFilter
+        java.util.List<String> filters = new java.util.ArrayList<>();
+        if (kunnr != null && !kunnr.isEmpty()) filters.add("Kunnr eq '" + kunnr + "'");
+        if (reqid != null && !reqid.isEmpty()) filters.add("Reqid eq '" + reqid + "'");
+        if (fromDate != null && !fromDate.isEmpty()) filters.add("Erdat ge '" + fromDate + "'");
+        if (toDate != null && !toDate.isEmpty()) filters.add("Erdat le '" + toDate + "'");
+        if (rstatFilter != null && !rstatFilter.isEmpty() && !rstatFilter.startsWith("ne:"))
+            filters.add("Rstat eq '" + rstatFilter + "'");
+        if (extraFilter != null && !extraFilter.isEmpty()) filters.add(extraFilter);
+
+        String baseUrl = SAPODataConfig.getTicketsEndpoint();
+        StringBuilder qs = new StringBuilder();
+        if (!filters.isEmpty()) {
+            String expr = String.join(" and ", filters).replace(" ", "%20");
+            qs.append("$filter=").append(expr).append("&$format=json");
+        } else {
+            qs.append("$format=json");
+        }
+        String url = baseUrl + "?" + qs.toString();
+        System.out.println("[TICKETS] getTicketById URL: " + url);
+
+        org.apache.http.impl.client.CloseableHttpClient client =
+            org.apache.http.impl.client.HttpClients.createDefault();
+        org.apache.http.client.methods.HttpGet request = new org.apache.http.client.methods.HttpGet(url);
+        request.setHeader(SAPODataConfig.HEADER_AUTHORIZATION, SAPODataConfig.getBasicAuthHeader());
+        request.setHeader(SAPODataConfig.HEADER_ACCEPT, SAPODataConfig.CONTENT_TYPE_JSON);
+        request.setHeader(SAPODataConfig.HEADER_SAP_CLIENT, SAPODataConfig.getSapClient());
+
+        try (org.apache.http.client.methods.CloseableHttpResponse response = client.execute(request)) {
+            int sc = response.getStatusLine().getStatusCode();
+            String body = org.apache.http.util.EntityUtils.toString(response.getEntity(), "UTF-8");
+            TicketResponse tr = new TicketResponse();
+            tr.setStatusCode(sc);
+            tr.setSuccess(sc >= 200 && sc < 300);
+            if (tr.isSuccess()) {
+                org.json.JSONObject json = new org.json.JSONObject(body);
+                tr.setTickets(parseTicketsFromResponse(json));
+            }
+            return tr;
+        }
+    }
+
+    /**
+     * Legge un singolo ticket SAP per numero (Tickt).
+     * Usato dal Dispatcher per verificare richiedente e data prima della fusione.
+     */
+    public Ticket getTicketById(String tickt) throws Exception {
+        if (tickt == null || tickt.trim().isEmpty()) return null;
+        TicketResponse resp = getTickets(null, null, null, null, null, null,
+                                         "Tickt eq '" + tickt.trim() + "'");
+        if (resp.isSuccess() && resp.getTickets() != null && !resp.getTickets().isEmpty()) {
+            return resp.getTickets().get(0);
+        }
+        return null;
     }
 
     /**
