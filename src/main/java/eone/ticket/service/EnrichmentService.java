@@ -65,6 +65,7 @@ public class EnrichmentService {
             ticktList.size()
         ) + " ORDER BY tickt, created_at DESC";
 
+
         try (Connection con = DBConfig.getConnection()) {
 
             // Esegue conteggi
@@ -89,8 +90,6 @@ public class EnrichmentService {
                         Ticket t = ticketMap.get(rs.getString("tickt"));
                         if (t != null) {
                             String statoCode = rs.getString("stato_ticket");
-                            // Riusa TicketComment per etichetta e colori — coerenza
-                            // garantita con il dettaglio commenti, nessuna logica duplicata.
                             TicketComment tmp = new TicketComment();
                             tmp.setStatoTicket(statoCode);
                             t.setEncUltimoStato(statoCode);
@@ -98,7 +97,11 @@ public class EnrichmentService {
                             t.setEncUltimoStatoColor(tmp.getStatoColor());
                             t.setEncUltimoStatoTextColor(tmp.getStatoTextColor());
                             Timestamp ts = rs.getTimestamp("created_at");
-                            if (ts != null) t.setEncUltimaData(formatTimestamp(ts.toLocalDateTime()));
+                            if (ts != null) {
+                                LocalDateTime dt = ts.toLocalDateTime();
+                                t.setEncUltimaData(formatTimestamp(dt));
+                                t.setEncUltimaDataSort(formatTimestampSort(dt));
+                            }
                             t.setEncUltimoTesto(truncate(rs.getString("testo"), TESTO_MAX_LEN));
                         }
                     }
@@ -209,6 +212,14 @@ public class EnrichmentService {
         if (dt == null) return "";
         return String.format("%02d/%02d/%04d %02d:%02d",
             dt.getDayOfMonth(), dt.getMonthValue(), dt.getYear(),
+            dt.getHour(), dt.getMinute());
+    }
+
+    /** Formato sort: yyyyMMddHHmm — ordinabile come stringa */
+    private String formatTimestampSort(LocalDateTime dt) {
+        if (dt == null) return "";
+        return String.format("%04d%02d%02d%02d%02d",
+            dt.getYear(), dt.getMonthValue(), dt.getDayOfMonth(),
             dt.getHour(), dt.getMinute());
     }
 

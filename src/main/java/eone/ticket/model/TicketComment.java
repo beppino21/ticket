@@ -126,27 +126,31 @@ public class TicketComment implements Serializable {
      * Caldo (arancione/rosso) = solleciti, massima urgenza.
      */
     public String getStatoColor() {
-        if (statoTicket == null) return "#CCCCCC";
+        if (statoTicket == null) return "#EEEEEE";
         switch (statoTicket) {
-            case STATO_ASS_CONCLUSO:             return "#7B68EE"; // viola
-            case STATO_CLI_RISOLTO:              return "#4A90D9"; // blu
-            case STATO_CLI_RICHIESTA_CHIUSURA:   return "#26A69A"; // ciano
-            case STATO_ASS_ATTESA_CLIENTE:       return "#66BB6A"; // verde
-            case STATO_CLI_ATTESA_ASSISTENZA:    return "#FBC02D"; // giallo
-            case STATO_ASS_SOLLECITO_CLIENTE:    return "#FB8C00"; // arancione
-            case STATO_CLI_SOLLECITO_ASSISTENZA: return "#E53935"; // rosso
-            default:                             return "#CCCCCC";
+            case STATO_ASS_CONCLUSO:             return "#D8D4F0"; // viola pastello
+            case STATO_CLI_RISOLTO:              return "#C5D8F0"; // blu pastello
+            case STATO_CLI_RICHIESTA_CHIUSURA:   return "#B8E4DE"; // ciano pastello
+            case STATO_ASS_ATTESA_CLIENTE:       return "#C8E6C9"; // verde pastello
+            case STATO_CLI_ATTESA_ASSISTENZA:    return "#FFF9C4"; // giallo pastello
+            case STATO_ASS_SOLLECITO_CLIENTE:    return "#FFE0B2"; // arancione pastello
+            case STATO_CLI_SOLLECITO_ASSISTENZA: return "#FFCDD2"; // rosso pastello
+            default:                             return "#EEEEEE";
         }
     }
 
-    /** Testo contrastante (bianco/nero) leggibile sopra getStatoColor() */
+    /** Testo contrastante leggibile sopra getStatoColor() — sempre scuro su pastello */
     public String getStatoTextColor() {
-        if (statoTicket == null) return "#000000";
+        if (statoTicket == null) return "#333333";
         switch (statoTicket) {
-            case STATO_CLI_ATTESA_ASSISTENZA: // giallo, troppo chiaro per testo bianco
-                return "#3A3000";
-            default:
-                return "#FFFFFF";
+            case STATO_ASS_CONCLUSO:             return "#3D2F72";
+            case STATO_CLI_RISOLTO:              return "#1A3A6B";
+            case STATO_CLI_RICHIESTA_CHIUSURA:   return "#144040";
+            case STATO_ASS_ATTESA_CLIENTE:       return "#1B5E20";
+            case STATO_CLI_ATTESA_ASSISTENZA:    return "#5D4000";
+            case STATO_ASS_SOLLECITO_CLIENTE:    return "#7A3800";
+            case STATO_CLI_SOLLECITO_ASSISTENZA: return "#7B1515";
+            default:                             return "#333333";
         }
     }
 

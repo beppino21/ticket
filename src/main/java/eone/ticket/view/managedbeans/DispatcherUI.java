@@ -11,7 +11,9 @@ import org.eclnt.jsfserver.elements.impl.FIXGRIDListBinding;
 import org.eclnt.workplace.IWorkpageDispatcher;
 import org.eclnt.workplace.WorkpageDispatchedPageBean;
 
+import eone.ticket.model.RequesterInfo;
 import eone.ticket.model.TicketDraft;
+import eone.ticket.service.RequesterService;
 import eone.ticket.service.SAPTicketService;
 import eone.ticket.service.TicketDraftService;
 
@@ -34,6 +36,7 @@ public class DispatcherUI extends WorkpageDispatchedPageBean implements Serializ
 
     private final TicketDraftService draftService = new TicketDraftService();
     private final SAPTicketService   sapService   = new SAPTicketService();
+    private final RequesterService   requesterService = new RequesterService();
 
     private FIXGRIDListBinding<GridDraftItem> m_gridDrafts = new FIXGRIDListBinding<>();
     private GridDraftItem  m_selectedItem;
@@ -70,6 +73,18 @@ public class DispatcherUI extends WorkpageDispatchedPageBean implements Serializ
         public String getKunnr()       { return nn(draft.getKunnr()); }
         public String getReqid()       { return nn(draft.getReqid()); }
         public String getIdUser()      { return nn(draft.getIdUser()); }
+
+        /** id_user + nome se disponibile in ticket_user */
+        public String getIdUserConNome() {
+            String id = nn(draft.getIdUser());
+            try {
+                RequesterInfo info = requesterService.getById(draft.getIdUser());
+                if (info != null && info.getNome() != null && !info.getNome().trim().isEmpty()) {
+                    return id + " \u2014 " + info.getNome().trim();
+                }
+            } catch (Exception ignored) {}
+            return id;
+        }
         public String getTitolo()      { return nn(draft.getTitolo()); }
         public String getCreatedAt()   { return draft.getCreatedAtFormatted(); }
 

@@ -29,8 +29,11 @@
 <t:gridcol id="dp_gc2" text="Cliente" width="85" >
 <t:label id="dp_gl2" background=".{rowBackground}" text=".{kunnr}" />
 </t:gridcol>
-<t:gridcol id="dp_gc3" text="Utente" width="100" >
-<t:label id="dp_gl3" background=".{rowBackground}" text=".{idUser}" />
+<t:gridcol id="dp_gc2b" text="Richiedente" width="80" >
+<t:label id="dp_gl2b" background=".{rowBackground}" text=".{reqid}" />
+</t:gridcol>
+<t:gridcol id="dp_gc3" text="Utente" width="180" >
+<t:label id="dp_gl3" background=".{rowBackground}" text=".{idUserConNome}" />
 </t:gridcol>
 <t:gridcol id="dp_gc4" text="Titolo" width="100%" >
 <t:label id="dp_gl4" background=".{rowBackground}" text=".{titolo}" />

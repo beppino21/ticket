@@ -40,7 +40,8 @@ public class Ticket {
     private String encUltimoStatoLabel = "";  // Etichetta leggibile dell'ultimo stato commento
     private String encUltimoStatoColor = "#CCCCCC"; // Colore badge (scala termica) dell'ultimo stato
     private String encUltimoStatoTextColor = "#000000"; // Colore testo contrastante sul badge
-    private String encUltimaData    = "";    // Data/ora dell'ultimo commento (formattata)
+    private String encUltimaData      = "";   // Data/ora dell'ultimo commento (formattata dd/MM/yyyy HH:mm)
+    private String encUltimaDataSort  = "";   // Data/ora sort ultimo commento (yyyyMMddHHmm)
     private String encUltimoTesto   = "";    // Testo (troncato) dell'ultimo commento
     private String encNomeRichiedente = "";  // "REQID — Nome Cognome" da ticket_user (EnrichmentService)
     private String encRstatLabel = "";       // Descrizione completa stato SAP: "CODICE - Descrizione"
@@ -150,6 +151,10 @@ public class Ticket {
 
     public String getEncUltimaData()                 { return encUltimaData != null ? encUltimaData : ""; }
     public void setEncUltimaData(String s)           { this.encUltimaData = s; }
+
+    public String getEncUltimaDataSort()              { return encUltimaDataSort != null ? encUltimaDataSort : ""; }
+    public void setEncUltimaDataSort(String s)        { this.encUltimaDataSort = s; }
+
 
     public String getEncUltimoTesto()                { return encUltimoTesto != null ? encUltimoTesto : ""; }
     public void setEncUltimoTesto(String s)          { this.encUltimoTesto = s; }

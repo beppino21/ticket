@@ -41,6 +41,8 @@
 <t:label id="g_h82" background="#C0C0C0" />
 <t:field id="g_h86" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterEncUltimoStato}" />
 <t:label id="g_h84" background="#C0C0C0" />
+<t:label id="g_h_giorni" background="#C0C0C0" />
+<t:label id="g_h_vita" background="#C0C0C0" />
 </t:gridheader>
 <t:gridcol id="g_60" text="Ticket" width="100" >
 <t:label id="g_61" align="right!" stylevariant="ccbig" text=".{tickt}" />
@@ -81,8 +83,14 @@
 <t:gridcol id="g_86" text="Stato commento" width="170" >
 <t:label id="g_87" background=".{encUltimoStatoColor}" font="size:11;weight:bold;color:.{encUltimoStatoTextColor}" text=".{encUltimoStatoLabel}" />
 </t:gridcol>
-<t:gridcol id="g_84" text="Commenti" width="90" >
-<t:button id="g_85" actionListener=".{onOpenComments}" text="Commenti" width="80" />
+<t:gridcol id="g_84" sortenabled="true" text="Commenti" width="130" sortvalue=".{encUltimaDataSort}" >
+<t:button id="g_85" actionListener=".{onOpenComments}" background="#AAAAAA" font="size:11;weight:bold;color:#FFFFFF" text=".{commentiLabel}" width="120" />
+</t:gridcol>
+<t:gridcol id="g_giorni" sortenabled="true" text="Giorni" width="60" sortvalue=".{giorniLabel}" >
+<t:label id="g_giorni_lbl" background=".{giorniBackground}" font="size:11;weight:bold" text=".{giorniLabel}" />
+</t:gridcol>
+<t:gridcol id="g_vita" sortenabled="true" text="Vita" width="55" sortvalue=".{giorniVitaLabel}" >
+<t:label id="g_vita_lbl" font="size:11;weight:bold" text=".{giorniVitaLabel}" />
 </t:gridcol>
 </t:fixgrid>
 </t:row>

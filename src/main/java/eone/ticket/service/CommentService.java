@@ -18,7 +18,7 @@ public class CommentService {
         List<TicketComment> list = new ArrayList<>();
         String sql = "SELECT id, tickt, kunnr, autore_tipo, autore_id, testo, " +
                      "stato_ticket, created_at " +
-                     "FROM ticket_comment WHERE tickt = ? ORDER BY created_at ASC";
+                     "FROM ticket_comment WHERE tickt = ? ORDER BY created_at DESC";
 
         try (Connection con = DBConfig.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {

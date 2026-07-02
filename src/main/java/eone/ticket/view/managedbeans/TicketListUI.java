@@ -16,10 +16,12 @@ import org.eclnt.workplace.IWorkpageDispatcher;
 import org.eclnt.workplace.WorkpageDispatchedPageBean;
 
 import eone.ticket.context.ViewSessionContext;
+import eone.ticket.model.RequesterInfo;
 import eone.ticket.model.Ticket;
 import eone.ticket.model.TicketDraft;
 import eone.ticket.model.TicketSummary;
 import eone.ticket.service.EnrichmentService;
+import eone.ticket.service.RequesterService;
 import eone.ticket.service.SAPTicketService;
 import eone.ticket.service.SAPTicketService.TicketResponse;
 import eone.ticket.service.TicketDraftService;
@@ -40,6 +42,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
     private SAPTicketService  ticketService     = null;
     private EnrichmentService enrichmentService = new EnrichmentService();
     private TicketDraftService draftService     = new TicketDraftService();
+    private RequesterService  requesterService  = new RequesterService();
 
     private FIXGRIDListBinding<GridTicketItem> m_gridTickets = new FIXGRIDListBinding<>();
 
@@ -129,10 +132,162 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
         public String getEncUltimoStatoLabel()     { return nn(ticket.getEncUltimoStatoLabel()); }
         public String getEncUltimoStatoColor()     { return ticket.getEncUltimoStatoColor(); }
         public String getEncUltimoStatoTextColor() { return ticket.getEncUltimoStatoTextColor(); }
-        public String getEncUltimaData()    { return nn(ticket.getEncUltimaData()); }
-        public String getEncUltimoTesto()   { return nn(ticket.getEncUltimoTesto()); }
-        public String getEncSommario()      { return nn(ticket.getEncSommario()); }
-        public boolean getEncHasCommenti()  { return ticket.getEncHasCommenti(); }
+        public String getEncUltimaData()     { return nn(ticket.getEncUltimaData()); }
+        public String getEncUltimaDataSort() { return nn(ticket.getEncUltimaDataSort()); }
+        public String getEncUltimoTesto()    { return nn(ticket.getEncUltimoTesto()); }
+        public String getEncSommario()       { return nn(ticket.getEncSommario()); }
+        public boolean getEncHasCommenti()   { return ticket.getEncHasCommenti(); }
+
+        /**
+         * Label bottone Commenti:
+         * - nessun commento → "Commenti"
+         * - commenti presenti → data+ora ultimo commento (es. "02/07/2026 14:35")
+         */
+        public String getCommentiLabel() {
+            if (!ticket.getEncHasCommenti()) return "Commenti";
+            String data = ticket.getEncUltimaData();
+            return (data != null && !data.isEmpty()) ? data : "Commenti";
+        }
+
+        // =========================
+        // COLONNA GIORNI
+        // =========================
+
+        /**
+         * Numero di giorni tra la creazione del ticket (erdat SAP) e
+         * la data dell'ultimo commento (encUltimaDataSort = yyyyMMddHHmm).
+         * Restituisce -1 se i dati non sono disponibili.
+         */
+        /**
+         * Giorni di inattività: da oggi all'ultimo commento (se presente),
+         * oppure da oggi alla data di creazione del ticket (se nessun commento).
+         * Misura quanti giorni sono passati senza interazione.
+         */
+        public int getGiorniUltimaAttivita() {
+            java.time.LocalDate riferimento = null;
+
+            String sort = ticket.getEncUltimaDataSort();
+            if (sort != null && sort.length() >= 8) {
+                // Ha commenti: usa la data dell'ultimo
+                try {
+                    riferimento = java.time.LocalDate.of(
+                        Integer.parseInt(sort.substring(0, 4)),
+                        Integer.parseInt(sort.substring(4, 6)),
+                        Integer.parseInt(sort.substring(6, 8)));
+                } catch (Exception ignored) {}
+            }
+
+            if (riferimento == null) {
+                // Nessun commento: usa la data di creazione del ticket
+                riferimento = parseSapDate(ticket.getErdat());
+            }
+
+            if (riferimento == null) return -1;
+            return (int) Math.max(0, java.time.temporal.ChronoUnit.DAYS.between(
+                riferimento, java.time.LocalDate.now()));
+        }
+
+        public String getGiorniLabel() {
+            int g = getGiorniUltimaAttivita();
+            if (g < 0) return "";
+            return String.format("%04d", Math.min(g, 9999));
+        }
+
+        /** Valore sort numerico a 5 cifre — usato da sortvalue nel XML */
+        public String getGiorniSort() {
+            int g = getGiorniUltimaAttivita();
+            return g < 0 ? "" : String.format("%05d", g);
+        }
+
+        /**
+         * Colore background cella Giorni — soglie per priorità:
+         * HI: <= 1 giorno verde, poi rosso
+         * MD: <= 3 verde, <= 7 giallo, oltre rosso
+         * LO: <= 5 verde, <= 10 giallo, oltre rosso
+         * Colori pallidi per non competere con i badge stato.
+         */
+        public String getGiorniBackground() {
+            int g = getGiorniUltimaAttivita();
+            if (g < 0) return "";
+            String prio = nn(ticket.getRprio()).toUpperCase();
+            boolean verde, giallo;
+            switch (prio) {
+                case "HI":
+                    verde  = g <= 1;
+                    giallo = false; // subito rosso dopo 1
+                    break;
+                case "MD":
+                    verde  = g <= 3;
+                    giallo = g <= 7;
+                    break;
+                default: // LO e qualsiasi altro
+                    verde  = g <= 5;
+                    giallo = g <= 10;
+                    break;
+            }
+            if (verde)  return "#C8E6C9"; // verde pallido
+            if (giallo) return "#FFF9C4"; // giallo pallido
+            return "#FFCDD2";             // rosso pallido
+        }
+
+        /** Giorni di vita del ticket: da erdat a oggi. -1 se CLO o dati mancanti. */
+        public int getGiorniVita() {
+            if ("CLO".equalsIgnoreCase(ticket.getRstat())) return -1;
+            String erdat = ticket.getErdat();
+            if (erdat == null || erdat.isEmpty()) return -1;
+            try {
+                java.time.LocalDate dataCreazione = parseSapDate(erdat);
+                if (dataCreazione == null) return -1;
+                return (int) java.time.temporal.ChronoUnit.DAYS.between(
+                    dataCreazione, java.time.LocalDate.now());
+            } catch (Exception e) { return -1; }
+        }
+
+        public String getGiorniVitaLabel() {
+            int g = getGiorniVita();
+            if (g < 0) return "-";
+            return String.format("%04d", Math.min(g, 9999));
+        }
+
+        /** Valore sort numerico a 5 cifre — usato da sortvalue nel XML */
+        public String getGiorniVitaSort() {
+            int g = getGiorniVita();
+            return g < 0 ? "" : String.format("%05d", g);
+        }
+
+        /** Stesso schema cromatico della colonna Giorni attività */
+        public String getGiorniVitaBackground() {
+            int g = getGiorniVita();
+            if (g < 0) return "";
+            String prio = nn(ticket.getRprio()).toUpperCase();
+            boolean verde, giallo;
+            switch (prio) {
+                case "HI": verde = g <= 1;  giallo = false; break;
+                case "MD": verde = g <= 3;  giallo = g <= 7; break;
+                default:   verde = g <= 5;  giallo = g <= 10; break;
+            }
+            if (verde)  return "#C8E6C9";
+            if (giallo) return "#FFF9C4";
+            return "#FFCDD2";
+        }
+
+        private java.time.LocalDate parseSapDate(String erdat) {
+            if (erdat == null || erdat.isEmpty()) return null;
+            try {
+                if (erdat.contains("Date")) {
+                    long ms = Long.parseLong(erdat.replaceAll("[^0-9]", ""));
+                    return java.time.Instant.ofEpochMilli(ms)
+                        .atZone(java.time.ZoneId.systemDefault()).toLocalDate();
+                }
+                if (erdat.length() >= 8) {
+                    return java.time.LocalDate.of(
+                        Integer.parseInt(erdat.substring(0, 4)),
+                        Integer.parseInt(erdat.substring(4, 6)),
+                        Integer.parseInt(erdat.substring(6, 8)));
+                }
+            } catch (Exception ignored) {}
+            return null;
+        }
 
         public void onRowSelect()  { m_selectedTicketNumber = ticket.getTickt(); m_selectedTicketObj = ticket; m_enableTicketDetail = true; }
         public void onRowExecute() { onRowSelect(); }
@@ -311,6 +466,20 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
                 t.setRstat ("DRAFT");
                 t.setKunnr (stripLeadingZeros(d.getKunnr()));
                 t.setReqid (d.getReqid());
+                // Risolve nome richiedente da ticket_user (kunnr+reqid)
+                String reqidDraft = d.getReqid();
+                String nomeRichiedente = reqidDraft != null ? reqidDraft : "";
+                try {
+                    if (d.getKunnr() != null && reqidDraft != null) {
+                        RequesterInfo info = requesterService.getByKunnrReqid(d.getKunnr(), reqidDraft);
+                        if (info != null && info.getNome() != null && !info.getNome().trim().isEmpty()) {
+                            nomeRichiedente = reqidDraft + " \u2014 " + info.getNome().trim();
+                        }
+                    }
+                } catch (Exception e) {
+                    System.err.println("[TicketListUI] Errore risoluzione nome DRAFT: " + e.getMessage());
+                }
+                t.setEncNomeRichiedente(nomeRichiedente);
                 if (d.getCreatedAt() != null) {
                     t.setErdat(String.format("%04d%02d%02d",
                         d.getCreatedAt().getYear(),
