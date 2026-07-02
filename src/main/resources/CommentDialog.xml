@@ -4,7 +4,9 @@
 <t:beanprocessing id="c_0" beanbinding="#{d.CommentUI}" >
 <t:filedownload id="c_dl" trigger="#{d.CommentUI.downloadTrigger}" url="#{d.CommentUI.downloadUrl}" />
 </t:beanprocessing>
-<t:rowtitlebar id="c_1" text="Commenti — Ticket #{d.CommentUI.currentTickt}" />
+<t:rowtitlebar id="c_1" text="Commenti — Ticket #{d.CommentUI.currentTickt}" >
+<t:button id="c_1_close" actionListener="#{d.CommentUI.onClose}" text="✕ Chiudi" width="80" />
+</t:rowtitlebar>
 <t:row id="c_main" >
 <t:splitpane id="c_split" dividerlocation="35%" height="100%" orientation="horizontal" width="100%" >
 <t:splitpanesplit id="c_left" padding="4" >

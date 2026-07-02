@@ -8,7 +8,6 @@ import java.util.List;
 
 import org.eclnt.editor.annotations.CCGenClass;
 import org.eclnt.jsfserver.base.faces.event.ActionEvent;
-import org.eclnt.jsfserver.defaultscreens.ModalPopup;
 import org.eclnt.jsfserver.defaultscreens.Statusbar;
 import org.eclnt.jsfserver.elements.impl.FIXGRIDItem;
 import org.eclnt.jsfserver.elements.impl.FIXGRIDListBinding;
@@ -38,6 +37,8 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
     }
 
     private IListener m_listener;
+    private CommentUI m_commentUI            = new CommentUI();
+    private boolean   m_commentsPanelVisible = false;
 
     private SAPTicketService  ticketService     = null;
     private EnrichmentService enrichmentService = new EnrichmentService();
@@ -290,7 +291,12 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
         }
 
         public void onRowSelect()  { m_selectedTicketNumber = ticket.getTickt(); m_selectedTicketObj = ticket; m_enableTicketDetail = true; }
-        public void onRowExecute() { onRowSelect(); }
+
+        /** Doppio click su qualsiasi colonna della riga — CC lo chiama in automatico (nessun singleclickexecute su g_51). */
+        public void onRowExecute() {
+            onRowSelect();
+            openComments();
+        }
 
         public void onOpenComments(ActionEvent ae) {
             System.out.println("[TicketListUI] onOpenComments ticket=" + ticket.getTickt());
@@ -309,6 +315,11 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
     public TicketListUI(IWorkpageDispatcher dispatcher) {
         super(dispatcher);
         this.ticketService = new SAPTicketService();
+        this.m_commentUI.setCloseListener(new CommentUI.ICloseListener() {
+            public void reactOnCloseComments() {
+                hideCommentsPanel();
+            }
+        });
     }
 
     public void prepare(IListener listener) {
@@ -354,7 +365,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
     }
 
     // =========================
-    // POPUP COMMENTI
+    // PANNELLO COMMENTI INLINE
     // =========================
 
     public void openComments() {
@@ -362,27 +373,29 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
             Statusbar.outputWarning("Selezionare un ticket dalla lista");
             return;
         }
-        final CommentUI commentUI = new CommentUI();
         String kunnr = m_selectedTicketObj != null ? m_selectedTicketObj.getKunnr() : "";
         String reqid = m_selectedTicketObj != null ? m_selectedTicketObj.getReqid() : "";
         String amusr = m_selectedTicketObj != null ? m_selectedTicketObj.getAmusr() : "";
-        commentUI.init(m_selectedTicketNumber, kunnr, reqid, amusr);
+        m_commentUI.init(m_selectedTicketNumber, kunnr, reqid, amusr);
+        m_commentsPanelVisible = true;
+    }
 
-        ModalPopup popup = openModalPopup(
-            commentUI,
-            "Commenti — Ticket " + m_selectedTicketNumber,
-            0, 0,
-            new ModalPopup.IModalPopupListener() {
-                public void reactOnPopupClosedByUser() {
-                    closePopup(commentUI);
-                    // Refresh leggero: ri-arricchisce i ticket già in memoria
-                    // (commenti/allegati/stato aggiornati) senza richiamare SAP.
-                    refreshAfterCommentPopup();
-                }
-            }
-        );
-        // Apre a schermo intero: più leggibile per il layout a due colonne
-        popup.maximize(true);
+    public void closeComments(ActionEvent ae) {
+        hideCommentsPanel();
+    }
+
+    /**
+     * Logica di chiusura effettiva del pannello, condivisa tra:
+     * - closeComments(ActionEvent) — invocabile direttamente da TicketList.xml
+     * - il listener ICloseListener registrato su m_commentUI nel costruttore,
+     *   invocato dal bottone "Chiudi" dentro CommentDialog.xml (che richiama
+     *   solo #{d.CommentUI.onClose}, mai un bean esterno)
+     */
+    private void hideCommentsPanel() {
+        m_commentsPanelVisible = false;
+        // Refresh leggero: ri-arricchisce i ticket già in memoria
+        // (commenti/allegati/stato aggiornati) senza richiamare SAP.
+        refreshAfterCommentPopup();
     }
 
     /**
@@ -627,6 +640,9 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
 
     @Override public String getPageName()                 { return "/TicketList.xml"; }
     @Override public String getRootExpressionUsedInPage() { return "#{d.TicketListUI}"; }
+
+    public CommentUI getCommentUI()          { return m_commentUI; }
+    public boolean   getCommentsPanelVisible() { return m_commentsPanelVisible; }
 
     public FIXGRIDListBinding<GridTicketItem> getGridTickets() { return m_gridTickets; }
 

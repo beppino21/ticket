@@ -14,7 +14,9 @@
 <t:label id="g_32" font="size:12;#{d.TicketListUI.hasError ? &#39;color:#ff0000;weight:bold&#39; : &#39;color:#00aa00;weight:bold&#39;}" text="#{d.TicketListUI.statusMessage}" />
 </t:row>
 <t:rowdistance id="g_33" height="10" />
-<t:row id="g_40" >
+<t:row id="g_split_row" >
+<t:splitpane id="g_split" dividerlocation="#{d.TicketListUI.commentsPanelVisible ? &#39;45%&#39; : &#39;100%&#39;}" height="100%" orientation="horizontal" width="100%" >
+<t:splitpanesplit id="g_left" >
 <t:pane id="g_41" height="100%" width="100%" >
 <t:row id="g_42" >
 <t:coldistance id="g_43" width="100%" />
@@ -94,10 +96,20 @@
 </t:gridcol>
 </t:fixgrid>
 </t:row>
-</t:pane>
-</t:row>
 <t:row id="g_90" >
 <t:label id="g_91" font="weight:bold" text="Totale ticket: #{d.TicketListUI.ticketCount}" />
+</t:row>
+</t:pane>
+</t:splitpanesplit>
+<t:splitpanesplit id="g_right" >
+<t:row id="g_right_empty" rendered="#{!d.TicketListUI.commentsPanelVisible}" >
+<t:label id="g_right_empty_lbl" font="color:#CCCCCC" />
+</t:row>
+<t:pane id="g_comments_pane" height="100%" rendered="#{d.TicketListUI.commentsPanelVisible}" width="100%" >
+<t:pagebeaninclude id="g_comments_panel" pagebeanbinding="#{d.TicketListUI.commentUI}" />
+</t:pane>
+</t:splitpanesplit>
+</t:splitpane>
 </t:row>
 </t:rowbodypane>
 
