@@ -66,7 +66,6 @@ public class LogonUI extends PageBean implements Serializable {
             } catch (Exception e) {
                 m_backgroundImage = FALLBACK_IMAGE;
             }
-
             System.out.println("[LogonUI] Immagine di sfondo: " + m_backgroundImage);
         }
         return m_backgroundImage;
