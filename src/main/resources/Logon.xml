@@ -5,7 +5,7 @@
 <t:row id="g_2" >
 <t:pane id="g_7" height="100%" width="50%" >
 <t:row id="g_32" >
-<t:image id="g_33" height="100%" image="/images/Sonia_Delaunay_Diagonale_1970.jpg" keepratiofitmode="cover" width="100%" />
+<t:image id="g_33" height="100%" image="#{d.LogonUI.backgroundImage}" keepratiofitmode="cover" width="100%" />
 </t:row>
 </t:pane>
 <t:pane id="g_12" height="100%" width="50%" >

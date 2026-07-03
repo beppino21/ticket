@@ -46,12 +46,30 @@ public class LogonUI extends PageBean implements Serializable {
 
     private final RequesterService m_requesterService = new RequesterService();
 
+    private static final String FALLBACK_IMAGE = "/images/Sonia_Delaunay_Diagonale_1970.jpg";
+    private static final int    IMAGE_COUNT    = 10;
+    private String              m_backgroundImage = null;
+
     // =========================================================
     // COSTRUTTORE
     // =========================================================
 
     public LogonUI() {
         System.out.println("[LogonUI] Bean creato (v2 — logon su PostgreSQL)");
+    }
+
+    public String getBackgroundImage() {
+        if (m_backgroundImage == null) {
+            try {
+                int n = 1 + new java.util.Random().nextInt(IMAGE_COUNT);
+                m_backgroundImage = "/images/" + n + ".jpg";
+            } catch (Exception e) {
+                m_backgroundImage = FALLBACK_IMAGE;
+            }
+
+            System.out.println("[LogonUI] Immagine di sfondo: " + m_backgroundImage);
+        }
+        return m_backgroundImage;
     }
 
     @Override
