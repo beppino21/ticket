@@ -2,6 +2,7 @@
 <t:layoutdefinition xmlns:t="http://www.captaincasa.com/controllibrary/t" >
 
 <t:beanprocessing id="g_1" beanbinding="#{d.TicketListUI}" />
+<t:beanprocessing id="g_1b" beanbinding="#{d.CommentUI}" rendered="#{d.TicketListUI.commentsPanelVisible}" />
 <t:rowtitlebar id="g_2" text="Lista Ticket" />
 <t:rowheader id="g_3" >
 <t:button id="g_17m" actionListener="#{d.TicketListUI.backToMenu}" text="« Menu" width="80" />
@@ -102,12 +103,7 @@
 </t:pane>
 </t:splitpanesplit>
 <t:splitpanesplit id="g_right" >
-<t:row id="g_right_empty" rendered="#{!d.TicketListUI.commentsPanelVisible}" >
-<t:label id="g_right_empty_lbl" font="color:#CCCCCC" />
-</t:row>
-<t:pane id="g_comments_pane" height="100%" rendered="#{d.TicketListUI.commentsPanelVisible}" width="100%" >
-<t:pagebeaninclude id="g_comments_panel" pagebeanbinding="#{d.TicketListUI.commentUI}" />
-</t:pane>
+<t:rowpagebeaninclude id="g_comments_panel" pagebeanbinding="#{d.TicketListUI.commentUI}" rendered="#{d.TicketListUI.commentsPanelVisible}" shownullcontent="true" />
 </t:splitpanesplit>
 </t:splitpane>
 </t:row>

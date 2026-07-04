@@ -36,22 +36,16 @@ public class CommentUI extends PageBean implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    /** Notifica al padre (TicketListUI) che l'utente ha chiuso il pannello commenti. */
-    public interface ICloseListener extends Serializable {
-        void reactOnCloseComments();
+    public interface IListener extends Serializable {
+        void reactOnClose();
     }
 
-    private ICloseListener m_closeListener;
+    private IListener m_closeListener;
 
-    public void setCloseListener(ICloseListener listener) {
-        this.m_closeListener = listener;
-    }
+    public void setCloseListener(IListener l) { this.m_closeListener = l; }
 
-    /** Bottone "Chiudi" nella rowtitlebar — chiama solo il proprio root, mai un bean esterno. */
     public void onClose(ActionEvent ae) {
-        if (m_closeListener != null) {
-            m_closeListener.reactOnCloseComments();
-        }
+        if (m_closeListener != null) m_closeListener.reactOnClose();
     }
 
     private final CommentService commentService = new CommentService();

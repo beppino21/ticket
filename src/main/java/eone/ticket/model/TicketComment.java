@@ -108,8 +108,8 @@ public class TicketComment implements Serializable {
     public String getStatoTicketLabel() {
         if (statoTicket == null) return "";
         switch (statoTicket) {
-            case STATO_CLI_ATTESA_ASSISTENZA:    return "Attesa attività Assistenza";
-            case STATO_CLI_SOLLECITO_ASSISTENZA: return "Sollecito attività Assistenza";
+            case STATO_CLI_ATTESA_ASSISTENZA:    return "Attesa attività AMS";
+            case STATO_CLI_SOLLECITO_ASSISTENZA: return "Sollecito attività AMS";
             case STATO_CLI_RICHIESTA_CHIUSURA:   return "Richiesta chiusura ticket";
             case STATO_CLI_RISOLTO:              return "Ticket risolto";
             case STATO_ASS_ATTESA_CLIENTE:       return "Attesa attività Cliente";

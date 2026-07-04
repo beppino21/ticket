@@ -37,8 +37,9 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
     }
 
     private IListener m_listener;
-    private CommentUI m_commentUI            = new CommentUI();
+    private CommentUI m_commentUI   = new CommentUI();
     private boolean   m_commentsPanelVisible = false;
+
 
     private SAPTicketService  ticketService     = null;
     private EnrichmentService enrichmentService = new EnrichmentService();
@@ -291,12 +292,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
         }
 
         public void onRowSelect()  { m_selectedTicketNumber = ticket.getTickt(); m_selectedTicketObj = ticket; m_enableTicketDetail = true; }
-
-        /** Doppio click su qualsiasi colonna della riga — CC lo chiama in automatico (nessun singleclickexecute su g_51). */
-        public void onRowExecute() {
-            onRowSelect();
-            openComments();
-        }
+        public void onRowExecute() { onRowSelect(); openComments(); }
 
         public void onOpenComments(ActionEvent ae) {
             System.out.println("[TicketListUI] onOpenComments ticket=" + ticket.getTickt());
@@ -315,11 +311,6 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
     public TicketListUI(IWorkpageDispatcher dispatcher) {
         super(dispatcher);
         this.ticketService = new SAPTicketService();
-        this.m_commentUI.setCloseListener(new CommentUI.ICloseListener() {
-            public void reactOnCloseComments() {
-                hideCommentsPanel();
-            }
-        });
     }
 
     public void prepare(IListener listener) {
@@ -376,25 +367,19 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
         String kunnr = m_selectedTicketObj != null ? m_selectedTicketObj.getKunnr() : "";
         String reqid = m_selectedTicketObj != null ? m_selectedTicketObj.getReqid() : "";
         String amusr = m_selectedTicketObj != null ? m_selectedTicketObj.getAmusr() : "";
+        m_commentUI.setCloseListener(new CommentUI.IListener() {
+            @Override
+            public void reactOnClose() {
+                m_commentsPanelVisible = false;
+                refreshAfterCommentPopup();
+            }
+        });
         m_commentUI.init(m_selectedTicketNumber, kunnr, reqid, amusr);
         m_commentsPanelVisible = true;
     }
 
     public void closeComments(ActionEvent ae) {
-        hideCommentsPanel();
-    }
-
-    /**
-     * Logica di chiusura effettiva del pannello, condivisa tra:
-     * - closeComments(ActionEvent) — invocabile direttamente da TicketList.xml
-     * - il listener ICloseListener registrato su m_commentUI nel costruttore,
-     *   invocato dal bottone "Chiudi" dentro CommentDialog.xml (che richiama
-     *   solo #{d.CommentUI.onClose}, mai un bean esterno)
-     */
-    private void hideCommentsPanel() {
         m_commentsPanelVisible = false;
-        // Refresh leggero: ri-arricchisce i ticket già in memoria
-        // (commenti/allegati/stato aggiornati) senza richiamare SAP.
         refreshAfterCommentPopup();
     }
 
@@ -444,7 +429,11 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
         if (!m_archivio) {
             ViewSessionContext ctx = ViewSessionContext.instance();
             if (ctx.isCliente() && ctx.getKunnr() != null && !ctx.getKunnr().isEmpty()) {
+                // CLIENTE: solo i suoi DRAFT
                 draftsCache = buildDraftTickets(ctx.getKunnr(), ctx.getRichiedente());
+            } else if ("DISPATCHER".equalsIgnoreCase(ctx.getRuolo())) {
+                // DISPATCHER: tutti i DRAFT in attesa da tutti i clienti
+                draftsCache = buildAllDraftTickets();
             }
         }
 
@@ -468,46 +457,64 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
      * così viene memorizzata in draftsCache e riusata da ogni rebuild.
      */
     private List<Ticket> buildDraftTickets(String kunnr, String reqid) {
-        List<Ticket> result = new java.util.ArrayList<>();
+        List<TicketDraft> drafts;
         try {
-            List<TicketDraft> drafts = draftService.getDraftsByRequester(kunnr, reqid);
-            for (TicketDraft d : drafts) {
-                if (!d.isDraft()) continue;
-                Ticket t = new Ticket();
-                t.setTickt (d.getTicktKey());
-                t.setTitle (d.getTitolo());
-                t.setRstat ("DRAFT");
-                t.setKunnr (stripLeadingZeros(d.getKunnr()));
-                t.setReqid (d.getReqid());
-                // Risolve nome richiedente da ticket_user (kunnr+reqid)
-                String reqidDraft = d.getReqid();
-                String nomeRichiedente = reqidDraft != null ? reqidDraft : "";
-                try {
-                    if (d.getKunnr() != null && reqidDraft != null) {
-                        RequesterInfo info = requesterService.getByKunnrReqid(d.getKunnr(), reqidDraft);
-                        if (info != null && info.getNome() != null && !info.getNome().trim().isEmpty()) {
-                            nomeRichiedente = reqidDraft + " \u2014 " + info.getNome().trim();
-                        }
-                    }
-                } catch (Exception e) {
-                    System.err.println("[TicketListUI] Errore risoluzione nome DRAFT: " + e.getMessage());
-                }
-                t.setEncNomeRichiedente(nomeRichiedente);
-                if (d.getCreatedAt() != null) {
-                    t.setErdat(String.format("%04d%02d%02d",
-                        d.getCreatedAt().getYear(),
-                        d.getCreatedAt().getMonthValue(),
-                        d.getCreatedAt().getDayOfMonth()));
-                }
-                t.setEncRstatLabel    ("DRAFT - In attesa di smistamento");
-                t.setEncRstatColor    ("#FF8F00");
-                t.setEncRstatTextColor("#FFFFFF");
-                result.add(t);
-            }
-            System.out.println("[TicketListUI] DRAFT in cache: " + result.size());
+            drafts = draftService.getDraftsByRequester(kunnr, reqid);
         } catch (Exception e) {
             System.err.println("[TicketListUI] Errore caricamento DRAFT: " + e.getMessage());
+            return new java.util.ArrayList<>();
         }
+        return buildTicketsFromDrafts(drafts);
+    }
+
+    /** Tutti i DRAFT in attesa — per il DISPATCHER */
+    private List<Ticket> buildAllDraftTickets() {
+        List<TicketDraft> drafts;
+        try {
+            drafts = draftService.getPendingDrafts();
+        } catch (Exception e) {
+            System.err.println("[TicketListUI] Errore caricamento tutti i DRAFT: " + e.getMessage());
+            return new java.util.ArrayList<>();
+        }
+        return buildTicketsFromDrafts(drafts);
+    }
+
+    /** Converte una lista di TicketDraft in Ticket virtuali per la grid */
+    private List<Ticket> buildTicketsFromDrafts(List<TicketDraft> drafts) {
+        List<Ticket> result = new java.util.ArrayList<>();
+        for (TicketDraft d : drafts) {
+            if (!d.isDraft()) continue;
+            Ticket t = new Ticket();
+            t.setTickt (d.getTicktKey());
+            t.setTitle (d.getTitolo());
+            t.setRstat ("DRAFT");
+            t.setKunnr (stripLeadingZeros(d.getKunnr()));
+            t.setReqid (d.getReqid());
+            String reqidDraft = d.getReqid();
+            String nomeRichiedente = reqidDraft != null ? reqidDraft : "";
+            try {
+                if (d.getKunnr() != null && reqidDraft != null) {
+                    RequesterInfo info = requesterService.getByKunnrReqid(d.getKunnr(), reqidDraft);
+                    if (info != null && info.getNome() != null && !info.getNome().trim().isEmpty()) {
+                        nomeRichiedente = reqidDraft + " \u2014 " + info.getNome().trim();
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("[TicketListUI] Errore risoluzione nome DRAFT: " + e.getMessage());
+            }
+            t.setEncNomeRichiedente(nomeRichiedente);
+            if (d.getCreatedAt() != null) {
+                t.setErdat(String.format("%04d%02d%02d",
+                    d.getCreatedAt().getYear(),
+                    d.getCreatedAt().getMonthValue(),
+                    d.getCreatedAt().getDayOfMonth()));
+            }
+            t.setEncRstatLabel    ("DRAFT - In attesa di smistamento");
+            t.setEncRstatColor    ("#FF8F00");
+            t.setEncRstatTextColor("#FFFFFF");
+            result.add(t);
+        }
+        System.out.println("[TicketListUI] DRAFT in cache: " + result.size());
         return result;
     }
 
@@ -641,8 +648,8 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
     @Override public String getPageName()                 { return "/TicketList.xml"; }
     @Override public String getRootExpressionUsedInPage() { return "#{d.TicketListUI}"; }
 
-    public CommentUI getCommentUI()          { return m_commentUI; }
-    public boolean   getCommentsPanelVisible() { return m_commentsPanelVisible; }
+    public CommentUI getCommentUI()            { return m_commentUI; }
+    public boolean getCommentsPanelVisible()   { return m_commentsPanelVisible; }
 
     public FIXGRIDListBinding<GridTicketItem> getGridTickets() { return m_gridTickets; }
 
