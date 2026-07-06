@@ -186,7 +186,7 @@ public class CommentUI extends PageBean implements Serializable {
                 m_gridComments.getItems().add(new GridCommentItem(c));
             }
             if (!list.isEmpty()) {
-                selectComment(list.get(list.size() - 1));
+                selectComment(list.get(0));
             } else {
                 m_selectedComment = null;
                 m_gridAttachList.getItems().clear();

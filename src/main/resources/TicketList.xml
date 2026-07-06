@@ -16,7 +16,7 @@
 </t:row>
 <t:rowdistance id="g_33" height="10" />
 <t:row id="g_split_row" >
-<t:splitpane id="g_split" dividerlocation="#{d.TicketListUI.commentsPanelVisible ? &#39;45%&#39; : &#39;100%&#39;}" height="100%" orientation="horizontal" width="100%" >
+<t:splitpane id="g_split" dividerlocation="#{d.TicketListUI.commentsPanelVisible ? &#39;30%&#39; : &#39;100%&#39;}" height="100%" orientation="horizontal" width="100%" >
 <t:splitpanesplit id="g_left" >
 <t:pane id="g_41" height="100%" width="100%" >
 <t:row id="g_42" >
