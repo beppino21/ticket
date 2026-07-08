@@ -34,6 +34,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
     public interface IListener extends Serializable {
         void reactOnBackToMenu();
         default void reactOnSummaryUpdated(TicketSummary summary) {} // opzionale
+        default void reactOnLogoutRequest() {} // opzionale — bottone "Logout"
     }
 
     private IListener m_listener;
@@ -324,6 +325,18 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
         }
     }
 
+    /**
+     * Bottone "Logout" accanto ad "Aggiorna" — stesso comportamento del
+     * refresh del browser (torna alla pagina di Logon), senza richiedere
+     * una vera ricarica di pagina.
+     */
+    public void logout(ActionEvent ae) {
+        System.out.println("[TicketListUI] logout() chiamato, listener=" + (m_listener != null));
+        if (m_listener != null) {
+            m_listener.reactOnLogoutRequest();
+        }
+    }
+
     public void init() { init(false); }
 
     public void init(boolean archivio) {
@@ -496,7 +509,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
                 if (d.getKunnr() != null && reqidDraft != null) {
                     RequesterInfo info = requesterService.getByKunnrReqid(d.getKunnr(), reqidDraft);
                     if (info != null && info.getNome() != null && !info.getNome().trim().isEmpty()) {
-                        nomeRichiedente = reqidDraft + " \u2014 " + info.getNome().trim();
+                        nomeRichiedente = reqidDraft + " — " + info.getNome().trim();
                     }
                 }
             } catch (Exception e) {

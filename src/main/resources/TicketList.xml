@@ -8,6 +8,8 @@
 <t:button id="g_17m" actionListener="#{d.TicketListUI.backToMenu}" text="« Menu" width="80" />
 <t:coldistance id="g_3cd" width="100%" />
 <t:button id="g_18" actionListener="#{d.TicketListUI.refreshTickets}" text="Aggiorna" width="80" />
+<t:coldistance id="g_3cd2" width="8" />
+<t:button id="g_19" actionListener="#{d.TicketListUI.logout}" text="Logout" width="80" />
 </t:rowheader>
 <t:rowdistance id="g_20" height="10" />
 <t:rowbodypane id="g_30" >

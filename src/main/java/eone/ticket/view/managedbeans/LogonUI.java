@@ -6,6 +6,7 @@ import org.eclnt.editor.annotations.CCGenClass;
 import org.eclnt.jsfserver.base.faces.event.ActionEvent;
 import org.eclnt.jsfserver.defaultscreens.ModalPopup;
 import org.eclnt.jsfserver.defaultscreens.Statusbar;
+import org.eclnt.jsfserver.elements.util.Trigger;
 import org.eclnt.jsfserver.pagebean.PageBean;
 
 import eone.ticket.model.RequesterInfo;
@@ -20,6 +21,8 @@ import eone.ticket.service.RequesterService;
  *  - UserSessionData viene costruito dai campi di RequesterInfo
  *  - onRequestNewPasswordAction() apre un popup modale ChangePasswordUI
  *    (il link era già presente nell'XML ma non implementato)
+ *  - link alla documentazione PDF (file statico servito da Tomcat, stesso
+ *    meccanismo t:filedownload+Trigger già usato per gli allegati)
  */
 @CCGenClass(expressionBase = "#{d.LogonUI}")
 public class LogonUI extends PageBean implements Serializable {
@@ -49,6 +52,10 @@ public class LogonUI extends PageBean implements Serializable {
     private static final String FALLBACK_IMAGE = "/images/Sonia_Delaunay_Diagonale_1970.jpg";
     private static final int    IMAGE_COUNT    = 10;
     private String              m_backgroundImage = null;
+
+    // Documentazione PDF — file statico in /docs/, accanto a /images/
+    private static final String DOC_URL = "/docs/WebApp_ticketing_uso_interno.pdf";
+    private final Trigger m_docTrigger = new Trigger();
 
     // =========================================================
     // COSTRUTTORE
@@ -93,6 +100,19 @@ public class LogonUI extends PageBean implements Serializable {
     public void setPassword(String v)    { this.m_password = v; }
     public String getUserName()          { return m_userName; }
     public void setUserName(String v)    { this.m_userName = v; }
+
+    // =========================================================
+    // DOCUMENTAZIONE (PDF)
+    // =========================================================
+
+    public Trigger getDocTrigger() { return m_docTrigger; }
+    public String  getDocUrl()     { return DOC_URL; }
+
+    /** Apre (scarica/visualizza) il PDF di documentazione in una nuova scheda del browser. */
+    public void onOpenDocumentazione(ActionEvent ae) {
+        System.out.println("[LogonUI] onOpenDocumentazione — " + DOC_URL);
+        m_docTrigger.trigger();
+    }
 
     // =========================================================
     // AZIONI

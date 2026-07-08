@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <t:layoutdefinition xmlns:t="http://www.captaincasa.com/controllibrary/t" >
 
-<t:beanprocessing id="g_1" beanbinding="#{d.LogonUI}" />
+<t:beanprocessing id="g_1" beanbinding="#{d.LogonUI}" >
+<t:filedownload id="g_doc_dl" trigger="#{d.LogonUI.docTrigger}" url="#{d.LogonUI.docUrl}" />
+</t:beanprocessing>
 <t:row id="g_2" >
 <t:pane id="g_7" height="100%" width="50%" >
 <t:row id="g_32" >
@@ -26,6 +28,10 @@
 <t:rowdistance id="g_28" height="20" />
 <t:row id="g_29" >
 <t:link id="g_30" actionListener="#{d.LogonUI.onRequestNewPasswordAction}" font="size:10" text="Cambia password..." />
+</t:row>
+<t:rowdistance id="g_31d" height="8" />
+<t:row id="g_31l" >
+<t:link id="g_31" actionListener="#{d.LogonUI.onOpenDocumentazione}" font="size:10" text="Documentazione..." />
 </t:row>
 </t:foldablepane>
 <t:coldistance id="g_26" width="100%" />
