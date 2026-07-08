@@ -20,6 +20,15 @@ import eone.ticket.model.RequesterInfo;
  *  - autenticazione via bcrypt (sostituisce SAPLogonService per il logon)
  *  - cambio password
  *  - lookup nome richiedente per arricchimento lista ticket
+ *
+ * NOTA su "attivo": il flag riguarda solo l'accesso/logon dell'utente al
+ * tool ticket (confermato: attivo=false significa che l'utente non entra
+ * nemmeno nei ticket). Non ha nulla a che vedere con la validità come
+ * destinatario di notifica email. Per questo authenticate()/changePassword()
+ * filtrano su attivo=TRUE (è una questione di sicurezza del logon), mentre
+ * getById()/getByKunnrReqid() — usati solo per risolvere i destinatari delle
+ * notifiche — NON lo filtrano più: un AMS o un cliente senza accesso al tool
+ * può comunque essere un destinatario email valido.
  */
 public class RequesterService {
 
@@ -49,7 +58,7 @@ public class RequesterService {
         	System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
         	System.out.println(id_user.trim());
         	System.out.println("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
-        	
+
             ps.setString(1, id_user.trim());
 
             try (ResultSet rs = ps.executeQuery()) {
@@ -93,12 +102,15 @@ public class RequesterService {
     /**
      * Cerca un utente per id_user, senza verifica password.
      * Usato per risolvere i destinatari delle notifiche email (es. campo amusr).
+     *
+     * Non filtra su "attivo": un utente senza accesso al tool (es. un AMS
+     * censito solo per nome/email) resta comunque un destinatario email valido.
      */
     public RequesterInfo getById(String id_user) throws SQLException {
         if (id_user == null || id_user.trim().isEmpty()) return null;
 
         String sql = "SELECT id_user, kunnr, reqid, nome, email, password_hash, ruolo, vede_tutti, attivo " +
-                     "FROM ticket_user WHERE id_user = ? AND attivo = TRUE";
+                     "FROM ticket_user WHERE id_user = ?";
 
         try (Connection con = DBConfig.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
@@ -114,12 +126,21 @@ public class RequesterService {
      * Cerca il richiedente (CLIENTE) collegato a una coppia kunnr+reqid.
      * Usato per risolvere il destinatario cliente delle notifiche email.
      * Nota: reqid non è univoco da solo — kunnr+reqid identifica il richiedente.
+     *
+     * Il confronto su kunnr è fatto con LPAD a 10 cifre su entrambi i lati:
+     * il kunnr che arriva dal ticket (via SAP OData) può non essere
+     * zero-paddato a 10 cifre come invece è memorizzato in ticket_user
+     * (es. "3000004" vs "0003000004") — senza normalizzazione il match
+     * fallisce sempre pur trattandosi dello stesso cliente.
+     *
+     * Non filtra su "attivo" per lo stesso motivo di getById(): qui si
+     * risolve un destinatario di notifica, non un accesso al tool.
      */
     public RequesterInfo getByKunnrReqid(String kunnr, String reqid) throws SQLException {
         if (kunnr == null || reqid == null) return null;
 
         String sql = "SELECT id_user, kunnr, reqid, nome, email, password_hash, ruolo, vede_tutti, attivo " +
-                     "FROM ticket_user WHERE kunnr = ? AND reqid = ? AND attivo = TRUE LIMIT 1";
+                     "FROM ticket_user WHERE LPAD(kunnr, 10, '0') = LPAD(?, 10, '0') AND reqid = ? LIMIT 1";
 
         try (Connection con = DBConfig.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {

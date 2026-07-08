@@ -26,3 +26,12 @@ MAIL_FROM=noreply@eone.it
 # MAIL_DRY_RUN=true  -> logga l'email invece di inviarla (default se MAIL_HOST assente)
 # MAIL_DRY_RUN=false -> invia davvero tramite SMTP
 MAIL_DRY_RUN=true
+
+# --- SAP OData (S/4HC Public Edition, /TKM/CC_WEB_SRV) ---
+# Se queste chiavi mancano, SAPODataConfig usa i default cablati nel
+# codice (gli ultimi valori noti funzionanti) — l'app non si rompe,
+# ma a quel punto la configurazione reale è quella nel .java, non qui.
+SAP_BASE_URL=http://newton.domain.eonegroup.it:8001
+SAP_CLIENT=300
+SAP_USER=EONE
+SAP_PASS=changeme
