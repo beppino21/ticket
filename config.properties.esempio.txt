@@ -35,3 +35,9 @@ SAP_BASE_URL=http://newton.domain.eonegroup.it:8001
 SAP_CLIENT=300
 SAP_USER=EONE
 SAP_PASS=changeme
+
+# URL pubblico con cui il server ticket è raggiungibile dai browser degli
+# utenti (protocollo+host+porta+context path, SENZA slash finale). Usato per
+# costruire il link diretto al ticket nelle email di notifica.
+# Se non valorizzato, il link viene omesso dall'email (nessun errore bloccante).
+APP_BASE_URL=https://...sostituire con IP o URL...:50000/ticket

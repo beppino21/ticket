@@ -320,6 +320,9 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
 
     public void backToMenu(ActionEvent ae) {
         System.out.println("[TicketListUI] backToMenu() chiamato, listener=" + (m_listener != null));
+        if (ticketService != null) {
+            ticketService.close();
+        }
         if (m_listener != null) {
             m_listener.reactOnBackToMenu();
         }
@@ -332,6 +335,9 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
      */
     public void logout(ActionEvent ae) {
         System.out.println("[TicketListUI] logout() chiamato, listener=" + (m_listener != null));
+        if (ticketService != null) {
+            ticketService.close();
+        }
         if (m_listener != null) {
             m_listener.reactOnLogoutRequest();
         }
@@ -371,6 +377,40 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
     // =========================
     // PANNELLO COMMENTI INLINE
     // =========================
+
+    /**
+     * Seleziona e apre direttamente un ticket per numero — usato dal deep
+     * link nelle email ("Apri il ticket"). Se il ticket non è nella lista
+     * attiva (es. è chiuso), ritenta automaticamente nell'archivio prima di
+     * arrendersi, così il link funziona indipendentemente dallo stato.
+     */
+    public void selectAndOpenTicket(String tickt) {
+        if (tickt == null || tickt.trim().isEmpty()) return;
+        String target = tickt.trim();
+
+        GridTicketItem found = m_gridTickets.getItems().stream()
+            .filter(item -> target.equals(item.getTickt()))
+            .findFirst().orElse(null);
+
+        if (found == null && !m_archivio) {
+            // Non è tra i ticket attivi (esclude CLO) — potrebbe essere chiuso.
+            System.out.println("[TicketListUI] selectAndOpenTicket — non trovato tra gli attivi, ritento in archivio: " + target);
+            init(true);
+            found = m_gridTickets.getItems().stream()
+                .filter(item -> target.equals(item.getTickt()))
+                .findFirst().orElse(null);
+        }
+
+        if (found == null) {
+            Statusbar.outputWarning("Ticket " + target + " non trovato o non accessibile.");
+            System.err.println("[TicketListUI] selectAndOpenTicket — ticket non trovato: " + target);
+            return;
+        }
+
+        m_selectedTicketNumber = found.getTickt();
+        m_selectedTicketObj    = found.ticket;
+        openComments();
+    }
 
     public void openComments() {
         if (m_selectedTicketNumber == null || m_selectedTicketNumber.isEmpty()) {
@@ -652,7 +692,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
         init();
     }
 
-    public void refreshTickets() { init(); }
+    public void refreshTickets(ActionEvent ae) { init(); }
 
     // =========================
     // GETTERS / SETTERS

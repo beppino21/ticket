@@ -170,9 +170,12 @@ public class SAPTicketService {
             System.err.println("[TICKETS] ❌ " + errorMsg);
             e.printStackTrace();
             throw new Exception("Errore durante il recupero dei ticket", e);
-        } finally {
-            this.close();
         }
+        // Nota: niente this.close() qui — l'istanza di SAPTicketService (e il suo httpClient/
+        // connection pool) viene riusata per più chiamate successive sulla stessa pagina
+        // (es. click ripetuti su "Aggiorna"). Chiudere qui rompeva ogni chiamata successiva
+        // alla prima con "Connection pool shut down". La close() va invocata quando la pagina
+        // Ticket List viene abbandonata (vedi TicketListUI.backToMenu()/logout()).
 
         System.out.println("================================================================================");
         return ticketResponse;
@@ -242,15 +245,104 @@ public class SAPTicketService {
     }
 
     /**
+     * Normalizza un numero ticket nel formato usato realmente dal servizio
+     * OData per il campo Tickt.
+     *
+     * ATTENZIONE — comportamento controintuitivo confermato empiricamente:
+     * internamente in SAP (tabella, SE16) il campo è NUMC(10) con zero-padding
+     * (es. "0000000003"), ma il servizio OData custom lo ESPONE senza padding
+     * (la risposta JSON contiene "Tickt":"3", non "Tickt":"0000000003"), e la
+     * lettura per chiave composita Mandt+Tickt richiede anch'essa il valore
+     * SENZA padding. Un tentativo precedente di questo metodo faceva
+     * l'opposto (zero-padding a 10 cifre) partendo dall'assunzione — sbagliata
+     * — che l'OData rispecchiasse il formato NUMC interno: qui invece
+     * togliamo eventuali zeri iniziali, così l'utente può scrivere sia "3"
+     * che "0000000003" e in entrambi i casi arriviamo al valore che SAP
+     * realmente si aspetta/restituisce.
+     */
+    public static String normalizeTicktNumber(String raw) {
+        if (raw == null) return null;
+        String v = raw.trim();
+        if (v.matches("\\d+")) {
+            try {
+                return String.valueOf(Long.parseLong(v)); // toglie eventuali zeri iniziali
+            } catch (NumberFormatException e) {
+                return v; // troppo lungo per un long, lascialo inalterato
+            }
+        }
+        return v;
+    }
+
+    /**
      * Legge un singolo ticket SAP per numero (Tickt).
      * Usato dal Dispatcher per verificare richiedente e data prima della fusione.
      */
     public Ticket getTicketById(String tickt) throws Exception {
+        return getTicketById(tickt, null);
+    }
+
+    /**
+     * Come {@link #getTicketById(String)}, ma se si conosce già il Kunnr del
+     * cliente (es. quello del DRAFT da fondere) lo usa per restringere la
+     * ricerca lato SAP invece di scaricare l'intero elenco ticket.
+     *
+     * Necessario perché il filtro $filter=Tickt eq '...' viene ignorato dal
+     * servizio OData custom (confermato via test diretto su GetEntitySet e
+     * $metadata — GetEntity per chiave composita Mandt+Tickt non è nemmeno
+     * implementato lato ABAP). Kunnr invece risulta correttamente applicato
+     * (già usato altrove nell'app), quindi lo sfruttiamo come pre-filtro
+     * "vero" prima di cercare la corrispondenza esatta su Tickt lato client.
+     * Da rimuovere/semplificare se in futuro l'ABAP implementa il filtro
+     * su Tickt o il metodo GetEntity.
+     */
+    public Ticket getTicketById(String tickt, String kunnrHint) throws Exception {
         if (tickt == null || tickt.trim().isEmpty()) return null;
-        TicketResponse resp = getTickets(null, null, null, null, null, null,
-                                         "Tickt eq '" + tickt.trim() + "'");
-        if (resp.isSuccess() && resp.getTickets() != null && !resp.getTickets().isEmpty()) {
-            return resp.getTickets().get(0);
+        String target = normalizeTicktNumber(tickt.trim());
+
+        String extraFilter = "Tickt eq '" + target + "'"; // lasciato nell'URL per quando/se verrà onorato lato SAP
+
+        Ticket found = null;
+        if (kunnrHint != null && !kunnrHint.trim().isEmpty()) {
+            TicketResponse resp = getTickets(kunnrHint.trim(), null, null, null, null, null, extraFilter);
+            found = cercaCorrispondenzaEsatta(resp, target);
+        }
+        if (found == null) {
+            // Fallback su ricerca non ristretta: o non avevamo un hint, o il
+            // ticket non è tra quelli del Kunnr indicato — può succedere
+            // legittimamente (fusione con ticket di un cliente correlato ma
+            // diverso, già segnalata come warning sorpassabile più avanti in
+            // checkMergeWarnings). Non vogliamo un falso "non trovato" solo
+            // perché abbiamo ristretto la ricerca in modo troppo aggressivo.
+            TicketResponse resp = getTickets(null, null, null, null, null, null, extraFilter);
+            found = cercaCorrispondenzaEsatta(resp, target);
+        }
+        return found;
+    }
+
+    /**
+     * IMPORTANTE: non ci fidiamo che il $filter="Tickt eq ..." abbia
+     * realmente filtrato lato SAP. Evidenza empirica: sia con un numero
+     * inesistente sia con uno zero-paddato correttamente ma esistente,
+     * il servizio ha continuato a restituire risultati sganciati dal
+     * filtro — segno che la condizione "Tickt eq" viene ignorata dal
+     * Gateway/handler OData custom. Cerchiamo quindi la corrispondenza
+     * esatta in TUTTO ciò che è tornato, invece di fidarci che sia già
+     * filtrato e prendere il primo.
+     */
+    private Ticket cercaCorrispondenzaEsatta(TicketResponse resp, String target) {
+        if (!resp.isSuccess() || resp.getTickets() == null || resp.getTickets().isEmpty()) {
+            return null;
+        }
+        if (resp.getTickets().size() > 1) {
+            System.out.println("[TICKETS] getTicketById — il filtro Tickt eq '" + target +
+                "' ha restituito " + resp.getTickets().size() + " risultati (atteso 1) — " +
+                "probabile filtro ignorato lato SAP. Cerco corrispondenza esatta lato client.");
+        }
+        for (Ticket t : resp.getTickets()) {
+            String foundTickt = t.getTickt() != null ? t.getTickt().trim() : "";
+            if (target.equalsIgnoreCase(foundTickt)) {
+                return t;
+            }
         }
         return null;
     }

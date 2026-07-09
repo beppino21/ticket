@@ -37,6 +37,23 @@ public class RequesterService {
     // =========================================================
 
     /**
+     * Restituisce gli utenti DISPATCHER attivi con email valorizzata — usato
+     * per notificare la creazione di un nuovo ticket DRAFT da smistare.
+     */
+    public java.util.List<RequesterInfo> getActiveDispatchers() throws SQLException {
+        java.util.List<RequesterInfo> list = new java.util.ArrayList<>();
+        String sql = "SELECT id_user, kunnr, reqid, nome, email, password_hash, ruolo, vede_tutti, attivo, password_impostata_il, password_scadenza_giorni, password_non_scade " +
+                     "FROM ticket_user " +
+                     "WHERE ruolo = 'DISPATCHER' AND attivo = TRUE AND email IS NOT NULL AND email <> ''";
+        try (Connection con = DBConfig.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) list.add(mapRow(rs));
+        }
+        return list;
+    }
+
+    /**
      * Verifica credenziali di accesso contro ticket_user.
      *
      * @param reqid    username inserito dall'utente
@@ -48,7 +65,7 @@ public class RequesterService {
         if (id_user == null || id_user.trim().isEmpty()) return null;
         if (password == null || password.isEmpty())  return null;
 
-        String sql = "SELECT id_user, kunnr, reqid, nome, email, password_hash, ruolo, vede_tutti, attivo " +
+        String sql = "SELECT id_user, kunnr, reqid, nome, email, password_hash, ruolo, vede_tutti, attivo, password_impostata_il, password_scadenza_giorni, password_non_scade " +
                      "FROM ticket_user " +
                      "WHERE id_user = ? AND attivo = TRUE";
 
@@ -109,7 +126,7 @@ public class RequesterService {
     public RequesterInfo getById(String id_user) throws SQLException {
         if (id_user == null || id_user.trim().isEmpty()) return null;
 
-        String sql = "SELECT id_user, kunnr, reqid, nome, email, password_hash, ruolo, vede_tutti, attivo " +
+        String sql = "SELECT id_user, kunnr, reqid, nome, email, password_hash, ruolo, vede_tutti, attivo, password_impostata_il, password_scadenza_giorni, password_non_scade " +
                      "FROM ticket_user WHERE id_user = ?";
 
         try (Connection con = DBConfig.getConnection();
@@ -139,7 +156,7 @@ public class RequesterService {
     public RequesterInfo getByKunnrReqid(String kunnr, String reqid) throws SQLException {
         if (kunnr == null || reqid == null) return null;
 
-        String sql = "SELECT id_user, kunnr, reqid, nome, email, password_hash, ruolo, vede_tutti, attivo " +
+        String sql = "SELECT id_user, kunnr, reqid, nome, email, password_hash, ruolo, vede_tutti, attivo, password_impostata_il, password_scadenza_giorni, password_non_scade " +
                      "FROM ticket_user WHERE LPAD(kunnr, 10, '0') = LPAD(?, 10, '0') AND reqid = ? LIMIT 1";
 
         try (Connection con = DBConfig.getConnection();
@@ -163,6 +180,10 @@ public class RequesterService {
         info.setEmail    (rs.getString  ("email"));
         info.setRuolo    (rs.getString  ("ruolo"));
         info.setVedeTutti(rs.getBoolean ("vede_tutti"));
+        java.sql.Timestamp impostataIl = rs.getTimestamp("password_impostata_il");
+        if (impostataIl != null) info.setPasswordImpostataIl(impostataIl.toLocalDateTime());
+        info.setPasswordScadenzaGiorni(rs.getInt("password_scadenza_giorni"));
+        info.setPasswordNonScade(rs.getBoolean("password_non_scade"));
         return info;
     }
 
@@ -192,8 +213,9 @@ public class RequesterService {
         // Hash della nuova password
         String newHash = BCrypt.hashpw(newPassword, BCrypt.gensalt(12));
 
-        String sql = "UPDATE ticket_user SET password_hash = ?, updated_at = NOW() " +
-                     "WHERE id_user = ? AND attivo = TRUE";
+        String sql = "UPDATE ticket_user SET password_hash = ?, password_impostata_il = NOW(), updated_at = NOW() " +
+                     "WHERE id_user = ? AND attivo = TRUE"; // password_impostata_il = NOW() qui azzera automaticamente
+                                                             // lo stato di scadenza — nessun flag da ripulire a parte
 
         try (Connection con = DBConfig.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {

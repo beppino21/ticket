@@ -181,18 +181,20 @@ public class TicketDraftService {
     }
 
     /**
-     * Raccoglie tutti i warning prima della fusione DRAFT → ticket SAP.
-     * Restituisce una lista di messaggi (vuota = tutto ok, procedi pure).
-     * Controlla:
+     * Raccoglie i warning "sorpassabili" prima della fusione DRAFT → ticket SAP
+     * (il dispatcher li vede ma può comunque decidere di procedere):
      *   1. Commenti già esistenti sul ticket SAP
      *   2. Richiedente SAP diverso da quello del DRAFT
      *   3. Data creazione ticket SAP precedente alla creazione del DRAFT
      *
-     * Il Dispatcher vede tutti i warning ma può comunque procedere.
+     * Se invece il ticket SAP non esiste (o non è leggibile), NON viene
+     * aggiunto alla lista dei warning: viene lanciata TicketSapNotFoundException,
+     * perché in quel caso non c'è nulla con cui fondere il DRAFT — non è un
+     * giudizio di merito sorpassabile con "conferma".
      */
     public List<String> checkMergeWarnings(long draftId, String ticktSap,
                                            eone.ticket.service.SAPTicketService sapService)
-            throws Exception {
+            throws TicketSapNotFoundException, Exception {
 
         List<String> warnings = new ArrayList<>();
 
@@ -219,17 +221,25 @@ public class TicketDraftService {
         // Legge il ticket SAP per i controlli 2 e 3
         eone.ticket.model.Ticket ticketSap = null;
         try {
-            ticketSap = sapService.getTicketById(ticktSap);
+            // Se conosciamo già il Kunnr del DRAFT, lo passiamo come suggerimento:
+            // restringe la ricerca lato SAP invece di scaricare l'intero elenco
+            // ticket del sistema (vedi commento in SAPTicketService.getTicketById).
+            String kunnrHint = (draft != null) ? draft.getKunnr() : null;
+            ticketSap = sapService.getTicketById(ticktSap, kunnrHint);
         } catch (Exception e) {
-            warnings.add("⚠ Impossibile leggere il ticket SAP " + ticktSap +
-                         " per verificare richiedente e data: " + e.getMessage());
-            return warnings; // non possiamo fare gli altri controlli
+            // Non è un giudizio di merito che il dispatcher può ignorare: se non
+            // riusciamo a leggerlo, non sappiamo nemmeno se esiste — blocco vero.
+            throw new TicketSapNotFoundException(
+                "Impossibile leggere il ticket SAP " + ticktSap + " (verificare il numero): " +
+                e.getMessage(), e);
         }
 
         if (ticketSap == null) {
-            warnings.add("⚠ Il ticket SAP " + ticktSap + " non è stato trovato nel sistema." +
-                         " Verificare che il numero sia corretto.");
-            return warnings;
+            // Idem: nessun ticket con cui fondere il DRAFT — non è "procedi comunque",
+            // altrimenti il DRAFT verrebbe marcato MERGED verso un ticket fantasma.
+            throw new TicketSapNotFoundException(
+                "Il ticket SAP " + ticktSap + " non è stato trovato nel sistema. " +
+                "Verificare che il numero sia corretto.");
         }
 
         // 2. Richiedente diverso

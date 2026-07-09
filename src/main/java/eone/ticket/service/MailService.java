@@ -105,7 +105,27 @@ public class MailService {
         if (allegati != null && !allegati.isEmpty()) {
             sb.append("\nAllegati: ").append(allegati.size());
         }
+        String link = buildTicketLink(tickt);
+        if (link != null) {
+            sb.append("\n\nApri il ticket: ").append(link);
+        }
         return sb.toString();
+    }
+
+    /**
+     * Costruisce il link diretto al ticket (deep link, letto da OutestUI al
+     * primo accesso e usato per aprire subito il ticket dopo il logon).
+     * Torna null se APP_BASE_URL non è configurato — l'email viene comunque
+     * inviata, semplicemente senza il link.
+     */
+    private String buildTicketLink(String tickt) {
+        String baseUrl = AppConfig.get("APP_BASE_URL", null);
+        if (baseUrl == null || baseUrl.trim().isEmpty() || tickt == null || tickt.trim().isEmpty()) {
+            return null;
+        }
+        String base = baseUrl.trim();
+        if (base.endsWith("/")) base = base.substring(0, base.length() - 1);
+        return base + "/Outest.risc?ticket=" + tickt.trim();
     }
 
     private void send(String toEmail, String subject, String body,

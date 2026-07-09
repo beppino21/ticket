@@ -29,6 +29,7 @@ import java.util.Properties;
  *   MAIL_PASS=********
  *   MAIL_FROM=noreply@eone.it
  *   MAIL_DRY_RUN=true
+ *   APP_BASE_URL=https://ticket.lamplast.it:50000/ticket
  */
 public class AppConfig {
 

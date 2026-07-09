@@ -1,6 +1,8 @@
 package eone.ticket.model;
 
 import java.io.Serializable;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 
 /**
  * Dati dell'utente letti da ticket_requester dopo autenticazione.
@@ -17,6 +19,13 @@ public class RequesterInfo implements Serializable {
     private String  email;
     private String  ruolo;       // CLIENTE | AMS | ADMIN
     private boolean vedeTutti;   // true = vede tutti i ticket del cliente
+
+    // --- Policy password (v3) ---------------------------------
+    // Nessun flag "deve cambiare password" a parte: tutto si deriva da
+    // questi 3 campi, per evitare due fonti di verità sullo stesso stato.
+    private LocalDateTime passwordImpostataIl;
+    private int           passwordScadenzaGiorni = 90;
+    private boolean       passwordNonScade;
 
     // =========================================================
     // BUSINESS LOGIC
@@ -45,6 +54,33 @@ public class RequesterInfo implements Serializable {
         return (nome != null && !nome.trim().isEmpty()) ? nome.trim() : reqid;
     }
 
+    // --- Policy password: logica derivata, nessuno stato duplicato ---
+
+    /** Data di scadenza calcolata (irrilevante se passwordNonScade=true). */
+    private LocalDateTime getDataScadenza() {
+        LocalDateTime base = passwordImpostataIl != null ? passwordImpostataIl : LocalDateTime.now();
+        return base.plusDays(passwordScadenzaGiorni);
+    }
+
+    /** True se la password è scaduta. Mai true se passwordNonScade=true. */
+    public boolean isPasswordScaduta() {
+        if (passwordNonScade) return false;
+        return getDataScadenza().isBefore(LocalDateTime.now());
+    }
+
+    /** Giorni mancanti alla scadenza (negativo se già scaduta). Long.MAX_VALUE se non scade mai. */
+    public long getGiorniAllaScadenzaPassword() {
+        if (passwordNonScade) return Long.MAX_VALUE;
+        return ChronoUnit.DAYS.between(LocalDateTime.now(), getDataScadenza());
+    }
+
+    /** True negli ultimi 10 giorni prima della scadenza (non ancora scaduta). */
+    public boolean isPasswordInAvvisoScadenza() {
+        if (passwordNonScade) return false;
+        long giorni = getGiorniAllaScadenzaPassword();
+        return giorni >= 0 && giorni <= 10;
+    }
+
     // =========================================================
     // GETTERS / SETTERS
     // =========================================================
@@ -69,6 +105,15 @@ public class RequesterInfo implements Serializable {
 
     public boolean isVedeTutti()        { return vedeTutti; }
     public void setVedeTutti(boolean v) { this.vedeTutti = v; }
+
+    public LocalDateTime getPasswordImpostataIl()        { return passwordImpostataIl; }
+    public void setPasswordImpostataIl(LocalDateTime v)  { this.passwordImpostataIl = v; }
+
+    public int getPasswordScadenzaGiorni()               { return passwordScadenzaGiorni; }
+    public void setPasswordScadenzaGiorni(int v)         { this.passwordScadenzaGiorni = v; }
+
+    public boolean isPasswordNonScade()                  { return passwordNonScade; }
+    public void setPasswordNonScade(boolean v)           { this.passwordNonScade = v; }
 
     @Override
     public String toString() {

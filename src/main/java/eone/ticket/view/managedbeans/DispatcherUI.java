@@ -150,6 +150,24 @@ public class DispatcherUI extends WorkpageDispatchedPageBean implements Serializ
         loadDrafts();
     }
 
+    /**
+     * Seleziona un DRAFT per chiave (es. "DRAFT-42") — usato dal deep link
+     * nella mail di notifica al DISPATCHER. Se non lo trova (es. già
+     * smistato da un collega nel frattempo), avvisa senza bloccare la vista.
+     */
+    public void selectDraft(String ticktKey) {
+        if (ticktKey == null || ticktKey.trim().isEmpty()) return;
+        String target = ticktKey.trim();
+        for (GridDraftItem item : m_gridDrafts.getItems()) {
+            if (target.equals(item.getTicktKey())) {
+                item.onRowSelect();
+                return;
+            }
+        }
+        Statusbar.outputWarning("Il DRAFT " + target + " non è (più) in attesa di smistamento " +
+                                "— probabilmente è già stato gestito.");
+    }
+
     public void mergeDraft(ActionEvent ae) {
         if (m_selectedItem == null) {
             Statusbar.outputWarning("Selezionare un ticket DRAFT dalla lista");
@@ -161,10 +179,20 @@ public class DispatcherUI extends WorkpageDispatchedPageBean implements Serializ
         }
 
         long draftId = m_selectedItem.getId();
-        String ticktSap = m_ticktSapInput.trim();
+        // Normalizza SUBITO (formato realmente usato dall'OData SAP — senza
+        // zero-padding, es. "0000000003" -> "3", vedi commento in
+        // SAPTicketService.normalizeTicktNumber) così il valore usato per la
+        // verifica SAP, i messaggi e la scrittura su DB (tickt_sap +
+        // migrazione commenti) è sempre lo stesso, coerente col formato
+        // realmente restituito da SAP — altrimenti si rischia di salvare un
+        // formato nel DRAFT diverso da quello con cui il ticket è effettivamente
+        // indicizzato altrove nell'app: commenti migrati non più visibili
+        // sotto il ticket giusto, deep-link email rotto, ecc.
+        String ticktSap = eone.ticket.service.SAPTicketService.normalizeTicktNumber(m_ticktSapInput.trim());
+        m_ticktSapInput = ticktSap; // riflette il valore normalizzato anche in UI
 
         try {
-            // Raccoglie tutti i warning (commenti, richiedente, data)
+            // Raccoglie tutti i warning "sorpassabili" (commenti, richiedente, data)
             m_mergeWarnings = draftService.checkMergeWarnings(draftId, ticktSap, sapService);
             if (!m_mergeWarnings.isEmpty()) {
                 m_waitingConfirm = true;
@@ -175,6 +203,16 @@ public class DispatcherUI extends WorkpageDispatchedPageBean implements Serializ
             // Nessun warning — procede direttamente
             eseguiFusione(draftId, ticktSap);
 
+        } catch (eone.ticket.service.TicketSapNotFoundException e) {
+            // Blocco vero: senza un ticket SAP esistente non c'è nulla con cui
+            // fondere il DRAFT. Niente "conferma e procedi" per questo caso —
+            // altrimenti il DRAFT verrebbe marcato MERGED verso un ticket
+            // fantasma e sparirebbe dalla lista senza che la fusione sia
+            // avvenuta davvero.
+            m_waitingConfirm = false;
+            m_mergeWarnings.clear();
+            Statusbar.outputError(e.getMessage());
+            System.err.println("[DispatcherUI] Ticket SAP non trovato: " + e.getMessage());
         } catch (Exception e) {
             Statusbar.outputError("Errore controllo ticket SAP: " + e.getMessage());
             System.err.println("[DispatcherUI] Errore controllo: " + e.getMessage());

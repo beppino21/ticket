@@ -103,6 +103,9 @@ CREATE TABLE IF NOT EXISTS ticket_user (
     ruolo         VARCHAR(15)   NOT NULL CHECK (ruolo IN ('CLIENTE','AMS','ADMIN','DISPATCHER')),
     vede_tutti    BOOLEAN       NOT NULL DEFAULT FALSE,
     attivo        BOOLEAN       NOT NULL DEFAULT TRUE,
+    password_impostata_il    TIMESTAMP NOT NULL DEFAULT NOW(),  -- v3: policy scadenza password
+    password_scadenza_giorni INTEGER   NOT NULL DEFAULT 90,      -- v3: periodicità in giorni
+    password_non_scade       BOOLEAN   NOT NULL DEFAULT FALSE,   -- v3: TRUE = esente da scadenza
     created_at    TIMESTAMP     NOT NULL DEFAULT NOW(),
     updated_at    TIMESTAMP     NOT NULL DEFAULT NOW()
 );

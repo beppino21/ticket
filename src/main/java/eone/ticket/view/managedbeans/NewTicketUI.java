@@ -15,11 +15,13 @@ import org.eclnt.jsfserver.pagebean.PageBean;
 import org.eclnt.jsfserver.util.tempfile.TempFileManager;
 
 import eone.ticket.context.ViewSessionContext;
+import eone.ticket.model.RequesterInfo;
 import eone.ticket.model.TicketAttachment;
 import eone.ticket.model.TicketComment;
 import eone.ticket.model.TicketDraft;
 import eone.ticket.service.CommentService;
 import eone.ticket.service.MailService;
+import eone.ticket.service.RequesterService;
 import eone.ticket.service.TicketDraftService;
 
 /**
@@ -43,6 +45,7 @@ public class NewTicketUI extends PageBean implements Serializable {
     private final TicketDraftService draftService   = new TicketDraftService();
     private final CommentService     commentService  = new CommentService();
     private final MailService        mailService     = new MailService();
+    private final RequesterService   requesterService = new RequesterService();
 
     private String m_titolo;
     private String m_commentoTesto;
@@ -133,15 +136,47 @@ public class NewTicketUI extends PageBean implements Serializable {
             System.out.println("[NewTicketUI] Draft creato: DRAFT-" + draftId +
                                " da utente " + ctx.getUsername());
 
-            // 3. Notifica (dry-run finché SMTP non configurato)
-            // Il DISPATCHER non ha ancora un id_user specifico qui —
-            // la notifica al DISPATCHER è opzionale in questa fase.
+            // 3. Notifica ai DISPATCHER attivi — stesso formato/meccanismo usato
+            // per l'interlocuzione CLIENTE↔AMS. Un errore di invio non deve far
+            // fallire la creazione del DRAFT (già avvenuta) — viene solo loggato.
+            inviaNotificaDispatcher(draft, comment, m_pendingAttachments);
 
             if (m_listener != null) m_listener.reactOnDraftCreated(draftId);
 
         } catch (Exception e) {
             Statusbar.outputError("Errore creazione ticket: " + e.getMessage());
             System.err.println("[NewTicketUI] Errore saveDraft: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Notifica via email tutti gli utenti DISPATCHER attivi che un nuovo
+     * DRAFT è in attesa di smistamento — stesso meccanismo/formato usato
+     * per l'interlocuzione CLIENTE↔AMS (MailService.sendNotificaCommento).
+     * Non blocca la creazione del DRAFT in caso di errore: viene solo loggato.
+     */
+    private void inviaNotificaDispatcher(TicketDraft draft, TicketComment comment,
+                                          List<TicketAttachment> allegati) {
+        try {
+            List<RequesterInfo> dispatchers = requesterService.getActiveDispatchers();
+            if (dispatchers.isEmpty()) {
+                System.out.println("[NewTicketUI] Notifica DISPATCHER saltata: nessun utente DISPATCHER attivo con email");
+                return;
+            }
+            for (RequesterInfo dispatcher : dispatchers) {
+                if (dispatcher.getEmail() == null || dispatcher.getEmail().trim().isEmpty()) continue;
+                try {
+                    mailService.sendNotificaCommento(
+                        dispatcher.getEmail(), draft.getTicktKey(), comment.getStatoTicketLabel(),
+                        comment.getAutoreId(), comment.getTesto(), allegati);
+                } catch (Exception e) {
+                    System.err.println("[NewTicketUI] Errore invio notifica a DISPATCHER " +
+                        dispatcher.getId_user() + ": " + e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[NewTicketUI] Errore recupero DISPATCHER per notifica: " + e.getMessage());
             e.printStackTrace();
         }
     }

@@ -2,6 +2,21 @@
 <t:layoutdefinition xmlns:t="http://www.captaincasa.com/controllibrary/t" >
 
 <t:rowtitlebar id="m_1" text="Benvenuto, #{d.MenuUI.utenteLabel}" />
+<t:rowheader id="m_1h" >
+<t:coldistance id="m_1h_cd" width="100%" />
+<t:button id="m_1h_logout" actionListener="#{d.MenuUI.logout}" text="Logout" width="80" />
+</t:rowheader>
+<t:rowdistance id="m_1h_d" height="10" />
+<t:row id="m_pwd_warn_row" rendered="#{d.MenuUI.passwordWarningVisible}" >
+<t:pane id="m_pwd_warn" background="#FFF3CD" border="#FFECB5" padding="10" width="100%" >
+<t:row id="m_pwd_warn_r" >
+<t:label id="m_pwd_warn_lbl" font="size:12;color:#856404" text="#{d.MenuUI.passwordWarningMessage}" />
+<t:coldistance id="m_pwd_warn_cd" width="100%" />
+<t:button id="m_pwd_warn_btn" actionListener="#{d.MenuUI.onCambiaPasswordClick}" text="Cambia password" width="130" />
+</t:row>
+</t:pane>
+</t:row>
+<t:rowdistance id="m_pwd_warn_d" height="10" rendered="#{d.MenuUI.passwordWarningVisible}" />
 <t:rowbodypane id="m_2" padding="20" >
 <t:row id="m_3" >
 <t:label id="m_4" font="size:14;weight:bold;color:#555555" text="Cosa vuoi fare?" />
