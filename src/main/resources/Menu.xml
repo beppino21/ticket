@@ -53,6 +53,11 @@
 </t:row>
 <t:rowdistance id="m_sum_rep_d" height="5" />
 </t:repeat>
+<t:rowdistance id="m_sum_sost_d" height="9" rendered="#{d.MenuUI.hasSostituiti}" />
+<t:row id="m_sum_sost_r" coldistance="8" rendered="#{d.MenuUI.hasSostituiti}" >
+<t:label id="m_sum_sost_lbl" background="#FFF59D" font="size:20;weight:bold;color:#7A6A00" text="DA SOSTITUZIONI" width="200" />
+<t:label id="m_sum_sost_cnt" align="right!" font="size:24;weight:bold;color:#7A6A00" text="#{d.MenuUI.summarySostituiti}" width="50" />
+</t:row>
 </t:pane>
 </t:row>
 </t:pane>

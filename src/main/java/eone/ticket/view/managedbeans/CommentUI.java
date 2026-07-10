@@ -51,6 +51,7 @@ public class CommentUI extends PageBean implements Serializable {
     private final CommentService commentService = new CommentService();
     private final RequesterService requesterService = new RequesterService();
     private final MailService mailService = new MailService();
+    private final eone.ticket.service.SubstitutionService substitutionService = new eone.ticket.service.SubstitutionService();
 
     private String m_currentTickt;
     private String m_currentKunnr;
@@ -309,8 +310,12 @@ public class CommentUI extends PageBean implements Serializable {
     /**
      * Risolve i destinatari (cliente collegato via kunnr+reqid, AMS assegnato
      * via amusr) ed invia la notifica email per ciascuno, escludendo l'autore
-     * del commento stesso. Errori nella notifica non bloccano il salvataggio
-     * (già avvenuto) — vengono solo loggati.
+     * del commento stesso. Se il destinatario ha attualmente un sostituto
+     * attivo (vedi funzionalità "Sostituzione temporanea"), la stessa
+     * notifica viene inoltrata anche a lui — il sostituto deve essere
+     * informato dei ticket di cui si sta facendo carico, non solo vederli
+     * in lista. Errori nella notifica non bloccano il salvataggio (già
+     * avvenuto) — vengono solo loggati.
      */
     private void inviaNotifiche(TicketComment comment, List<TicketAttachment> allegati) {
         String autoreId = comment.getAutoreId();
@@ -320,15 +325,11 @@ public class CommentUI extends PageBean implements Serializable {
         try {
             if (m_currentKunnr != null && m_currentReqid != null) {
                 RequesterInfo cliente = requesterService.getByKunnrReqid(m_currentKunnr, m_currentReqid);
-                if (cliente != null
-                        && !java.util.Objects.equals(cliente.getId_user(), autoreId)
-                        && cliente.getEmail() != null && !cliente.getEmail().trim().isEmpty()) {
-                    mailService.sendNotificaCommento(
-                        cliente.getEmail(), m_currentTickt, statoLabel,
-                        autoreId, comment.getTesto(), allegati);
+                if (cliente != null) {
+                    notificaConEventualeSostituto(cliente, autoreId, statoLabel, comment.getTesto(), allegati, "CLIENTE");
                 } else {
-                    System.out.println("[CommentUI] Notifica CLIENTE saltata (autore stesso, email mancante, o utente non trovato per kunnr="
-                        + m_currentKunnr + " reqid=" + m_currentReqid + ")");
+                    System.out.println("[CommentUI] Notifica CLIENTE saltata: utente non trovato per kunnr=" +
+                        m_currentKunnr + " reqid=" + m_currentReqid);
                 }
             } else {
                 System.out.println("[CommentUI] Notifica CLIENTE saltata: kunnr/reqid del ticket non disponibili");
@@ -342,15 +343,10 @@ public class CommentUI extends PageBean implements Serializable {
         try {
             if (m_currentAmusr != null && !m_currentAmusr.trim().isEmpty()) {
                 RequesterInfo ams = requesterService.getById(m_currentAmusr);
-                if (ams != null
-                        && !java.util.Objects.equals(ams.getId_user(), autoreId)
-                        && ams.getEmail() != null && !ams.getEmail().trim().isEmpty()) {
-                    mailService.sendNotificaCommento(
-                        ams.getEmail(), m_currentTickt, statoLabel,
-                        autoreId, comment.getTesto(), allegati);
+                if (ams != null) {
+                    notificaConEventualeSostituto(ams, autoreId, statoLabel, comment.getTesto(), allegati, "AMS");
                 } else {
-                    System.out.println("[CommentUI] Notifica AMS saltata (autore stesso, email mancante, o utente non trovato per amusr="
-                        + m_currentAmusr + ")");
+                    System.out.println("[CommentUI] Notifica AMS saltata: utente non trovato per amusr=" + m_currentAmusr);
                 }
             } else {
                 System.out.println("[CommentUI] Notifica AMS saltata: campo amusr del ticket non disponibile");
@@ -358,6 +354,48 @@ public class CommentUI extends PageBean implements Serializable {
         } catch (Exception e) {
             System.err.println("[CommentUI] Errore invio notifica AMS: " + e.getMessage());
             e.printStackTrace();
+        }
+    }
+
+    /**
+     * Invia la notifica al destinatario (se non è lui stesso l'autore e ha
+     * un'email valida) e, separatamente, al suo eventuale sostituto attivo
+     * oggi — indipendentemente dal fatto che il destinatario principale
+     * l'abbia ricevuta o meno (es. email mancante non deve impedire che il
+     * sostituto, che sta operativamente seguendo il ticket, sia informato).
+     */
+    private void notificaConEventualeSostituto(RequesterInfo destinatario, String autoreId, String statoLabel,
+                                                String testo, List<TicketAttachment> allegati, String labelRuolo) {
+        boolean autoreEDestinatario = java.util.Objects.equals(destinatario.getId_user(), autoreId);
+        if (!autoreEDestinatario && destinatario.getEmail() != null && !destinatario.getEmail().trim().isEmpty()) {
+            try {
+                mailService.sendNotificaCommento(destinatario.getEmail(), m_currentTickt, statoLabel, autoreId, testo, allegati);
+            } catch (Exception e) {
+                System.err.println("[CommentUI] Errore invio notifica " + labelRuolo + " a " +
+                    destinatario.getId_user() + ": " + e.getMessage());
+            }
+        } else {
+            System.out.println("[CommentUI] Notifica " + labelRuolo + " a " + destinatario.getId_user() +
+                " saltata (autore stesso o email mancante)");
+        }
+
+        // Inoltra anche al sostituto attivo del destinatario, se presente
+        try {
+            String idSostituto = substitutionService.getSostitutoAttivo(destinatario.getId_user());
+            if (idSostituto != null && !idSostituto.trim().isEmpty() && !idSostituto.equalsIgnoreCase(autoreId)) {
+                RequesterInfo sostituto = requesterService.getById(idSostituto);
+                if (sostituto != null && sostituto.getEmail() != null && !sostituto.getEmail().trim().isEmpty()) {
+                    mailService.sendNotificaCommento(sostituto.getEmail(), m_currentTickt, statoLabel, autoreId, testo, allegati);
+                    System.out.println("[CommentUI] Notifica " + labelRuolo + " inoltrata anche al sostituto " +
+                        idSostituto + " (di " + destinatario.getId_user() + ")");
+                } else {
+                    System.out.println("[CommentUI] Sostituto " + idSostituto + " di " + destinatario.getId_user() +
+                        " senza email valida — notifica non inoltrata");
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[CommentUI] Errore invio notifica al sostituto di " +
+                destinatario.getId_user() + ": " + e.getMessage());
         }
     }
 

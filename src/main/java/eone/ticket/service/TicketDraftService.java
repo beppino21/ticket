@@ -62,6 +62,26 @@ public class TicketDraftService {
         return queryList(sql, kunnr, reqid);
     }
 
+    /**
+     * Come {@link #getDraftsByRequester}, ma per più reqid contemporaneamente —
+     * usato per includere i DRAFT dei colleghi attualmente sostituiti.
+     */
+    public List<TicketDraft> getDraftsByRequesters(String kunnr, List<String> reqids) throws SQLException {
+        if (reqids == null || reqids.isEmpty()) return new ArrayList<>();
+        StringBuilder placeholders = new StringBuilder();
+        for (int i = 0; i < reqids.size(); i++) {
+            if (i > 0) placeholders.append(",");
+            placeholders.append("?");
+        }
+        String sql = "SELECT id, kunnr, reqid, id_user, titolo, stato, tickt_sap, created_at, updated_at " +
+                     "FROM ticket_draft WHERE kunnr = ? AND reqid IN (" + placeholders + ") " +
+                     "ORDER BY created_at DESC";
+        List<String> params = new ArrayList<>();
+        params.add(kunnr);
+        params.addAll(reqids);
+        return queryList(sql, params.toArray(new String[0]));
+    }
+
     /** Solo i DRAFT in stato DRAFT — per il DISPATCHER. */
     public List<TicketDraft> getPendingDrafts() throws SQLException {
         String sql = "SELECT id, kunnr, reqid, id_user, titolo, stato, tickt_sap, created_at, updated_at " +

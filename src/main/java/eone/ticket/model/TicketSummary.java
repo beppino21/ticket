@@ -34,11 +34,23 @@ public class TicketSummary implements Serializable {
 
     private int totaleSAP   = 0;
     private int totaleDraft = 0;
+    private int sostituitiCount = 0;
     private final List<StatoCount> voci = new ArrayList<>();
 
     public static TicketSummary build(List<Ticket> tickets, int draftCount) {
+        return build(tickets, draftCount, 0);
+    }
+
+    /**
+     * @param sostituitiCount quanti dei ticket/draft passati appartengono a
+     *                        colleghi attualmente sostituiti dall'utente
+     *                        (già inclusi in tickets/draftCount — non un
+     *                        totale a parte, solo per l'indicazione a menu).
+     */
+    public static TicketSummary build(List<Ticket> tickets, int draftCount, int sostituitiCount) {
         TicketSummary s = new TicketSummary();
         s.totaleDraft = draftCount;
+        s.sostituitiCount = sostituitiCount;
         if (tickets == null) return s;
         s.totaleSAP = tickets.size();
 
@@ -68,5 +80,6 @@ public class TicketSummary implements Serializable {
     public int getTotaleSAP()       { return totaleSAP; }
     public int getTotaleDraft()     { return totaleDraft; }
     public int getTotale()          { return totaleSAP + totaleDraft; }
+    public int getSostituitiCount() { return sostituitiCount; }
     public List<StatoCount> getVoci() { return voci; }
 }

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<t:layoutdefinition xmlns:t="http://www.captaincasa.com/controllibrary/t" >
+
+<t:beanprocessing id="su_0" beanbinding="#{d.SubstitutionUI}" />
+<t:rowtitlebar id="su_1" text="Sostituzione temporanea" />
+<t:rowheader id="su_h" >
+<t:button id="su_back" actionListener="#{d.SubstitutionUI.backToMenu}" text="« Menu" width="80" />
+</t:rowheader>
+<t:rowbodypane id="su_body" padding="20" >
+<t:row id="su_intro" >
+<t:label id="su_intro_lbl" font="size:12;color:#666666" text="Definisci chi vedrà (in aggiunta ai propri) i tuoi ticket per un periodo determinato." width="100%" />
+</t:row>
+<t:rowdistance id="su_d0" height="16" />
+<t:row id="su_esist" rendered="#{d.SubstitutionUI.hasEsistente}" >
+<t:pane id="su_esist_pane" background="#E3F2FD" border="#90CAF9" padding="10" width="100%" >
+<t:label id="su_esist_lbl" font="weight:bold;color:#1565C0" text="#{d.SubstitutionUI.esistenteRiepilogo}" />
+</t:pane>
+</t:row>
+<t:rowdistance id="su_d1" height="16" rendered="#{d.SubstitutionUI.hasEsistente}" />
+<t:row id="su_r1" coldistance="8" >
+<t:label id="su_r1_lbl" labeltext="Sostituto:" width="120" />
+<t:combobox id="su_r1_combo" flush="true" validvaluesbinding="#{d.SubstitutionUI.sostitutoVVS}" value="#{d.SubstitutionUI.idUserSostituto}" width="260" withnullitem="true" />
+</t:row>
+<t:rowdistance id="su_d2" height="4" />
+<t:row id="su_r1_hint" >
+<t:coldistance id="su_r1_hint_cd" width="128" />
+<t:label id="su_r1_hint_lbl" font="size:10;color:#888888" text="#{d.SubstitutionUI.sostitutoHint}" />
+</t:row>
+<t:rowdistance id="su_d3" height="16" />
+<t:row id="su_r2" coldistance="8" >
+<t:label id="su_r2_lbl" labeltext="Dal:" width="120" />
+<t:calendarfield id="su_r2_cal" flush="true" timezone="LOCAL" value="#{d.SubstitutionUI.dataInizio}" width="140" />
+<t:coldistance id="su_r2_cd" width="20" />
+<t:label id="su_r3_lbl" labeltext="Al:" width="30" />
+<t:calendarfield id="su_r3_cal" flush="true" timezone="LOCAL" value="#{d.SubstitutionUI.dataFine}" width="140" />
+</t:row>
+<t:rowdistance id="su_d4" height="4" />
+<t:row id="su_r2_hint" >
+<t:coldistance id="su_r2_hint_cd" width="128" />
+<t:label id="su_r2_hint_lbl" font="size:10;color:#888888" text="Estremi inclusi: il sostituto vedrà i tuoi ticket anche il primo e l&#39;ultimo giorno." />
+</t:row>
+<t:rowdistance id="su_d5" height="20" />
+<t:row id="su_r3" coldistance="8" >
+<t:coldistance id="su_r3_cd" width="120" />
+<t:button id="su_save_btn" actionListener="#{d.SubstitutionUI.salva}" text="Salva »" width="120" />
+<t:button id="su_cancel_btn" actionListener="#{d.SubstitutionUI.annulla}" rendered="#{d.SubstitutionUI.hasEsistente}" text="Rimuovi sostituzione" width="160" />
+</t:row>
+</t:rowbodypane>
+
+</t:layoutdefinition>

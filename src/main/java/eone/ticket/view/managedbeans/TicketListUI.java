@@ -4,7 +4,9 @@ import java.io.Serializable;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.eclnt.editor.annotations.CCGenClass;
 import org.eclnt.jsfserver.base.faces.event.ActionEvent;
@@ -23,6 +25,7 @@ import eone.ticket.service.EnrichmentService;
 import eone.ticket.service.RequesterService;
 import eone.ticket.service.SAPTicketService;
 import eone.ticket.service.SAPTicketService.TicketResponse;
+import eone.ticket.service.SubstitutionService;
 import eone.ticket.service.TicketDraftService;
 
 @CCGenClass(expressionBase = "#{d.TicketListUI}")
@@ -46,6 +49,16 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
     private EnrichmentService enrichmentService = new EnrichmentService();
     private TicketDraftService draftService     = new TicketDraftService();
     private RequesterService  requesterService  = new RequesterService();
+    private SubstitutionService substitutionService = new SubstitutionService();
+
+    /**
+     * Reqid/amusr dei colleghi attualmente sostituiti dall'utente loggato
+     * (periodo attivo oggi, estremi inclusi) — calcolati una volta in
+     * init() e usati sia per ampliare le query (vede anche i loro ticket)
+     * sia per evidenziare le relative righe in griglia (vedi GridTicketItem).
+     */
+    private Set<String> m_reqidSostituitiAttivi = new HashSet<>();
+    private Set<String> m_amusrSostituitiAttivi = new HashSet<>();
 
     private FIXGRIDListBinding<GridTicketItem> m_gridTickets = new FIXGRIDListBinding<>();
 
@@ -109,6 +122,25 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
          * Formato: "MARIO — Mario Rossi" oppure solo "MARIO" se nome non disponibile.
          */
         public String getReqidNome() { return nn(ticket.getEncNomeRichiedente()); }
+
+        /**
+         * Giallo se questo ticket appartiene a un collega attualmente
+         * sostituito dall'utente loggato (colonna "Richiedente", ruolo
+         * CLIENTE) — bianco altrimenti.
+         */
+        public String getReqidCellBackground() {
+            String r = ticket.getReqid();
+            return (r != null && m_reqidSostituitiAttivi.contains(r.trim())) ? "#FFF59D" : "#FFFFFF";
+        }
+
+        /**
+         * Giallo se questo ticket appartiene a un collega AMS attualmente
+         * sostituito dall'utente loggato (colonna "AMS") — bianco altrimenti.
+         */
+        public String getAmusrCellBackground() {
+            String a = ticket.getAmusr();
+            return (a != null && m_amusrSostituitiAttivi.contains(a.trim())) ? "#FFF59D" : "#FFFFFF";
+        }
 
         public String getErdat() {
             String erdat = ticket.getErdat();
@@ -355,22 +387,68 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
         // Lista normale esclude CLO, archivio carica solo CLO
         String rstatFilter = archivio ? "CLO" : "ne:CLO";
 
+        caricaSostituzioniAttive(ctx);
+
         if (kunnr != null && !kunnr.isEmpty()) {
-            String reqidPerFiltro = vedeTutti ? null : reqid;
-            System.out.println("[TicketListUI] init() — Kunnr: " + kunnr + ", Reqid: " + reqidPerFiltro +
-                               (archivio ? " [ARCHIVIO]" : "") + (vedeTutti ? " (vede_tutti=true)" : ""));
-            loadTicketsForUser(kunnr, reqidPerFiltro, utente, rstatFilter);
+            if (vedeTutti) {
+                System.out.println("[TicketListUI] init() — Kunnr: " + kunnr + ", Reqid: null" +
+                                   (archivio ? " [ARCHIVIO]" : "") + " (vede_tutti=true)");
+                loadTicketsForUser(kunnr, null, utente, rstatFilter);
+            } else if (!m_reqidSostituitiAttivi.isEmpty()) {
+                // Sostituzione attiva: amplia la query al kunnr intero e filtra
+                // lato client su {proprio reqid} ∪ {reqid dei sostituiti} —
+                // stesso schema già usato per vede_tutti, il filtro SAP su un
+                // singolo Reqid non basta più.
+                System.out.println("[TicketListUI] init() — Kunnr: " + kunnr + ", Reqid: " + reqid +
+                                   " + sostituiti " + m_reqidSostituitiAttivi +
+                                   (archivio ? " [ARCHIVIO]" : ""));
+                loadTicketsForUser(kunnr, null, utente, rstatFilter);
+            } else {
+                System.out.println("[TicketListUI] init() — Kunnr: " + kunnr + ", Reqid: " + reqid +
+                                   (archivio ? " [ARCHIVIO]" : ""));
+                loadTicketsForUser(kunnr, reqid, utente, rstatFilter);
+            }
         } else if (ctx.isAms() && ctx.getUsername() != null && !ctx.getUsername().trim().isEmpty()) {
             if (vedeTutti) {
                 System.out.println("[TicketListUI] init() — AMS: " + ctx.getUsername() + " (vede_tutti=true)");
                 loadAllTickets(rstatFilter);
             } else {
-                System.out.println("[TicketListUI] init() — AMS: " + ctx.getUsername() + ", filtro per amusr");
+                System.out.println("[TicketListUI] init() — AMS: " + ctx.getUsername() + ", filtro per amusr" +
+                                   (m_amusrSostituitiAttivi.isEmpty() ? "" : " + sostituiti " + m_amusrSostituitiAttivi));
                 loadTicketsForAms(ctx.getUsername(), rstatFilter);
             }
         } else {
             System.err.println("[TicketListUI] init() — kunnr mancante, carico tutti i ticket");
             loadAllTickets(rstatFilter);
+        }
+    }
+
+    /**
+     * Calcola i colleghi (stesso ruolo) attualmente sostituiti dall'utente
+     * loggato — usato per ampliare le query e per l'evidenziazione in griglia.
+     * Un errore qui non blocca il caricamento della lista: si procede senza
+     * sostituzioni (comportamento identico a prima di questa funzionalità).
+     */
+    private void caricaSostituzioniAttive(ViewSessionContext ctx) {
+        m_reqidSostituitiAttivi = new HashSet<>();
+        m_amusrSostituitiAttivi = new HashSet<>();
+        String idUser = ctx.getUsername();
+        if (idUser == null || idUser.trim().isEmpty()) return;
+        try {
+            List<String> sostituiti = substitutionService.getSostituitiAttivi(idUser);
+            for (String idUserSostituito : sostituiti) {
+                if (ctx.isAms()) {
+                    // Per AMS l'id_user coincide con l'amusr sui ticket SAP
+                    m_amusrSostituitiAttivi.add(idUserSostituito);
+                } else {
+                    RequesterInfo info = requesterService.getById(idUserSostituito);
+                    if (info != null && info.getReqid() != null && !info.getReqid().trim().isEmpty()) {
+                        m_reqidSostituitiAttivi.add(info.getReqid().trim());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[TicketListUI] Errore caricamento sostituzioni attive: " + e.getMessage());
         }
     }
 
@@ -482,8 +560,15 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
         if (!m_archivio) {
             ViewSessionContext ctx = ViewSessionContext.instance();
             if (ctx.isCliente() && ctx.getKunnr() != null && !ctx.getKunnr().isEmpty()) {
-                // CLIENTE: solo i suoi DRAFT
-                draftsCache = buildDraftTickets(ctx.getKunnr(), ctx.getRichiedente());
+                if (!m_reqidSostituitiAttivi.isEmpty()) {
+                    // Include anche i DRAFT dei colleghi attualmente sostituiti
+                    List<String> reqids = new java.util.ArrayList<>(m_reqidSostituitiAttivi);
+                    reqids.add(ctx.getRichiedente());
+                    draftsCache = buildDraftTickets(ctx.getKunnr(), reqids);
+                } else {
+                    // CLIENTE: solo i suoi DRAFT
+                    draftsCache = buildDraftTickets(ctx.getKunnr(), ctx.getRichiedente());
+                }
             } else if ("DISPATCHER".equalsIgnoreCase(ctx.getRuolo())) {
                 // DISPATCHER: tutti i DRAFT in attesa da tutti i clienti
                 draftsCache = buildAllDraftTickets();
@@ -500,8 +585,34 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
         // per mantenere il riepilogo stabile e coerente nel menu.
         if (!m_archivio && m_listener != null) {
             int draftCount = draftsCache != null ? draftsCache.size() : 0;
-            m_listener.reactOnSummaryUpdated(TicketSummary.build(ticketsEnriched, draftCount));
+            int sostituitiCount = contaTicketDiSostituiti();
+            m_listener.reactOnSummaryUpdated(TicketSummary.build(ticketsEnriched, draftCount, sostituitiCount));
         }
+    }
+
+    /**
+     * Quanti dei ticket/draft attualmente caricati (ticketsEnriched +
+     * draftsCache) appartengono a colleghi attualmente sostituiti — per la
+     * riga in più nel riepilogo del Menu. Non è un totale a parte: quei
+     * ticket sono già conteggiati normalmente nelle voci per stato.
+     */
+    private int contaTicketDiSostituiti() {
+        if (m_reqidSostituitiAttivi.isEmpty() && m_amusrSostituitiAttivi.isEmpty()) return 0;
+        int count = 0;
+        if (ticketsEnriched != null) {
+            for (Ticket t : ticketsEnriched) {
+                String r = t.getReqid() != null ? t.getReqid().trim() : "";
+                String a = t.getAmusr() != null ? t.getAmusr().trim() : "";
+                if (m_reqidSostituitiAttivi.contains(r) || m_amusrSostituitiAttivi.contains(a)) count++;
+            }
+        }
+        if (draftsCache != null) {
+            for (Ticket t : draftsCache) {
+                String r = t.getReqid() != null ? t.getReqid().trim() : "";
+                if (m_reqidSostituitiAttivi.contains(r)) count++;
+            }
+        }
+        return count;
     }
 
     /**
@@ -515,6 +626,18 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
             drafts = draftService.getDraftsByRequester(kunnr, reqid);
         } catch (Exception e) {
             System.err.println("[TicketListUI] Errore caricamento DRAFT: " + e.getMessage());
+            return new java.util.ArrayList<>();
+        }
+        return buildTicketsFromDrafts(drafts);
+    }
+
+    /** Come sopra, ma per più reqid — usato quando ci sono sostituzioni attive. */
+    private List<Ticket> buildDraftTickets(String kunnr, List<String> reqids) {
+        List<TicketDraft> drafts;
+        try {
+            drafts = draftService.getDraftsByRequesters(kunnr, reqids);
+        } catch (Exception e) {
+            System.err.println("[TicketListUI] Errore caricamento DRAFT (multi-reqid): " + e.getMessage());
             return new java.util.ArrayList<>();
         }
         return buildTicketsFromDrafts(drafts);
@@ -633,6 +756,20 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
             TicketResponse response = ticketService.getTickets(kunnr, reqid, null, null, null, rstatFilter);
             if (response.isSuccess()) {
                 tickets = response.getTickets();
+                // reqid è null sia per vede_tutti che per sostituzione attiva —
+                // nel caso di sostituzione (non vede_tutti) restringiamo qui
+                // lato client a {proprio reqid} ∪ {reqid dei sostituiti},
+                // altrimenti si vedrebbe l'intero cliente come con vede_tutti.
+                boolean vedeTutti = "ALL".equalsIgnoreCase(ViewSessionContext.instance().getOwnAll());
+                if (reqid == null && !vedeTutti && !m_reqidSostituitiAttivi.isEmpty()) {
+                    String proprioReqid = ViewSessionContext.instance().getRichiedente();
+                    tickets = tickets.stream()
+                        .filter(t -> {
+                            String r = t.getReqid() != null ? t.getReqid().trim() : "";
+                            return r.equalsIgnoreCase(proprioReqid) || m_reqidSostituitiAttivi.contains(r);
+                        })
+                        .collect(java.util.stream.Collectors.toList());
+                }
                 populateGrid(tickets, "Trovati " + tickets.size() + " ticket per " + utente);
             } else { setError("Errore SAP: " + response.getErrorMessage()); }
         } catch (Exception e) { setError("Eccezione: " + e.getMessage()); e.printStackTrace(); }
@@ -656,9 +793,12 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
             if (response.isSuccess()) {
                 List<Ticket> all = response.getTickets();
                 tickets = all.stream()
-                    .filter(t -> idUserAms.equalsIgnoreCase(t.getAmusr()))
+                    .filter(t -> idUserAms.equalsIgnoreCase(t.getAmusr()) ||
+                                 (t.getAmusr() != null && m_amusrSostituitiAttivi.contains(t.getAmusr().trim())))
                     .collect(java.util.stream.Collectors.toList());
-                populateGrid(tickets, "Trovati " + tickets.size() + " ticket assegnati a " + idUserAms);
+                String msg = "Trovati " + tickets.size() + " ticket assegnati a " + idUserAms;
+                if (!m_amusrSostituitiAttivi.isEmpty()) msg += " (incl. sostituzioni)";
+                populateGrid(tickets, msg);
             } else { setError("Errore SAP: " + response.getErrorMessage()); }
         } catch (Exception e) { setError("Eccezione: " + e.getMessage()); e.printStackTrace(); }
     }

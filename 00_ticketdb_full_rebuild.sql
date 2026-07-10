@@ -231,6 +231,31 @@ GRANT USAGE, SELECT ON SEQUENCE ticket_access_log_id_seq TO ticket_app;
 
 
 -- =====================================================================
+-- SEZIONE 8 — ticket_substitution (sostituzioni tra utenti)      [v4]
+-- =====================================================================
+
+CREATE TABLE IF NOT EXISTS ticket_substitution (
+    id                  BIGSERIAL PRIMARY KEY,
+    id_user_sostituito  VARCHAR(20) NOT NULL UNIQUE REFERENCES ticket_user(id_user),
+    id_user_sostituto   VARCHAR(20) NOT NULL REFERENCES ticket_user(id_user),
+    data_inizio         DATE        NOT NULL,
+    data_fine           DATE        NOT NULL,
+    created_at          TIMESTAMP   NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMP   NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_substitution_date_range CHECK (data_fine >= data_inizio),
+    CONSTRAINT chk_substitution_not_self   CHECK (id_user_sostituito <> id_user_sostituto)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ticket_substitution_sostituto
+    ON ticket_substitution(id_user_sostituto);
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON ticket_substitution TO ticket_app;
+GRANT USAGE, SELECT ON SEQUENCE ticket_substitution_id_seq TO ticket_app;
+
+COMMENT ON TABLE ticket_substitution IS 'Sostituzioni temporanee tra utenti di pari ruolo — un periodo alla volta per sostituito.';
+
+
+-- =====================================================================
 -- VERIFICA FINALE
 -- =====================================================================
 
