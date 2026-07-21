@@ -148,6 +148,53 @@ public class MailService {
         return base + "/Outest.risc?ticket=" + tickt.trim();
     }
 
+    /**
+     * Avvisa il sostituto di essere stato designato — con periodo di
+     * validità ed elenco dei ticket di cui si farà carico (SAP + eventuali
+     * DRAFT), così arriva già informato invece di scoprirlo aprendo l'app.
+     */
+    public void sendNotificaSostituzione(String toEmail, String nomeSostituito,
+                                          java.time.LocalDate dataInizio, java.time.LocalDate dataFine,
+                                          List<String> righeTicket) {
+        if (toEmail == null || toEmail.trim().isEmpty()) {
+            System.out.println("[MailService] Notifica sostituzione saltata: destinatario vuoto");
+            return;
+        }
+
+        java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        String subject = "Sei stato designato sostituto di " + nn(nomeSostituito) +
+                          " dal " + dataInizio.format(fmt) + " al " + dataFine.format(fmt);
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("Sei stato designato come sostituto di ").append(nn(nomeSostituito)).append("\n");
+        sb.append("Periodo: dal ").append(dataInizio.format(fmt)).append(" al ").append(dataFine.format(fmt)).append(" (estremi inclusi)\n");
+        sb.append("\n");
+        if (righeTicket == null || righeTicket.isEmpty()) {
+            sb.append("Al momento non risultano ticket a suo carico.\n");
+        } else {
+            sb.append("Ticket attualmente a suo carico (").append(righeTicket.size()).append("):\n");
+            for (String riga : righeTicket) sb.append("- ").append(riga).append("\n");
+        }
+        String body = sb.toString();
+
+        if (isDryRun()) {
+            System.out.println("========== [MailService] DRY-RUN — notifica sostituzione non inviata ==========");
+            System.out.println("To:      " + toEmail);
+            System.out.println("Subject: " + subject);
+            System.out.println("Body:\n" + body);
+            System.out.println("==================================================================");
+            return;
+        }
+
+        try {
+            send(toEmail, subject, body, null);
+            System.out.println("[MailService] Notifica sostituzione inviata a " + toEmail);
+        } catch (Exception e) {
+            System.err.println("[MailService] Errore invio notifica sostituzione a " + toEmail + ": " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
     private void send(String toEmail, String subject, String body,
                        List<TicketAttachment> allegati) throws MessagingException {
 

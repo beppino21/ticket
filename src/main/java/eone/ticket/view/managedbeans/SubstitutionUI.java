@@ -2,6 +2,7 @@ package eone.ticket.view.managedbeans;
 
 import java.io.Serializable;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.eclnt.editor.annotations.CCGenClass;
@@ -12,8 +13,14 @@ import org.eclnt.jsfserver.pagebean.PageBean;
 
 import eone.ticket.context.ViewSessionContext;
 import eone.ticket.model.RequesterInfo;
+import eone.ticket.model.Ticket;
+import eone.ticket.model.TicketDraft;
 import eone.ticket.model.TicketSubstitution;
+import eone.ticket.service.MailService;
+import eone.ticket.service.RequesterService;
+import eone.ticket.service.SAPTicketService;
 import eone.ticket.service.SubstitutionService;
+import eone.ticket.service.TicketDraftService;
 
 /**
  * UI self-service per definire la propria sostituzione temporanea.
@@ -32,6 +39,10 @@ public class SubstitutionUI extends PageBean implements Serializable {
     private IListener m_listener;
 
     private final SubstitutionService substitutionService = new SubstitutionService();
+    private final RequesterService    requesterService     = new RequesterService();
+    private final SAPTicketService    sapService            = new SAPTicketService();
+    private final TicketDraftService  draftService          = new TicketDraftService();
+    private final MailService         mailService           = new MailService();
 
     private String    m_idUserSostituto;
     private LocalDate m_dataInizio;
@@ -118,6 +129,7 @@ public class SubstitutionUI extends PageBean implements Serializable {
         try {
             substitutionService.save(idUser, m_idUserSostituto, m_dataInizio, m_dataFine);
             Statusbar.outputSuccess("Sostituzione salvata: dal " + m_dataInizio + " al " + m_dataFine);
+            inviaNotificaSostituto(ctx, idUser, m_idUserSostituto, m_dataInizio, m_dataFine);
             caricaStatoAttuale();
         } catch (Exception e) {
             Statusbar.outputError("Errore salvataggio: " + e.getMessage());
@@ -125,6 +137,58 @@ public class SubstitutionUI extends PageBean implements Serializable {
             e.printStackTrace();
         }
     }
+
+    /**
+     * Avvisa il sostituto via email, con l'elenco dei ticket attualmente a
+     * carico del sostituito (SAP attivi + eventuali DRAFT, per i CLIENTE) —
+     * così arriva già informato di cosa dovrà seguire, invece di scoprirlo
+     * aprendo l'app. Un errore qui non annulla il salvataggio già avvenuto:
+     * viene solo loggato.
+     */
+    private void inviaNotificaSostituto(ViewSessionContext ctx, String idUserSostituito,
+                                         String idUserSostituto, LocalDate dataInizio, LocalDate dataFine) {
+        try {
+            RequesterInfo sostituto = requesterService.getById(idUserSostituto);
+            if (sostituto == null || sostituto.getEmail() == null || sostituto.getEmail().trim().isEmpty()) {
+                System.out.println("[SubstitutionUI] Notifica sostituto saltata: utente non trovato o senza email — " + idUserSostituto);
+                return;
+            }
+            String nomeSostituito = ctx.getRequesterInfo() != null ? ctx.getRequesterInfo().getNomeOReqid() : idUserSostituito;
+
+            List<String> righeTicket = new ArrayList<>();
+            if (ctx.isCliente() && ctx.getKunnr() != null && !ctx.getKunnr().isEmpty()) {
+                String reqid = ctx.getRichiedente();
+                SAPTicketService.TicketResponse resp = sapService.getTickets(ctx.getKunnr(), reqid, null, null, null, "ne:CLO");
+                if (resp.isSuccess() && resp.getTickets() != null) {
+                    for (Ticket t : resp.getTickets()) righeTicket.add(t.getTickt() + ": " + nn(t.getTitle()));
+                }
+                try {
+                    List<TicketDraft> drafts = draftService.getDraftsByRequester(ctx.getKunnr(), reqid);
+                    for (TicketDraft d : drafts) {
+                        if (d.isDraft()) righeTicket.add(d.getTicktKey() + ": " + nn(d.getTitolo()) + " (DRAFT)");
+                    }
+                } catch (Exception e) {
+                    System.err.println("[SubstitutionUI] Errore lettura DRAFT per notifica sostituto: " + e.getMessage());
+                }
+            } else if (ctx.isAms()) {
+                SAPTicketService.TicketResponse resp = sapService.getTickets(null, null, null, null, null, "ne:CLO");
+                if (resp.isSuccess() && resp.getTickets() != null) {
+                    for (Ticket t : resp.getTickets()) {
+                        if (idUserSostituito.equalsIgnoreCase(t.getAmusr())) {
+                            righeTicket.add(t.getTickt() + ": " + nn(t.getTitle()));
+                        }
+                    }
+                }
+            }
+
+            mailService.sendNotificaSostituzione(sostituto.getEmail(), nomeSostituito, dataInizio, dataFine, righeTicket);
+        } catch (Exception e) {
+            System.err.println("[SubstitutionUI] Errore invio notifica sostituto: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private static String nn(String s) { return s != null ? s : ""; }
 
     public void annulla(ActionEvent ae) {
         ViewSessionContext ctx = ViewSessionContext.instance();
