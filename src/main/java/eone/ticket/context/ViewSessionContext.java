@@ -80,6 +80,16 @@ public class ViewSessionContext {
         return !isCliente();
     }
 
+    /** True se l'utente amministra gli utenti AMS/DISPATCHER. */
+    public boolean isAmsAdmin() {
+        return requesterInfo != null && requesterInfo.isAmsAdmin();
+    }
+
+    /** True se l'utente amministra i richiedenti (CLIENTE) del proprio kunnr. */
+    public boolean isReqAdmin() {
+        return requesterInfo != null && requesterInfo.isReqAdmin();
+    }
+
     /** Ruolo stringa (CLIENTE / AMS / ADMIN), o stringa vuota se non disponibile. */
     public String getRuolo() {
         if (requesterInfo != null && requesterInfo.getRuolo() != null)

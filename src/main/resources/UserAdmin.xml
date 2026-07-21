@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<t:layoutdefinition xmlns:t="http://www.captaincasa.com/controllibrary/t" >
+
+<t:beanprocessing id="ua_0" beanbinding="#{d.UserAdminUI}" />
+<t:rowtitlebar id="ua_1" text="#{d.UserAdminUI.titolo}" />
+<t:rowheader id="ua_h" >
+<t:button id="ua_back" actionListener="#{d.UserAdminUI.backToMenu}" text="« Menu" width="80" />
+<t:coldistance id="ua_hcd" width="100%" />
+<t:label id="ua_sub" font="weight:bold" text="#{d.UserAdminUI.sottotitolo}" />
+<t:coldistance id="ua_hcd2" width="12" />
+<t:button id="ua_ref" actionListener="#{d.UserAdminUI.refresh}" text="Aggiorna" width="80" />
+<t:coldistance id="ua_hcd3" width="12" />
+<t:button id="ua_new" actionListener="#{d.UserAdminUI.onNuovo}" text="Nuovo »" width="90" />
+</t:rowheader>
+<t:rowbodypane id="ua_body" >
+<t:row id="ua_r1" >
+<t:splitpane id="ua_split" dividerlocation="55%" height="100%" orientation="horizontal" width="100%" >
+<t:splitpanesplit id="ua_left" padding="8" >
+<t:row id="ua_lg" >
+<t:fixgrid id="ua_grid" avoidrowstretching="true" dynamicheightsizing="true" height="100%" objectbinding="#{d.UserAdminUI.grid}" rowheight="28" sbvisibleamount="20" width="100%" >
+<t:gridcol id="ua_gc0" text="Username" width="120" >
+<t:label id="ua_gl0" background=".{statoColor}" font="weight:bold" text=".{idUser}" />
+</t:gridcol>
+<t:gridcol id="ua_gc1" text="Nome" width="180" >
+<t:label id="ua_gl1" background=".{statoColor}" text=".{nome}" />
+</t:gridcol>
+<t:gridcol id="ua_gc2" text="Email" width="200" >
+<t:label id="ua_gl2" background=".{statoColor}" text=".{email}" />
+</t:gridcol>
+<t:gridcol id="ua_gc3" rendered="#{d.UserAdminUI.modeAms}" text="Ruolo" width="110" >
+<t:label id="ua_gl3" background=".{statoColor}" text=".{ruolo}" />
+</t:gridcol>
+<t:gridcol id="ua_gc3b" rendered="#{!d.UserAdminUI.modeAms}" text="Reqid" width="90" >
+<t:label id="ua_gl3b" background=".{statoColor}" text=".{reqid}" />
+</t:gridcol>
+<t:gridcol id="ua_gc4" text="Stato" width="100" >
+<t:label id="ua_gl4" background=".{statoColor}" text=".{statoLabel}" />
+</t:gridcol>
+</t:fixgrid>
+</t:row>
+</t:splitpanesplit>
+<t:splitpanesplit id="ua_right" padding="8" >
+<t:row id="ua_nosel" rendered="#{!d.UserAdminUI.formVisible}" >
+<t:label id="ua_nosel_lbl" font="color:#999999" text="Seleziona un utente dalla lista, oppure crea un nuovo utente." />
+</t:row>
+<t:row id="ua_form_title" rendered="#{d.UserAdminUI.formVisible}" >
+<t:label id="ua_form_title_lbl" font="weight:bold;color:#1565C0" text="#{d.UserAdminUI.isNuovo ? &#39;Nuovo utente&#39; : &#39;Modifica utente&#39;}" />
+</t:row>
+<t:rowdistance id="ua_fd0" height="10" rendered="#{d.UserAdminUI.formVisible}" />
+<t:row id="ua_f1" coldistance="8" rendered="#{d.UserAdminUI.formVisible}" >
+<t:label id="ua_f1_lbl" labeltext="Username:" width="110" />
+<t:field id="ua_f1_field" enabled="#{d.UserAdminUI.formIdUserEditable}" flush="true" text="#{d.UserAdminUI.formIdUser}" width="180" />
+</t:row>
+<t:rowdistance id="ua_fd1" height="8" rendered="#{d.UserAdminUI.formVisible}" />
+<t:row id="ua_f2" coldistance="8" rendered="#{d.UserAdminUI.formVisible}" >
+<t:label id="ua_f2_lbl" labeltext="Nome:" width="110" />
+<t:field id="ua_f2_field" flush="true" text="#{d.UserAdminUI.formNome}" width="260" />
+</t:row>
+<t:rowdistance id="ua_fd2" height="8" rendered="#{d.UserAdminUI.formVisible}" />
+<t:row id="ua_f3" coldistance="8" rendered="#{d.UserAdminUI.formVisible}" >
+<t:label id="ua_f3_lbl" labeltext="Email:" width="110" />
+<t:field id="ua_f3_field" flush="true" text="#{d.UserAdminUI.formEmail}" width="260" />
+</t:row>
+<t:rowdistance id="ua_fd3" height="8" rendered="#{d.UserAdminUI.formVisible and d.UserAdminUI.showReqidField}" />
+<t:row id="ua_f4" coldistance="8" rendered="#{d.UserAdminUI.formVisible and d.UserAdminUI.showReqidField}" >
+<t:label id="ua_f4_lbl" labeltext="Reqid SAP:" width="110" />
+<t:field id="ua_f4_field" enabled="#{d.UserAdminUI.formIdUserEditable}" flush="true" text="#{d.UserAdminUI.formReqid}" width="120" />
+</t:row>
+<t:rowdistance id="ua_fd4" height="8" rendered="#{d.UserAdminUI.formVisible and d.UserAdminUI.showRuoloField}" />
+<t:row id="ua_f5" coldistance="8" rendered="#{d.UserAdminUI.formVisible and d.UserAdminUI.showRuoloField}" >
+<t:label id="ua_f5_lbl" labeltext="Ruolo:" width="110" />
+<t:combobox id="ua_f5_combo" enabled="#{d.UserAdminUI.formIdUserEditable}" flush="true" validvaluesbinding="#{d.UserAdminUI.ruoloVVS}" value="#{d.UserAdminUI.formRuolo}" width="200" />
+</t:row>
+<t:rowdistance id="ua_fd5" height="8" rendered="#{d.UserAdminUI.formVisible and d.UserAdminUI.showPasswordField}" />
+<t:row id="ua_f6" coldistance="8" rendered="#{d.UserAdminUI.formVisible and d.UserAdminUI.showPasswordField}" >
+<t:label id="ua_f6_lbl" labeltext="Password iniziale:" width="110" />
+<t:password id="ua_f6_field" flush="true" text="#{d.UserAdminUI.formPassword}" width="180" />
+</t:row>
+<t:rowdistance id="ua_fd5b" height="4" rendered="#{d.UserAdminUI.formVisible and d.UserAdminUI.showPasswordField}" />
+<t:row id="ua_f6_hint" rendered="#{d.UserAdminUI.formVisible and d.UserAdminUI.showPasswordField}" >
+<t:coldistance id="ua_f6_hint_cd" width="118" />
+<t:label id="ua_f6_hint_lbl" font="size:10;color:#888888" text="L&#39;utente dovrà cambiarla al primo accesso." />
+</t:row>
+<t:rowdistance id="ua_fd6" height="8" rendered="#{d.UserAdminUI.formVisible and !d.UserAdminUI.isNuovo}" />
+<t:row id="ua_f7" coldistance="8" rendered="#{d.UserAdminUI.formVisible and !d.UserAdminUI.isNuovo}" >
+<t:label id="ua_f7_lbl" labeltext="Utente attivo:" width="150" />
+<t:checkbox id="ua_f7_check" flush="true" selected="#{d.UserAdminUI.formAttivo}" />
+</t:row>
+<t:rowdistance id="ua_fd7b" height="6" rendered="#{d.UserAdminUI.formVisible and !d.UserAdminUI.isNuovo}" />
+<t:row id="ua_f7c" coldistance="8" rendered="#{d.UserAdminUI.formVisible and !d.UserAdminUI.isNuovo}" >
+<t:label id="ua_f7c_lbl" labeltext="Vede tutti i ticket:" width="150" />
+<t:checkbox id="ua_f7c_check" flush="true" selected="#{d.UserAdminUI.formVedeTutti}" />
+</t:row>
+<t:rowdistance id="ua_fd7d" height="6" rendered="#{d.UserAdminUI.formVisible and !d.UserAdminUI.isNuovo}" />
+<t:row id="ua_f7e" coldistance="8" rendered="#{d.UserAdminUI.formVisible and !d.UserAdminUI.isNuovo}" >
+<t:label id="ua_f7e_lbl" labeltext="Password non scade:" width="150" />
+<t:checkbox id="ua_f7e_check" flush="true" selected="#{d.UserAdminUI.formPasswordNonScade}" />
+</t:row>
+<t:rowdistance id="ua_fd7f" height="6" rendered="#{d.UserAdminUI.formVisible and !d.UserAdminUI.isNuovo and !d.UserAdminUI.formPasswordNonScade}" />
+<t:row id="ua_f7g" coldistance="8" rendered="#{d.UserAdminUI.formVisible and !d.UserAdminUI.isNuovo and !d.UserAdminUI.formPasswordNonScade}" >
+<t:label id="ua_f7g_lbl" labeltext="Scadenza password (gg):" width="150" />
+<t:field id="ua_f7g_field" flush="true" text="#{d.UserAdminUI.formPasswordScadenzaGiorniStr}" width="80" />
+</t:row>
+<t:rowdistance id="ua_fd7" height="20" rendered="#{d.UserAdminUI.formVisible}" />
+<t:row id="ua_f8" coldistance="8" rendered="#{d.UserAdminUI.formVisible}" >
+<t:coldistance id="ua_f8_cd" width="150" />
+<t:button id="ua_save_btn" actionListener="#{d.UserAdminUI.onSalva}" text="Salva »" width="110" />
+<t:button id="ua_cancel_btn" actionListener="#{d.UserAdminUI.onAnnullaForm}" text="Annulla" width="90" />
+<t:button id="ua_delete_btn" actionListener="#{d.UserAdminUI.onElimina}" rendered="#{d.UserAdminUI.showEliminaButton}" text="Elimina" width="90" />
+</t:row>
+<t:rowdistance id="ua_fd8" height="16" rendered="#{d.UserAdminUI.formVisible and !d.UserAdminUI.isNuovo}" />
+<t:row id="ua_f9" rendered="#{d.UserAdminUI.showResetPasswordButton}" >
+<t:coldistance id="ua_f9_cd" width="150" />
+<t:button id="ua_f9_link" actionListener="#{d.UserAdminUI.onMostraResetPassword}" text="Reset password..." width="140" />
+</t:row>
+<t:row id="ua_f9b" rendered="#{d.UserAdminUI.showResetPasswordPanel}" >
+<t:pane id="ua_f9b_pane" background="#FFF3E0" border="#FFB74D" padding="10" width="100%" >
+<t:row id="ua_f9b_r1" >
+<t:label id="ua_f9b_lbl" font="weight:bold;color:#E65100" text="Reset password" />
+</t:row>
+<t:rowdistance id="ua_f9b_d1" height="6" />
+<t:row id="ua_f9b_r2" coldistance="8" >
+<t:label id="ua_f9b_pw_lbl" labeltext="Nuova password:" width="140" />
+<t:password id="ua_f9b_pw_field" flush="true" text="#{d.UserAdminUI.resetPasswordValue}" width="160" />
+</t:row>
+<t:rowdistance id="ua_f9b_d2" height="4" />
+<t:row id="ua_f9b_hint" >
+<t:coldistance id="ua_f9b_hint_cd" width="148" />
+<t:label id="ua_f9b_hint_lbl" font="size:10;color:#888888" text="L&#39;utente dovrà sceglierne una propria al prossimo accesso." />
+</t:row>
+<t:rowdistance id="ua_f9b_d3" height="10" />
+<t:row id="ua_f9b_r3" coldistance="8" >
+<t:coldistance id="ua_f9b_r3_cd" width="140" />
+<t:button id="ua_f9b_confirm_btn" actionListener="#{d.UserAdminUI.onResetPassword}" text="Conferma reset" width="130" />
+<t:button id="ua_f9b_cancel_btn" actionListener="#{d.UserAdminUI.onAnnullaResetPassword}" text="Annulla" width="80" />
+</t:row>
+</t:pane>
+</t:row>
+</t:splitpanesplit>
+</t:splitpane>
+</t:row>
+</t:rowbodypane>
+
+</t:layoutdefinition>

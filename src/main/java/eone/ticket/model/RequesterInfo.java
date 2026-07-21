@@ -17,8 +17,9 @@ public class RequesterInfo implements Serializable {
     private String  reqid;
     private String  nome;
     private String  email;
-    private String  ruolo;       // CLIENTE | AMS | ADMIN
+    private String  ruolo;       // CLIENTE | AMS | ADMIN | DISPATCHER | AMS_ADMIN | REQ_ADMIN
     private boolean vedeTutti;   // true = vede tutti i ticket del cliente
+    private boolean attivo = true;
 
     // --- Policy password (v3) ---------------------------------
     // Nessun flag "deve cambiare password" a parte: tutto si deriva da
@@ -44,6 +45,16 @@ public class RequesterInfo implements Serializable {
     /** True se l'utente è amministratore */
     public boolean isAdmin() {
         return "ADMIN".equalsIgnoreCase(ruolo);
+    }
+
+    /** True se l'utente amministra gli utenti AMS/DISPATCHER */
+    public boolean isAmsAdmin() {
+        return "AMS_ADMIN".equalsIgnoreCase(ruolo);
+    }
+
+    /** True se l'utente amministra i richiedenti (CLIENTE) del proprio kunnr */
+    public boolean isReqAdmin() {
+        return "REQ_ADMIN".equalsIgnoreCase(ruolo);
     }
 
     /**
@@ -105,6 +116,9 @@ public class RequesterInfo implements Serializable {
 
     public boolean isVedeTutti()        { return vedeTutti; }
     public void setVedeTutti(boolean v) { this.vedeTutti = v; }
+
+    public boolean isAttivo()           { return attivo; }
+    public void setAttivo(boolean v)    { this.attivo = v; }
 
     public LocalDateTime getPasswordImpostataIl()        { return passwordImpostataIl; }
     public void setPasswordImpostataIl(LocalDateTime v)  { this.passwordImpostataIl = v; }

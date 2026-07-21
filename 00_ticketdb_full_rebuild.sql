@@ -100,7 +100,7 @@ CREATE TABLE IF NOT EXISTS ticket_user (
     nome          VARCHAR(100),
     email         VARCHAR(150),
     password_hash VARCHAR(255)  NOT NULL,        -- hash BCrypt (jbcrypt)
-    ruolo         VARCHAR(15)   NOT NULL CHECK (ruolo IN ('CLIENTE','AMS','ADMIN','DISPATCHER')),
+    ruolo         VARCHAR(15)   NOT NULL CHECK (ruolo IN ('CLIENTE','AMS','ADMIN','DISPATCHER','AMS_ADMIN','REQ_ADMIN')),
     vede_tutti    BOOLEAN       NOT NULL DEFAULT FALSE,
     attivo        BOOLEAN       NOT NULL DEFAULT TRUE,
     password_impostata_il    TIMESTAMP NOT NULL DEFAULT NOW(),  -- v3: policy scadenza password
