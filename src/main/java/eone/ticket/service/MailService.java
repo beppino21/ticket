@@ -56,6 +56,18 @@ public class MailService {
     public void sendNotificaCommento(String toEmail, String tickt, String statoLabel,
                                       String autoreId, String testoCompleto,
                                       List<TicketAttachment> allegati) {
+        sendNotificaCommento(toEmail, tickt, statoLabel, autoreId, testoCompleto, allegati, null);
+    }
+
+    /**
+     * Come sopra, con una nota facoltativa inserita nel corpo (es. "Ricevi
+     * questa comunicazione in quanto Referente del ticket.") — usata per
+     * distinguere il motivo per cui un destinatario riceve la notifica
+     * quando non è l'AMS assegnato principale.
+     */
+    public void sendNotificaCommento(String toEmail, String tickt, String statoLabel,
+                                      String autoreId, String testoCompleto,
+                                      List<TicketAttachment> allegati, String notaAggiuntiva) {
 
         if (toEmail == null || toEmail.trim().isEmpty()) {
             System.out.println("[MailService] Destinatario vuoto, notifica saltata (ticket " + tickt + ")");
@@ -65,7 +77,7 @@ public class MailService {
         String testoBreve = testoCompleto != null && testoCompleto.length() > 100
             ? testoCompleto.substring(0, 97) + "..." : testoCompleto;
         String subject = "Ticket " + tickt + " — " + statoLabel + " — " + nn(testoBreve);
-        String body = buildBody(tickt, statoLabel, autoreId, testoCompleto, allegati);
+        String body = buildBody(tickt, statoLabel, autoreId, testoCompleto, allegati, notaAggiuntiva);
 
         if (isDryRun()) {
             System.out.println("========== [MailService] DRY-RUN — email non inviata ==========");
@@ -95,10 +107,18 @@ public class MailService {
 
     private String buildBody(String tickt, String statoLabel, String autoreId,
                               String testoCompleto, List<TicketAttachment> allegati) {
+        return buildBody(tickt, statoLabel, autoreId, testoCompleto, allegati, null);
+    }
+
+    private String buildBody(String tickt, String statoLabel, String autoreId,
+                              String testoCompleto, List<TicketAttachment> allegati, String notaAggiuntiva) {
         StringBuilder sb = new StringBuilder();
         sb.append("Ticket: ").append(tickt).append("\n");
         sb.append("Stato:  ").append(statoLabel).append("\n");
         sb.append("Autore: ").append(nn(autoreId)).append("\n");
+        if (notaAggiuntiva != null && !notaAggiuntiva.trim().isEmpty()) {
+            sb.append(notaAggiuntiva.trim()).append("\n");
+        }
         sb.append("\n");
         sb.append("Commento:\n");
         sb.append(nn(testoCompleto)).append("\n");

@@ -57,6 +57,7 @@ public class CommentUI extends PageBean implements Serializable {
     private String m_currentKunnr;
     private String m_currentReqid;
     private String m_currentAmusr;
+    private String m_currentRefer;
 
     // Lista commenti (colonna sinistra)
     private FIXGRIDListBinding<GridCommentItem> m_gridComments = new FIXGRIDListBinding<>();
@@ -162,14 +163,15 @@ public class CommentUI extends PageBean implements Serializable {
 
     /** Mantenuto per compatibilità — apre senza dati per le notifiche (usare la versione estesa) */
     public void init(String tickt) {
-        init(tickt, null, null, null);
+        init(tickt, null, null, null, null);
     }
 
-    public void init(String tickt, String kunnr, String reqid, String amusr) {
+    public void init(String tickt, String kunnr, String reqid, String amusr, String refer) {
         this.m_currentTickt = tickt;
         this.m_currentKunnr = kunnr;
         this.m_currentReqid = reqid;
         this.m_currentAmusr = amusr;
+        this.m_currentRefer = refer;
         m_newCommentText    = null;
         m_newCommentStato   = null;
         m_selectedComment   = null;
@@ -355,6 +357,28 @@ public class CommentUI extends PageBean implements Serializable {
             System.err.println("[CommentUI] Errore invio notifica AMS: " + e.getMessage());
             e.printStackTrace();
         }
+
+        // Destinatario REFERENTE: solo se diverso dall'AMS assegnato — se
+        // coincidono, ha già ricevuto la notifica sopra come AMS, non va
+        // duplicata (stesso comportamento di prima dell'introduzione del
+        // campo Referente).
+        try {
+            if (m_currentRefer != null && !m_currentRefer.trim().isEmpty() &&
+                !m_currentRefer.equalsIgnoreCase(m_currentAmusr)) {
+                RequesterInfo referente = requesterService.getById(m_currentRefer);
+                if (referente != null) {
+                    notificaConEventualeSostituto(referente, autoreId, statoLabel, comment.getTesto(), allegati,
+                        "REFERENTE", "Ricevi questa comunicazione in quanto Referente del ticket.");
+                } else {
+                    System.out.println("[CommentUI] Notifica REFERENTE saltata: utente non trovato per refer=" + m_currentRefer);
+                }
+            } else if (m_currentRefer != null && m_currentRefer.equalsIgnoreCase(m_currentAmusr)) {
+                System.out.println("[CommentUI] Notifica REFERENTE saltata: coincide con l'AMS assegnato, già notificato");
+            }
+        } catch (Exception e) {
+            System.err.println("[CommentUI] Errore invio notifica REFERENTE: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     /**
@@ -366,10 +390,16 @@ public class CommentUI extends PageBean implements Serializable {
      */
     private void notificaConEventualeSostituto(RequesterInfo destinatario, String autoreId, String statoLabel,
                                                 String testo, List<TicketAttachment> allegati, String labelRuolo) {
+        notificaConEventualeSostituto(destinatario, autoreId, statoLabel, testo, allegati, labelRuolo, null);
+    }
+
+    private void notificaConEventualeSostituto(RequesterInfo destinatario, String autoreId, String statoLabel,
+                                                String testo, List<TicketAttachment> allegati, String labelRuolo,
+                                                String notaAggiuntiva) {
         boolean autoreEDestinatario = java.util.Objects.equals(destinatario.getId_user(), autoreId);
         if (!autoreEDestinatario && destinatario.getEmail() != null && !destinatario.getEmail().trim().isEmpty()) {
             try {
-                mailService.sendNotificaCommento(destinatario.getEmail(), m_currentTickt, statoLabel, autoreId, testo, allegati);
+                mailService.sendNotificaCommento(destinatario.getEmail(), m_currentTickt, statoLabel, autoreId, testo, allegati, notaAggiuntiva);
             } catch (Exception e) {
                 System.err.println("[CommentUI] Errore invio notifica " + labelRuolo + " a " +
                     destinatario.getId_user() + ": " + e.getMessage());
@@ -385,7 +415,7 @@ public class CommentUI extends PageBean implements Serializable {
             if (idSostituto != null && !idSostituto.trim().isEmpty() && !idSostituto.equalsIgnoreCase(autoreId)) {
                 RequesterInfo sostituto = requesterService.getById(idSostituto);
                 if (sostituto != null && sostituto.getEmail() != null && !sostituto.getEmail().trim().isEmpty()) {
-                    mailService.sendNotificaCommento(sostituto.getEmail(), m_currentTickt, statoLabel, autoreId, testo, allegati);
+                    mailService.sendNotificaCommento(sostituto.getEmail(), m_currentTickt, statoLabel, autoreId, testo, allegati, notaAggiuntiva);
                     System.out.println("[CommentUI] Notifica " + labelRuolo + " inoltrata anche al sostituto " +
                         idSostituto + " (di " + destinatario.getId_user() + ")");
                 } else {

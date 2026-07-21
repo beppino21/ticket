@@ -60,6 +60,9 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
     private Set<String> m_reqidSostituitiAttivi = new HashSet<>();
     private Set<String> m_amusrSostituitiAttivi = new HashSet<>();
 
+    /** True quando la lista è aperta in modalità "Ticket come Referente" (solo AMS). */
+    private boolean m_modoReferente;
+
     private FIXGRIDListBinding<GridTicketItem> m_gridTickets = new FIXGRIDListBinding<>();
 
     private String  m_filterKunnr;
@@ -375,19 +378,47 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
         }
     }
 
-    public void init() { init(false); }
+    /** Usato da "Aggiorna" — ricarica preservando la modalità corrente (archivio/referente). */
+    public void init() { init(m_archivio, m_modoReferente); }
 
     public void init(boolean archivio) {
+        init(archivio, false);
+    }
+
+    /**
+     * @param modoReferente se true (solo per AMS), mostra i ticket dove
+     *                       l'utente è "Referente" (campo Refer) invece che
+     *                       quelli assegnati come AMS (campo Amusr) — stessa
+     *                       vista, criterio di filtro diverso. Non
+     *                       applicabile ai DRAFT (non hanno un Referente) né
+     *                       a "vede tutti" (è una vista intrinsecamente
+     *                       personale, non ha senso vedere i referenti di
+     *                       tutti).
+     */
+    public void init(boolean archivio, boolean modoReferente) {
         m_archivio = archivio;
+        m_modoReferente = modoReferente;
         ViewSessionContext ctx = ViewSessionContext.instance();
         String kunnr      = ctx.getKunnr();
         String reqid      = ctx.getRichiedente();
         String utente     = ctx.getUtente();
-        boolean vedeTutti = "ALL".equalsIgnoreCase(ctx.getOwnAll());
+        boolean vedeTutti = !modoReferente && "ALL".equalsIgnoreCase(ctx.getOwnAll());
         // Lista normale esclude CLO, archivio carica solo CLO
         String rstatFilter = archivio ? "CLO" : "ne:CLO";
 
         caricaSostituzioniAttive(ctx);
+
+        if (modoReferente) {
+            if (ctx.isAms() && ctx.getUsername() != null && !ctx.getUsername().trim().isEmpty()) {
+                System.out.println("[TicketListUI] init() — Referente: " + ctx.getUsername() +
+                                   (m_amusrSostituitiAttivi.isEmpty() ? "" : " + sostituiti " + m_amusrSostituitiAttivi));
+                loadTicketsForReferente(ctx.getUsername(), rstatFilter);
+            } else {
+                System.err.println("[TicketListUI] init() — modoReferente richiesto ma utente non AMS, ignorato");
+                loadAllTickets(rstatFilter);
+            }
+            return;
+        }
 
         if (kunnr != null && !kunnr.isEmpty()) {
             if (vedeTutti) {
@@ -433,9 +464,14 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
         m_reqidSostituitiAttivi = new HashSet<>();
         m_amusrSostituitiAttivi = new HashSet<>();
         String idUser = ctx.getUsername();
-        if (idUser == null || idUser.trim().isEmpty()) return;
+        if (idUser == null || idUser.trim().isEmpty()) {
+            System.out.println("[TicketListUI] caricaSostituzioniAttive — idUser (username) non disponibile in sessione, salto.");
+            return;
+        }
         try {
             List<String> sostituiti = substitutionService.getSostituitiAttivi(idUser);
+            System.out.println("[TicketListUI] caricaSostituzioniAttive — idUser='" + idUser +
+                "' isAms=" + ctx.isAms() + " → colleghi sostituiti trovati in DB (id_user_sostituto=idUser, periodo attivo oggi): " + sostituiti);
             for (String idUserSostituito : sostituiti) {
                 if (ctx.isAms()) {
                     // Per AMS l'id_user coincide con l'amusr sui ticket SAP
@@ -444,9 +480,14 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
                     RequesterInfo info = requesterService.getById(idUserSostituito);
                     if (info != null && info.getReqid() != null && !info.getReqid().trim().isEmpty()) {
                         m_reqidSostituitiAttivi.add(info.getReqid().trim());
+                    } else {
+                        System.out.println("[TicketListUI] caricaSostituzioniAttive — reqid non risolto per '" +
+                            idUserSostituito + "' (utente non trovato o reqid vuoto in ticket_user) — sostituzione ignorata.");
                     }
                 }
             }
+            System.out.println("[TicketListUI] caricaSostituzioniAttive — risultato: reqidSostituiti=" +
+                m_reqidSostituitiAttivi + " amusrSostituiti=" + m_amusrSostituitiAttivi);
         } catch (Exception e) {
             System.err.println("[TicketListUI] Errore caricamento sostituzioni attive: " + e.getMessage());
         }
@@ -498,6 +539,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
         String kunnr = m_selectedTicketObj != null ? m_selectedTicketObj.getKunnr() : "";
         String reqid = m_selectedTicketObj != null ? m_selectedTicketObj.getReqid() : "";
         String amusr = m_selectedTicketObj != null ? m_selectedTicketObj.getAmusr() : "";
+        String refer = m_selectedTicketObj != null ? m_selectedTicketObj.getRefer() : "";
         m_commentUI.setCloseListener(new CommentUI.IListener() {
             @Override
             public void reactOnClose() {
@@ -505,7 +547,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
                 refreshAfterCommentPopup();
             }
         });
-        m_commentUI.init(m_selectedTicketNumber, kunnr, reqid, amusr);
+        m_commentUI.init(m_selectedTicketNumber, kunnr, reqid, amusr, refer);
         m_commentsPanelVisible = true;
     }
 
@@ -555,9 +597,11 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
         enrichmentService.enrichTickets(ticketList);
         ticketsEnriched = ticketList;
 
-        // DRAFT in cache solo per la lista operativa, non per l'archivio
+        // DRAFT in cache solo per la lista operativa, non per l'archivio né
+        // per la modalità Referente (i DRAFT non hanno un Referente — sono
+        // record locali pre-fusione SAP).
         draftsCache = null;
-        if (!m_archivio) {
+        if (!m_archivio && !m_modoReferente) {
             ViewSessionContext ctx = ViewSessionContext.instance();
             if (ctx.isCliente() && ctx.getKunnr() != null && !ctx.getKunnr().isEmpty()) {
                 if (!m_reqidSostituitiAttivi.isEmpty()) {
@@ -583,7 +627,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
 
         // Aggiorna il summary SOLO dalla lista operativa (non dall'archivio)
         // per mantenere il riepilogo stabile e coerente nel menu.
-        if (!m_archivio && m_listener != null) {
+        if (!m_archivio && !m_modoReferente && m_listener != null) {
             int draftCount = draftsCache != null ? draftsCache.size() : 0;
             int sostituitiCount = contaTicketDiSostituiti();
             m_listener.reactOnSummaryUpdated(TicketSummary.build(ticketsEnriched, draftCount, sostituitiCount));
@@ -797,6 +841,30 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
                                  (t.getAmusr() != null && m_amusrSostituitiAttivi.contains(t.getAmusr().trim())))
                     .collect(java.util.stream.Collectors.toList());
                 String msg = "Trovati " + tickets.size() + " ticket assegnati a " + idUserAms;
+                if (!m_amusrSostituitiAttivi.isEmpty()) msg += " (incl. sostituzioni)";
+                populateGrid(tickets, msg);
+            } else { setError("Errore SAP: " + response.getErrorMessage()); }
+        } catch (Exception e) { setError("Eccezione: " + e.getMessage()); e.printStackTrace(); }
+    }
+
+    /**
+     * Come {@link #loadTicketsForAms}, ma filtra sul campo Refer (Referente)
+     * invece che Amusr — stessa logica di sostituzione (un collega
+     * sostituito è la stessa identità id_user, che si controlli su Amusr o
+     * su Refer). Niente DRAFT: non hanno un Referente, sono record locali
+     * pre-fusione SAP.
+     */
+    private void loadTicketsForReferente(String idUserAms, String rstatFilter) {
+        try {
+            tickets = null;
+            TicketResponse response = ticketService.getTickets(null, null, null, null, null, rstatFilter);
+            if (response.isSuccess()) {
+                List<Ticket> all = response.getTickets();
+                tickets = all.stream()
+                    .filter(t -> idUserAms.equalsIgnoreCase(t.getRefer()) ||
+                                 (t.getRefer() != null && m_amusrSostituitiAttivi.contains(t.getRefer().trim())))
+                    .collect(java.util.stream.Collectors.toList());
+                String msg = "Trovati " + tickets.size() + " ticket dove sei Referente";
                 if (!m_amusrSostituitiAttivi.isEmpty()) msg += " (incl. sostituzioni)";
                 populateGrid(tickets, msg);
             } else { setError("Errore SAP: " + response.getErrorMessage()); }
