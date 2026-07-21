@@ -53,6 +53,9 @@ public class SubstitutionUI extends PageBean implements Serializable {
     /** La sostituzione già configurata (se esiste) — mostrata come riepilogo. */
     private TicketSubstitution m_esistente;
 
+    /** Nomi di chi questo utente sta già coprendo come sostituto — per l'avviso non bloccante. */
+    private List<String> m_copreAltriUtenti = new ArrayList<>();
+
     // =========================
     // COSTRUTTORE / INIT
     // =========================
@@ -93,6 +96,18 @@ public class SubstitutionUI extends PageBean implements Serializable {
                 m_idUserSostituto = null;
                 m_dataInizio = LocalDate.now();
                 m_dataFine   = LocalDate.now().plusDays(7);
+            }
+
+            // Avviso non bloccante: se l'utente sta già coprendo altri come
+            // sostituto, il SUO sostituto non erediterebbe automaticamente
+            // quei ticket (sostituzione a un solo livello, non a catena) —
+            // lo segnaliamo, ma non impediamo il salvataggio: chi imposta la
+            // sostituzione può comunque decidere come gestirlo altrove.
+            List<String> copertiDaMe = substitutionService.getSostituitiAttivi(idUser);
+            m_copreAltriUtenti = new ArrayList<>();
+            for (String idCoperto : copertiDaMe) {
+                RequesterInfo info = requesterService.getById(idCoperto);
+                m_copreAltriUtenti.add(info != null ? info.getNomeOReqid() : idCoperto);
             }
         } catch (Exception e) {
             Statusbar.outputError("Errore caricamento sostituzioni: " + e.getMessage());
@@ -160,7 +175,10 @@ public class SubstitutionUI extends PageBean implements Serializable {
                 String reqid = ctx.getRichiedente();
                 SAPTicketService.TicketResponse resp = sapService.getTickets(ctx.getKunnr(), reqid, null, null, null, "ne:CLO");
                 if (resp.isSuccess() && resp.getTickets() != null) {
-                    for (Ticket t : resp.getTickets()) righeTicket.add(t.getTickt() + ": " + nn(t.getTitle()));
+                    for (Ticket t : resp.getTickets()) {
+                        if (isNonGestibile(t.getRstat())) continue; // niente CLO/RES: non da gestire
+                        righeTicket.add(t.getTickt() + ": " + nn(t.getTitle()));
+                    }
                 }
                 try {
                     List<TicketDraft> drafts = draftService.getDraftsByRequester(ctx.getKunnr(), reqid);
@@ -174,6 +192,7 @@ public class SubstitutionUI extends PageBean implements Serializable {
                 SAPTicketService.TicketResponse resp = sapService.getTickets(null, null, null, null, null, "ne:CLO");
                 if (resp.isSuccess() && resp.getTickets() != null) {
                     for (Ticket t : resp.getTickets()) {
+                        if (isNonGestibile(t.getRstat())) continue; // niente CLO/RES: non da gestire
                         if (idUserSostituito.equalsIgnoreCase(t.getAmusr())) {
                             righeTicket.add(t.getTickt() + ": " + nn(t.getTitle()));
                         }
@@ -186,6 +205,11 @@ public class SubstitutionUI extends PageBean implements Serializable {
             System.err.println("[SubstitutionUI] Errore invio notifica sostituto: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    /** CLO (Chiuso) e RES (Risolto) — non da gestire, esclusi dall'elenco inviato al sostituto. */
+    private static boolean isNonGestibile(String rstat) {
+        return "CLO".equalsIgnoreCase(rstat) || "RES".equalsIgnoreCase(rstat);
     }
 
     private static String nn(String s) { return s != null ? s : ""; }
@@ -229,6 +253,14 @@ public class SubstitutionUI extends PageBean implements Serializable {
     public void setDataFine(LocalDate v)        { this.m_dataFine = v; }
 
     public boolean getHasEsistente() { return m_esistente != null; }
+
+    public boolean getHasCoperturaAltri() { return !m_copreAltriUtenti.isEmpty(); }
+
+    public String getCoperturaAltriMessaggio() {
+        if (m_copreAltriUtenti.isEmpty()) return "";
+        return "Stai già sostituendo: " + String.join(", ", m_copreAltriUtenti) +
+               ". Il tuo sostituto non erediterà automaticamente quei ticket — valuta un'azione aggiuntiva se necessario.";
+    }
 
     public String getEsistenteRiepilogo() {
         if (m_esistente == null) return "";
