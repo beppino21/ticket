@@ -322,6 +322,16 @@ public class UserAdminUI extends PageBean implements Serializable {
     public boolean isShowResetPasswordButton() { return m_formVisible && !m_isNuovo && !m_resetPasswordVisible; }
     public boolean isShowResetPasswordPanel()  { return m_formVisible && !m_isNuovo && m_resetPasswordVisible; }
 
+    // Condizioni composte precalcolate in Java invece che nell'XML: le
+    // espressioni EL con più "and"/"!" concatenati nell'attributo rendered
+    // si sono dimostrate inaffidabili in CC (vedi caso reset-password) — un
+    // singolo getter booleano è l'unico binding di cui fidarsi.
+    public boolean isShowReqidFieldForm()    { return m_formVisible && !m_modeAms; }
+    public boolean isShowRuoloFieldForm()    { return m_formVisible && m_modeAms; }
+    public boolean isShowPasswordFieldForm() { return m_formVisible && m_isNuovo; }
+    public boolean isShowEditFlags()         { return m_formVisible && !m_isNuovo; }
+    public boolean isShowScadenzaGiorni()    { return m_formVisible && !m_isNuovo && !m_formPasswordNonScade; }
+
     public String  getFormIdUser()          { return m_formIdUser; }
     public void    setFormIdUser(String v)  { this.m_formIdUser = v; }
     public boolean isFormIdUserEditable()  { return m_isNuovo; } // non modificabile dopo la creazione
