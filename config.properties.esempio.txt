@@ -32,12 +32,22 @@ MAIL_DRY_RUN=true
 # codice (gli ultimi valori noti funzionanti) — l'app non si rompe,
 # ma a quel punto la configurazione reale è quella nel .java, non qui.
 SAP_BASE_URL=http://newton.domain.eonegroup.it:8001
-SAP_CLIENT=300
-SAP_USER=EONE
-SAP_PASS=changeme
 
 # URL pubblico con cui il server ticket è raggiungibile dai browser degli
 # utenti (protocollo+host+porta+context path, SENZA slash finale). Usato per
 # costruire il link diretto al ticket nelle email di notifica.
 # Se non valorizzato, il link viene omesso dall'email (nessun errore bloccante).
-APP_BASE_URL=https://...sostituire con IP o URL...:50000/ticket
+APP_BASE_URL=https://ticket.lamplast.it:50000/ticket
+
+# Sollecito automatico chiusura ticket — mail giornaliera aggregata al
+# backoffice per i ticket fermi da troppi giorni in "Richiesta chiusura
+# ticket" o "Ticket risolto" (impostati dal cliente), non ancora chiusi sul
+# backend SAP. Nessuna schedulazione esterna necessaria: parte da sola
+# all'avvio della webapp (vedi SollecitoChiusuraScheduler) e gira ogni 24h.
+SOLLECITO_CHIUSURA_EMAIL=helpdesk@eonegroup.it
+SOLLECITO_CHIUSURA_GIORNI=1
+SOLLECITO_CHIUSURA_ORA=8
+# SOLLECITO_CHIUSURA_ABILITATO=false  -> disattiva del tutto lo scheduler
+SAP_CLIENT=300
+SAP_USER=EONE
+SAP_PASS=changeme

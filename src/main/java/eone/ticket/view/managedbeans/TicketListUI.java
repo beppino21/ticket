@@ -21,6 +21,7 @@ import eone.ticket.model.RequesterInfo;
 import eone.ticket.model.Ticket;
 import eone.ticket.model.TicketDraft;
 import eone.ticket.model.TicketSummary;
+import eone.ticket.service.ClienteConfigService;
 import eone.ticket.service.EnrichmentService;
 import eone.ticket.service.RequesterService;
 import eone.ticket.service.SAPTicketService;
@@ -50,6 +51,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
     private TicketDraftService draftService     = new TicketDraftService();
     private RequesterService  requesterService  = new RequesterService();
     private SubstitutionService substitutionService = new SubstitutionService();
+    private ClienteConfigService clienteConfigService = new ClienteConfigService();
 
     /**
      * Reqid/amusr dei colleghi attualmente sostituiti dall'utente loggato
@@ -268,9 +270,9 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
             return "#FFCDD2";             // rosso pallido
         }
 
-        /** Giorni di vita del ticket: da erdat a oggi. -1 se CLO o dati mancanti. */
+        /** Giorni di vita del ticket: da erdat a oggi. -1 se CLO/RES o dati mancanti. */
         public int getGiorniVita() {
-            if ("CLO".equalsIgnoreCase(ticket.getRstat())) return -1;
+            if ("CLO".equalsIgnoreCase(ticket.getRstat()) || "RES".equalsIgnoreCase(ticket.getRstat())) return -1;
             String erdat = ticket.getErdat();
             if (erdat == null || erdat.isEmpty()) return -1;
             try {
@@ -403,8 +405,11 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
         String reqid      = ctx.getRichiedente();
         String utente     = ctx.getUtente();
         boolean vedeTutti = !modoReferente && "ALL".equalsIgnoreCase(ctx.getOwnAll());
-        // Lista normale esclude CLO, archivio carica solo CLO
-        String rstatFilter = archivio ? "CLO" : "ne:CLO";
+        // Nessun filtro Rstat lato SAP in nessuno dei due casi: la vera
+        // selezione (operativa vs archivio, con CLO+RES+CAN) avviene tutta
+        // lato client in populateGrid(), altrimenti la restrizione server-side
+        // "Rstat eq 'CLO'" escluderebbe i RES prima ancora di poterli filtrare.
+        String rstatFilter = "ne:CLO";
 
         caricaSostituzioniAttive(ctx);
 
@@ -531,6 +536,52 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
         openComments();
     }
 
+    /**
+     * True se il ticket attualmente selezionato è un DRAFT non ancora
+     * fuso in SAP, e appartiene al CLIENTE loggato (o a un collega che sta
+     * attualmente sostituendo) — condizione per mostrare "Elimina DRAFT".
+     */
+    public boolean isSelectedDraftEliminabile() {
+        if (m_selectedTicketObj == null || !"DRAFT".equals(m_selectedTicketObj.getRstat())) return false;
+        ViewSessionContext ctx = ViewSessionContext.instance();
+        if (!ctx.isCliente()) return false;
+        String reqid = m_selectedTicketObj.getReqid();
+        if (reqid == null) return false;
+        String proprioReqid = ctx.getRichiedente();
+        return reqid.equalsIgnoreCase(proprioReqid) || m_reqidSostituitiAttivi.contains(reqid.trim());
+    }
+
+    /** Cancella il DRAFT selezionato — solo se non ancora fuso in SAP e di propria competenza. */
+    public void onEliminaDraft(ActionEvent ae) {
+        if (!isSelectedDraftEliminabile()) {
+            Statusbar.outputWarning("Nessun DRAFT eliminabile selezionato");
+            return;
+        }
+        String ticktKey = m_selectedTicketObj.getTickt(); // "DRAFT-{id}"
+        try {
+            long draftId = Long.parseLong(ticktKey.replace("DRAFT-", "").trim());
+            // NOTA: uso ctx.getKunnr() (con zero-padding originale), non
+            // m_selectedTicketObj.getKunnr() — quest'ultimo per i DRAFT è
+            // privato degli zeri iniziali per la visualizzazione (vedi
+            // buildTicketsFromDrafts) e non farebbe match nella query DB.
+            String kunnr = ViewSessionContext.instance().getKunnr();
+            String reqid = m_selectedTicketObj.getReqid();
+            boolean eliminato = draftService.deleteDraft(draftId, kunnr, reqid);
+            if (eliminato) {
+                Statusbar.outputSuccess("DRAFT " + ticktKey + " eliminato");
+                m_selectedTicketNumber = null;
+                m_selectedTicketObj = null;
+                init(m_archivio, m_modoReferente);
+            } else {
+                Statusbar.outputError("Impossibile eliminare: il DRAFT non esiste più o è già stato fuso in SAP.");
+            }
+        } catch (Exception e) {
+            Statusbar.outputError("Errore eliminazione DRAFT: " + e.getMessage());
+            System.err.println("[TicketListUI] Errore onEliminaDraft: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
     public void openComments() {
         if (m_selectedTicketNumber == null || m_selectedTicketNumber.isEmpty()) {
             Statusbar.outputWarning("Selezionare un ticket dalla lista");
@@ -582,15 +633,17 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
     private void populateGrid(List<Ticket> ticketList, String statusMsg) {
         // Filtro client-side: SAP non supporta 'ne' come operatore OData
         // quindi filtriamo qui dopo aver ricevuto tutti i ticket.
+        // RES (Risolto) trattato esattamente come CLO (Chiuso): tolto dalla
+        // lista operativa, visibile solo in archivio.
         if (m_archivio) {
-            // Archivio: tieni solo CLO e CAN
+            // Archivio: tieni solo CLO, RES e CAN
             ticketList = ticketList.stream()
-                .filter(t -> "CLO".equals(t.getRstat()) || "CAN".equals(t.getRstat()))
+                .filter(t -> "CLO".equals(t.getRstat()) || "RES".equals(t.getRstat()) || "CAN".equals(t.getRstat()))
                 .collect(java.util.stream.Collectors.toList());
         } else {
-            // Lista operativa: escludi CLO e CAN
+            // Lista operativa: escludi CLO, RES e CAN
             ticketList = ticketList.stream()
-                .filter(t -> !"CLO".equals(t.getRstat()) && !"CAN".equals(t.getRstat()))
+                .filter(t -> !"CLO".equals(t.getRstat()) && !"RES".equals(t.getRstat()) && !"CAN".equals(t.getRstat()))
                 .collect(java.util.stream.Collectors.toList());
         }
 
@@ -824,7 +877,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
             tickets = null;
             TicketResponse response = ticketService.getTickets(null, null, null, null, null, rstatFilter);
             if (response.isSuccess()) {
-                tickets = response.getTickets();
+                tickets = filtraClientiAbilitati(response.getTickets());
                 populateGrid(tickets, "Caricati " + tickets.size() + " ticket");
             } else { setError("Errore SAP: " + response.getErrorMessage()); }
         } catch (Exception e) { setError("Eccezione: " + e.getMessage()); e.printStackTrace(); }
@@ -835,7 +888,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
             tickets = null;
             TicketResponse response = ticketService.getTickets(null, null, null, null, null, rstatFilter);
             if (response.isSuccess()) {
-                List<Ticket> all = response.getTickets();
+                List<Ticket> all = filtraClientiAbilitati(response.getTickets());
                 tickets = all.stream()
                     .filter(t -> idUserAms.equalsIgnoreCase(t.getAmusr()) ||
                                  (t.getAmusr() != null && m_amusrSostituitiAttivi.contains(t.getAmusr().trim())))
@@ -859,7 +912,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
             tickets = null;
             TicketResponse response = ticketService.getTickets(null, null, null, null, null, rstatFilter);
             if (response.isSuccess()) {
-                List<Ticket> all = response.getTickets();
+                List<Ticket> all = filtraClientiAbilitati(response.getTickets());
                 tickets = all.stream()
                     .filter(t -> idUserAms.equalsIgnoreCase(t.getRefer()) ||
                                  (t.getRefer() != null && m_amusrSostituitiAttivi.contains(t.getRefer().trim())))
@@ -869,6 +922,31 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
                 populateGrid(tickets, msg);
             } else { setError("Errore SAP: " + response.getErrorMessage()); }
         } catch (Exception e) { setError("Eccezione: " + e.getMessage()); e.printStackTrace(); }
+    }
+
+    /**
+     * Scarta i ticket dei clienti (Kunnr) non ancora abilitati alla nuova
+     * gestione — usato solo nelle viste che attraversano tutti i clienti
+     * (AMS/DISPATCHER/Referente). La vista del CLIENTE stesso non ne ha
+     * bisogno: se ha un login, il suo cliente è per forza già migrato.
+     * Un errore nel leggere l'abilitazione non deve bloccare la lista:
+     * in quel caso si mostra tutto, senza filtro (fail-open sull'esistente,
+     * non sul nuovo — coerente con "non bloccare mai un caricamento").
+     */
+    private List<Ticket> filtraClientiAbilitati(List<Ticket> ticketList) {
+        if (ticketList == null || ticketList.isEmpty()) return ticketList;
+        try {
+            java.util.Set<String> abilitati = clienteConfigService.getKunnrAbilitati();
+            if (abilitati.isEmpty()) {
+                System.out.println("[TicketListUI] Nessun cliente abilitato in ticket_cliente_config — lista vuota.");
+            }
+            return ticketList.stream()
+                .filter(t -> abilitati.contains(ClienteConfigService.normalizeKunnr(t.getKunnr())))
+                .collect(java.util.stream.Collectors.toList());
+        } catch (Exception e) {
+            System.err.println("[TicketListUI] Errore lettura clienti abilitati, procedo senza filtro: " + e.getMessage());
+            return ticketList;
+        }
     }
 
     private void setError(String msg) {

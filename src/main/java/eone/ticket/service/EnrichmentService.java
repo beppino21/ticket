@@ -119,9 +119,10 @@ public class EnrichmentService {
 
     /**
      * Arricchisce ogni ticket con il nome del richiedente da ticket_user.
-     * Nota: reqid non è univoco — la ricerca è approssimativa (primo match).
-     * Per un risultato preciso servirebbe kunnr+reqid, ma nella lista ticket
-     * il nome è comunque indicativo.
+     * Il reqid da solo NON è univoco: due clienti diversi (Kunnr diverso)
+     * possono avere entrambi un richiedente con lo stesso codice reqid
+     * (es. "R001") — la transcodifica corretta richiede sempre la coppia
+     * Kunnr+Reqid, altrimenti si rischia di mostrare il nome sbagliato.
      */
     private void enrichWithRequesterNames(List<Ticket> tickets) {
         List<String> reqids = tickets.stream()
@@ -132,13 +133,17 @@ public class EnrichmentService {
 
         if (reqids.isEmpty()) return;
 
-        // Cerca in ticket_user per reqid — restituisce il primo nome trovato per quel reqid
+        // La query resta filtrata per reqid (usa l'indice esistente su quella
+        // colonna, ed è già una buona restrizione) — l'associazione precisa
+        // al ticket giusto avviene però sempre sulla coppia kunnr+reqid,
+        // costruita lato Java per gestire anche eventuali differenze di
+        // zero-padding sul kunnr tra SAP e ticket_user.
         String sql = buildInClause(
-            "SELECT DISTINCT ON (reqid) reqid, nome FROM ticket_user WHERE reqid IN (",
+            "SELECT kunnr, reqid, nome FROM ticket_user WHERE reqid IN (",
             reqids.size()
-        ) + " ORDER BY reqid, id_user";
+        );
 
-        Map<String, String> reqidToNome = new HashMap<>();
+        Map<String, String> chiaveToNome = new HashMap<>();
 
         try (Connection con = DBConfig.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
@@ -147,10 +152,11 @@ public class EnrichmentService {
 
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
+                    String kunnr = rs.getString("kunnr");
                     String reqid = rs.getString("reqid");
                     String nome  = rs.getString("nome");
                     if (nome != null && !nome.trim().isEmpty()) {
-                        reqidToNome.put(reqid, nome.trim());
+                        chiaveToNome.put(chiaveKunnrReqid(kunnr, reqid), nome.trim());
                     }
                 }
             }
@@ -163,12 +169,30 @@ public class EnrichmentService {
         for (Ticket t : tickets) {
             String reqid = t.getReqid();
             if (reqid == null || reqid.trim().isEmpty()) continue;
-            String nome = reqidToNome.get(reqid);
+            String nome = chiaveToNome.get(chiaveKunnrReqid(t.getKunnr(), reqid));
             t.setEncNomeRichiedente(nome != null ? reqid + " \u2014 " + nome : reqid);
         }
 
-        System.out.println("[EnrichmentService] Nomi richiedenti risolti: " +
-                           reqidToNome.size() + "/" + reqids.size());
+        System.out.println("[EnrichmentService] Nomi richiedenti risolti (kunnr+reqid): " +
+                           chiaveToNome.size() + " coppie");
+    }
+
+    /** Chiave kunnr+reqid, con kunnr normalizzato per tollerare differenze di zero-padding. */
+    private static String chiaveKunnrReqid(String kunnr, String reqid) {
+        return normalizeKunnr(kunnr) + "|" + (reqid != null ? reqid.trim().toUpperCase() : "");
+    }
+
+    private static String normalizeKunnr(String kunnr) {
+        if (kunnr == null) return "";
+        String k = kunnr.trim();
+        if (k.matches("\\d+")) {
+            try {
+                return String.valueOf(Long.parseLong(k)); // toglie eventuali zeri iniziali
+            } catch (NumberFormatException e) {
+                return k;
+            }
+        }
+        return k;
     }
 
     // =========================

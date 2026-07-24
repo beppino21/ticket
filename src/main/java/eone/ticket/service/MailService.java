@@ -153,6 +153,48 @@ public class MailService {
      * validità ed elenco dei ticket di cui si farà carico (SAP + eventuali
      * DRAFT), così arriva già informato invece di scoprirlo aprendo l'app.
      */
+    /**
+     * Sollecito aggregato al backoffice: un'unica mail con tutti i ticket
+     * fermi da troppi giorni in stato "Richiesta chiusura" o "Ticket
+     * risolto" — non ancora chiusi sul backend SAP.
+     */
+    public void sendSollecitoChiusura(String toEmail, List<String> righeTicket) {
+        if (toEmail == null || toEmail.trim().isEmpty()) {
+            System.out.println("[MailService] Sollecito chiusura saltato: destinatario vuoto");
+            return;
+        }
+        if (righeTicket == null || righeTicket.isEmpty()) {
+            System.out.println("[MailService] Sollecito chiusura saltato: nessun ticket da segnalare");
+            return;
+        }
+
+        String subject = "Sollecito chiusura — " + righeTicket.size() +
+                          (righeTicket.size() == 1 ? " ticket da chiudere" : " ticket da chiudere");
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("I seguenti ticket risultano segnalati come risolti/da chiudere dal cliente,\n");
+        sb.append("ma non ancora chiusi sul backend SAP:\n\n");
+        for (String riga : righeTicket) sb.append("- ").append(riga).append("\n");
+        String body = sb.toString();
+
+        if (isDryRun()) {
+            System.out.println("========== [MailService] DRY-RUN — sollecito chiusura non inviato ==========");
+            System.out.println("To:      " + toEmail);
+            System.out.println("Subject: " + subject);
+            System.out.println("Body:\n" + body);
+            System.out.println("==================================================================");
+            return;
+        }
+
+        try {
+            send(toEmail, subject, body, null);
+            System.out.println("[MailService] Sollecito chiusura inviato a " + toEmail + " (" + righeTicket.size() + " ticket)");
+        } catch (Exception e) {
+            System.err.println("[MailService] Errore invio sollecito chiusura a " + toEmail + ": " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
     public void sendNotificaSostituzione(String toEmail, String nomeSostituito,
                                           java.time.LocalDate dataInizio, java.time.LocalDate dataFine,
                                           List<String> righeTicket) {

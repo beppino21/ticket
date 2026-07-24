@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<t:layoutdefinition xmlns:t="http://www.captaincasa.com/controllibrary/t" >
+
+<t:beanprocessing id="cc_0" beanbinding="#{d.ClienteConfigUI}" />
+<t:rowtitlebar id="cc_1" text="Clienti abilitati" />
+<t:rowheader id="cc_h" >
+<t:button id="cc_back" actionListener="#{d.ClienteConfigUI.backToMenu}" text="« Menu" width="80" />
+<t:coldistance id="cc_hcd" width="100%" />
+<t:button id="cc_ref" actionListener="#{d.ClienteConfigUI.refresh}" text="Aggiorna" width="80" />
+<t:coldistance id="cc_hcd3" width="12" />
+<t:button id="cc_new" actionListener="#{d.ClienteConfigUI.onNuovo}" text="Nuovo »" width="90" />
+</t:rowheader>
+<t:rowbodypane id="cc_body" >
+<t:row id="cc_r1" >
+<t:splitpane id="cc_split" dividerlocation="55%" height="100%" orientation="horizontal" width="100%" >
+<t:splitpanesplit id="cc_left" padding="8" >
+<t:row id="cc_lg" >
+<t:fixgrid id="cc_grid" avoidrowstretching="true" dynamicheightsizing="true" height="100%" objectbinding="#{d.ClienteConfigUI.grid}" rowheight="28" sbvisibleamount="20" width="100%" >
+<t:gridcol id="cc_gc0" text="Kunnr" width="110" >
+<t:label id="cc_gl0" background=".{statoColor}" font="weight:bold" text=".{kunnr}" />
+</t:gridcol>
+<t:gridcol id="cc_gc1" text="Nome cliente" width="220" >
+<t:label id="cc_gl1" background=".{statoColor}" text=".{nomeCliente}" />
+</t:gridcol>
+<t:gridcol id="cc_gc2" text="Stato" width="120" >
+<t:label id="cc_gl2" background=".{statoColor}" text=".{statoLabel}" />
+</t:gridcol>
+</t:fixgrid>
+</t:row>
+</t:splitpanesplit>
+<t:splitpanesplit id="cc_right" padding="8" >
+<t:row id="cc_nosel" rendered="#{!d.ClienteConfigUI.formVisible}" >
+<t:label id="cc_nosel_lbl" font="color:#999999" text="Seleziona un cliente dalla lista, oppure aggiungine uno nuovo." />
+</t:row>
+<t:row id="cc_form_title" rendered="#{d.ClienteConfigUI.formVisible}" >
+<t:label id="cc_form_title_lbl" font="weight:bold;color:#1565C0" text="#{d.ClienteConfigUI.isNuovo ? &#39;Nuovo cliente&#39; : &#39;Modifica cliente&#39;}" />
+</t:row>
+<t:rowdistance id="cc_fd0" height="10" rendered="#{d.ClienteConfigUI.formVisible}" />
+<t:row id="cc_f1" coldistance="8" rendered="#{d.ClienteConfigUI.formVisible}" >
+<t:label id="cc_f1_lbl" labeltext="Kunnr:" width="110" />
+<t:field id="cc_f1_field" enabled="#{d.ClienteConfigUI.formKunnrEditable}" flush="true" text="#{d.ClienteConfigUI.formKunnr}" width="150" />
+</t:row>
+<t:rowdistance id="cc_fd1" height="8" rendered="#{d.ClienteConfigUI.formVisible}" />
+<t:row id="cc_f2" coldistance="8" rendered="#{d.ClienteConfigUI.formVisible}" >
+<t:label id="cc_f2_lbl" labeltext="Nome cliente:" width="110" />
+<t:field id="cc_f2_field" flush="true" text="#{d.ClienteConfigUI.formNomeCliente}" width="260" />
+</t:row>
+<t:rowdistance id="cc_fd2" height="8" rendered="#{d.ClienteConfigUI.formVisible}" />
+<t:row id="cc_f3" coldistance="8" rendered="#{d.ClienteConfigUI.formVisible}" >
+<t:label id="cc_f3_lbl" labeltext="Abilitato:" width="110" />
+<t:checkbox id="cc_f3_check" flush="true" selected="#{d.ClienteConfigUI.formAbilitato}" />
+</t:row>
+<t:rowdistance id="cc_fd3" height="4" rendered="#{d.ClienteConfigUI.formVisible}" />
+<t:row id="cc_f3_hint" rendered="#{d.ClienteConfigUI.formVisible}" >
+<t:coldistance id="cc_f3_hint_cd" width="118" />
+<t:label id="cc_f3_hint_lbl" font="size:10;color:#888888" text="Solo i ticket dei clienti abilitati sono visibili ad AMS e Dispatcher." />
+</t:row>
+<t:rowdistance id="cc_fd4" height="20" rendered="#{d.ClienteConfigUI.formVisible}" />
+<t:row id="cc_f4" coldistance="8" rendered="#{d.ClienteConfigUI.formVisible}" >
+<t:coldistance id="cc_f4_cd" width="110" />
+<t:button id="cc_save_btn" actionListener="#{d.ClienteConfigUI.onSalva}" text="Salva »" width="110" />
+<t:button id="cc_cancel_btn" actionListener="#{d.ClienteConfigUI.onAnnullaForm}" text="Annulla" width="90" />
+<t:button id="cc_delete_btn" actionListener="#{d.ClienteConfigUI.onElimina}" rendered="#{d.ClienteConfigUI.showEliminaButton}" text="Rimuovi" width="90" />
+</t:row>
+</t:splitpanesplit>
+</t:splitpane>
+</t:row>
+</t:rowbodypane>
+
+</t:layoutdefinition>

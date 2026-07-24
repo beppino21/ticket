@@ -256,6 +256,23 @@ COMMENT ON TABLE ticket_substitution IS 'Sostituzioni temporanee tra utenti di p
 
 
 -- =====================================================================
+-- SEZIONE 9 — ticket_cliente_config (abilitazione clienti)       [v6]
+-- =====================================================================
+
+CREATE TABLE IF NOT EXISTS ticket_cliente_config (
+    kunnr         VARCHAR(10) PRIMARY KEY,
+    nome_cliente  VARCHAR(100),
+    abilitato     BOOLEAN     NOT NULL DEFAULT TRUE,
+    created_at    TIMESTAMP   NOT NULL DEFAULT NOW(),
+    updated_at    TIMESTAMP   NOT NULL DEFAULT NOW()
+);
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON ticket_cliente_config TO ticket_app;
+
+COMMENT ON TABLE ticket_cliente_config IS 'Clienti (Kunnr) abilitati alla nuova gestione ticket — un Kunnr assente è considerato non abilitato.';
+
+
+-- =====================================================================
 -- VERIFICA FINALE
 -- =====================================================================
 

@@ -50,6 +50,56 @@ public class TicketDraftService {
     }
 
     // =========================
+    // CANCELLAZIONE DRAFT
+    // =========================
+
+    /**
+     * Cancella un DRAFT (e i suoi commenti/allegati) — solo se è ancora in
+     * stato DRAFT (non fuso in SAP) e appartiene al kunnr+reqid indicato.
+     * Usato dal cliente che lo ha creato, o dal suo sostituto attivo, per
+     * eliminare un ticket aperto per errore prima che venga preso in carico.
+     * Ritorna false (nessuna cancellazione) se il DRAFT non esiste, non
+     * appartiene a quel richiedente, o è già stato fuso.
+     */
+    public boolean deleteDraft(long draftId, String kunnr, String reqid) throws SQLException {
+        String ticktKey = TicketDraft.toDraftTickt(draftId);
+        try (Connection con = DBConfig.getConnection()) {
+            con.setAutoCommit(false);
+            try {
+                String stato = null;
+                try (PreparedStatement ps = con.prepareStatement(
+                        "SELECT stato FROM ticket_draft WHERE id = ? AND kunnr = ? AND reqid = ?")) {
+                    ps.setLong(1, draftId);
+                    ps.setString(2, kunnr);
+                    ps.setString(3, reqid);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) stato = rs.getString("stato");
+                    }
+                }
+                if (stato == null || !"DRAFT".equals(stato)) {
+                    con.rollback();
+                    return false;
+                }
+                try (PreparedStatement ps = con.prepareStatement("DELETE FROM ticket_comment WHERE tickt = ?")) {
+                    ps.setString(1, ticktKey);
+                    ps.executeUpdate();
+                }
+                try (PreparedStatement ps = con.prepareStatement("DELETE FROM ticket_draft WHERE id = ?")) {
+                    ps.setLong(1, draftId);
+                    ps.executeUpdate();
+                }
+                con.commit();
+                return true;
+            } catch (SQLException e) {
+                con.rollback();
+                throw e;
+            } finally {
+                con.setAutoCommit(true);
+            }
+        }
+    }
+
+    // =========================
     // LISTA DRAFT PER CLIENTE
     // =========================
 

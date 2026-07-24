@@ -49,7 +49,6 @@ public class NewTicketUI extends PageBean implements Serializable {
 
     private String m_titolo;
     private String m_commentoTesto;
-    private String m_commentoStato;
 
     private FIXGRIDListBinding<GridAttachItem> m_gridPending = new FIXGRIDListBinding<>();
     private List<TicketAttachment> m_pendingAttachments      = new ArrayList<>();
@@ -104,10 +103,6 @@ public class NewTicketUI extends PageBean implements Serializable {
             Statusbar.outputWarning("Il commento iniziale è obbligatorio");
             return;
         }
-        if (m_commentoStato == null || m_commentoStato.trim().isEmpty()) {
-            Statusbar.outputWarning("Selezionare lo stato del ticket");
-            return;
-        }
 
         ViewSessionContext ctx = ViewSessionContext.instance();
 
@@ -128,7 +123,10 @@ public class NewTicketUI extends PageBean implements Serializable {
             comment.setAutoreTipo(TicketComment.TIPO_CLIENTE);
             comment.setAutoreId  (ctx.getUsername());
             comment.setTesto     (m_commentoTesto.trim());
-            comment.setStatoTicket(m_commentoStato);
+            // Un DRAFT appena creato ha un solo stato possibile — non è più
+            // una scelta dell'utente (non avrebbe senso aprire un ticket
+            // nuovo già "risolto" o "in attesa di chiusura").
+            comment.setStatoTicket(TicketComment.STATO_CLI_ATTESA_ASSISTENZA);
 
             commentService.saveComment(comment, m_pendingAttachments);
 
@@ -229,9 +227,6 @@ public class NewTicketUI extends PageBean implements Serializable {
 
     public String getCommentoTesto()          { return m_commentoTesto; }
     public void setCommentoTesto(String v)    { this.m_commentoTesto = v; }
-
-    public String getCommentoStato()          { return m_commentoStato; }
-    public void setCommentoStato(String v)    { this.m_commentoStato = v; }
 
     public FIXGRIDListBinding<GridAttachItem> getGridPending() { return m_gridPending; }
     public boolean getHasPending()  { return !m_pendingAttachments.isEmpty(); }
