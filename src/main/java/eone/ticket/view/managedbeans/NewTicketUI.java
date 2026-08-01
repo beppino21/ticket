@@ -106,6 +106,30 @@ public class NewTicketUI extends PageBean implements Serializable {
 
         ViewSessionContext ctx = ViewSessionContext.instance();
 
+        // DIAGNOSTICA — verificare in log se richiedente arriva già vuoto
+        // dalla sessione (problema a monte, in Logon/Outest) oppure si perde
+        // dopo (problema in questo metodo o nell'INSERT).
+        System.out.println("[NewTicketUI] saveDraft() — sessione: kunnr='" + ctx.getKunnr() +
+                            "', richiedente='" + ctx.getRichiedente() +
+                            "', ruolo='" + ctx.getRuolo() +
+                            "', username='" + ctx.getUsername() + "'");
+
+        // Validazione obbligatoria: chi apre un DRAFT deve essere un CLIENTE
+        // con kunnr e reqid valorizzati. Nessun altro ruolo (ADMIN incluso)
+        // può creare un DRAFT — la voce di menu è già nascosta per gli altri
+        // ruoli, ma il controllo va ripetuto qui perché è la sede in cui il
+        // dato viene davvero scritto su ticket_draft.
+        if (!ctx.isCliente()
+                || ctx.getKunnr() == null || ctx.getKunnr().trim().isEmpty()
+                || ctx.getRichiedente() == null || ctx.getRichiedente().trim().isEmpty()) {
+            Statusbar.outputError("Impossibile aprire il ticket: utente non riconosciuto come richiedente cliente " +
+                                   "(kunnr/reqid mancanti). Contattare l'assistenza.");
+            System.err.println("[NewTicketUI] saveDraft() bloccato — dati richiedente incompleti: " +
+                                "kunnr='" + ctx.getKunnr() + "', richiedente='" + ctx.getRichiedente() +
+                                "', ruolo='" + ctx.getRuolo() + "', username='" + ctx.getUsername() + "'");
+            return;
+        }
+
         try {
             // 1. Crea il draft
             TicketDraft draft = new TicketDraft();

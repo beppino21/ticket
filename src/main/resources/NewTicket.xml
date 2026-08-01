@@ -12,17 +12,6 @@
 <t:field id="nt_f1" flush="true" text="#{d.NewTicketUI.titolo}" width="100%;500" />
 </t:row>
 <t:rowdistance id="nt_d1" height="10" />
-<t:row id="nt_r1b" coldistance="12" >
-<t:label id="nt_l1b" labeltext="Stato ticket:" rowalignmenty="center" width="120" />
-<t:combobox id="nt_stato" flush="true" value="#{d.NewTicketUI.commentoStato}" width="280" >
-<t:comboboxitem id="nt_s0" />
-<t:comboboxitem id="nt_s1" text="Attesa attività Assistenza" value="CLI_ATTESA_ASSISTENZA" />
-<t:comboboxitem id="nt_s2" text="Sollecito attività Assistenza" value="CLI_SOLLECITO_ASSISTENZA" />
-<t:comboboxitem id="nt_s3" text="Richiesta chiusura ticket" value="CLI_RICHIESTA_CHIUSURA" />
-<t:comboboxitem id="nt_s4" text="Ticket risolto" value="CLI_RISOLTO" />
-</t:combobox>
-</t:row>
-<t:rowdistance id="nt_d1b" height="10" />
 <t:row id="nt_r2" coldistance="12" >
 <t:label id="nt_l2" labeltext="Descrizione:" rowalignmenty="top" width="120" />
 <t:textarea id="nt_ta" height="120" text="#{d.NewTicketUI.commentoTesto}" width="100%;500" />
