@@ -44,6 +44,7 @@ public class Ticket {
     private String encUltimaDataSort  = "";   // Data/ora sort ultimo commento (yyyyMMddHHmm)
     private String encUltimoTesto   = "";    // Testo (troncato) dell'ultimo commento
     private String encNomeRichiedente = "";  // "REQID — Nome Cognome" da ticket_user (EnrichmentService)
+    private String encNomeReferente = "";    // "REQID — Nome Cognome" del referente_cli assegnato, o "" se non impostato
     private String encRstatLabel = "";       // Descrizione completa stato SAP: "CODICE - Descrizione"
     private String encRstatColor = "#CCCCCC"; // Colore badge stato SAP
     private String encRstatTextColor = "#000000"; // Colore testo contrastante
@@ -161,6 +162,9 @@ public class Ticket {
 
     public String getEncNomeRichiedente()            { return encNomeRichiedente != null ? encNomeRichiedente : ""; }
     public void setEncNomeRichiedente(String s)      { this.encNomeRichiedente = s; }
+
+    public String getEncNomeReferente()              { return encNomeReferente != null ? encNomeReferente : ""; }
+    public void setEncNomeReferente(String s)        { this.encNomeReferente = s; }
 
     public String getEncRstatLabel()                 { return encRstatLabel != null ? encRstatLabel : ""; }
     public void setEncRstatLabel(String s)           { this.encRstatLabel = s; }

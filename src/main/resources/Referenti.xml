@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<t:layoutdefinition xmlns:t="http://www.captaincasa.com/controllibrary/t" >
+
+<t:beanprocessing id="rf_0" beanbinding="#{d.ReferentiUI}" />
+<t:rowtitlebar id="rf_1" text="Gestione referenti" />
+<t:rowheader id="rf_h" >
+<t:button id="rf_back" actionListener="#{d.ReferentiUI.backToMenu}" text="« Menu" width="80" />
+<t:coldistance id="rf_hcd" width="100%" />
+<t:button id="rf_ref" actionListener="#{d.ReferentiUI.refresh}" text="Aggiorna" width="80" />
+<t:coldistance id="rf_hcd3" width="12" />
+<t:button id="rf_new" actionListener="#{d.ReferentiUI.onNuovo}" text="Nuovo »" width="90" />
+</t:rowheader>
+<t:rowbodypane id="rf_body" padding="8" >
+<t:row id="rf_kunnr_row" coldistance="8" rendered="#{d.ReferentiUI.modeAdmin}" >
+<t:label id="rf_kunnr_lbl" labeltext="Cliente:" width="80" />
+<t:combobox id="rf_kunnr_combo" actionListener="#{d.ReferentiUI.onKunnrAction}" flush="true" validvaluesbinding="#{d.ReferentiUI.kunnrVVB}" value="#{d.ReferentiUI.kunnrAmministrato}" width="280" withnullitem="true" />
+</t:row>
+<t:rowdistance id="rf_kunnr_dist" height="8" rendered="#{d.ReferentiUI.modeAdmin}" />
+<t:row id="rf_r1" >
+<t:splitpane id="rf_split" dividerlocation="55%" height="100%" orientation="horizontal" width="100%" >
+<t:splitpanesplit id="rf_left" padding="4" >
+<t:row id="rf_lg" >
+<t:fixgrid id="rf_grid" avoidrowstretching="true" dynamicheightsizing="true" height="100%" objectbinding="#{d.ReferentiUI.grid}" rowheight="28" sbvisibleamount="20" width="100%" >
+<t:gridcol id="rf_gc0" width="80" >
+<t:button id="rf_gb0" actionListener=".{onSeleziona}" text="Apri" width="70" />
+</t:gridcol>
+<t:gridcol id="rf_gc1" text="Username" width="120" >
+<t:label id="rf_gl1" text=".{idUser}" />
+</t:gridcol>
+<t:gridcol id="rf_gc2" text="Reqid" width="90" >
+<t:label id="rf_gl2" text=".{reqid}" />
+</t:gridcol>
+<t:gridcol id="rf_gc2b" text="Richiedente" width="110" >
+<t:label id="rf_gl2b" text=".{reqidRichiedente}" />
+</t:gridcol>
+<t:gridcol id="rf_gc3" text="Nome" width="170" >
+<t:label id="rf_gl3" text=".{nome}" />
+</t:gridcol>
+<t:gridcol id="rf_gc4" text="Email" width="190" >
+<t:label id="rf_gl4" text=".{email}" />
+</t:gridcol>
+<t:gridcol id="rf_gc5" text="Stato" width="90" >
+<t:label id="rf_gl5" text=".{statoLabel}" />
+</t:gridcol>
+</t:fixgrid>
+</t:row>
+</t:splitpanesplit>
+<t:splitpanesplit id="rf_right" padding="8" >
+<t:row id="rf_nosel" rendered="#{!d.ReferentiUI.formVisible}" >
+<t:label id="rf_nosel_lbl" font="color:#999999" text="Seleziona un referente dalla lista, oppure crea un nuovo referente." />
+</t:row>
+<t:row id="rf_form_title" rendered="#{d.ReferentiUI.formVisible}" >
+<t:label id="rf_form_title_lbl" font="weight:bold;color:#1565C0" text="#{d.ReferentiUI.isNuovo ? &#39;Nuovo referente&#39; : &#39;Modifica referente&#39;}" />
+</t:row>
+<t:rowdistance id="rf_fd0" height="10" rendered="#{d.ReferentiUI.formVisible}" />
+<t:row id="rf_f1" coldistance="8" rendered="#{d.ReferentiUI.showUsernameNuovo}" >
+<t:label id="rf_f1_lbl" labeltext="Username:" width="110" />
+<t:label id="rf_f1_prefix" font="weight:bold;color:#455A64" text="#{d.ReferentiUI.prefissoCorrente}_" width="50" />
+<t:field id="rf_f1_field" enabled="true" flush="true" text="#{d.ReferentiUI.formCodice}" width="140" />
+</t:row>
+<t:rowdistance id="rf_fd1a" height="4" rendered="#{d.ReferentiUI.showUsernameNuovo}" />
+<t:row id="rf_f1_hint" rendered="#{d.ReferentiUI.showUsernameNuovo}" >
+<t:coldistance id="rf_f1_hint_cd" width="118" />
+<t:label id="rf_f1_hint_lbl" font="size:10;color:#888888" text="Il prefisso è fisso per questo cliente — inserisci solo la parte dopo l&#39;underscore (solo lettere e cifre)." />
+</t:row>
+<t:row id="rf_f1_edit" coldistance="8" rendered="#{d.ReferentiUI.showUsernameEdit}" >
+<t:label id="rf_f1_edit_lbl" labeltext="Username:" width="110" />
+<t:label id="rf_f1_edit_val" font="weight:bold" text="#{d.ReferentiUI.formIdUser}" />
+</t:row>
+<t:rowdistance id="rf_fd1b" height="8" rendered="#{d.ReferentiUI.formVisible}" />
+<t:row id="rf_f1b" coldistance="8" rendered="#{d.ReferentiUI.formVisible}" >
+<t:label id="rf_f1b_lbl" labeltext="Richiedente di riferimento:" width="180" />
+<t:combobox id="rf_f1b_combo" flush="true" validvaluesbinding="#{d.ReferentiUI.richiedentiVVB}" value="#{d.ReferentiUI.formReqidRichiedente}" width="260" />
+</t:row>
+<t:rowdistance id="rf_fd1" height="8" rendered="#{d.ReferentiUI.formVisible}" />
+<t:row id="rf_f2" coldistance="8" rendered="#{d.ReferentiUI.formVisible}" >
+<t:label id="rf_f2_lbl" labeltext="Nome:" width="110" />
+<t:field id="rf_f2_field" flush="true" text="#{d.ReferentiUI.formNome}" width="260" />
+</t:row>
+<t:rowdistance id="rf_fd2" height="8" rendered="#{d.ReferentiUI.formVisible}" />
+<t:row id="rf_f3" coldistance="8" rendered="#{d.ReferentiUI.formVisible}" >
+<t:label id="rf_f3_lbl" labeltext="Email:" width="110" />
+<t:field id="rf_f3_field" flush="true" text="#{d.ReferentiUI.formEmail}" width="260" />
+</t:row>
+<t:rowdistance id="rf_fd5" height="8" rendered="#{d.ReferentiUI.showPasswordFieldForm}" />
+<t:row id="rf_f6" coldistance="8" rendered="#{d.ReferentiUI.showPasswordFieldForm}" >
+<t:label id="rf_f6_lbl" labeltext="Password iniziale:" width="110" />
+<t:password id="rf_f6_field" flush="true" text="#{d.ReferentiUI.formPassword}" width="180" />
+</t:row>
+<t:rowdistance id="rf_fd5b" height="4" rendered="#{d.ReferentiUI.showPasswordFieldForm}" />
+<t:row id="rf_f6_hint" rendered="#{d.ReferentiUI.showPasswordFieldForm}" >
+<t:coldistance id="rf_f6_hint_cd" width="118" />
+<t:label id="rf_f6_hint_lbl" font="size:10;color:#888888" text="Il referente dovrà cambiarla al primo accesso." />
+</t:row>
+<t:rowdistance id="rf_fd6" height="8" rendered="#{d.ReferentiUI.showEditFlags}" />
+<t:row id="rf_f7" coldistance="8" rendered="#{d.ReferentiUI.showEditFlags}" >
+<t:label id="rf_f7_lbl" labeltext="Referente attivo:" width="150" />
+<t:checkbox id="rf_f7_check" flush="true" selected="#{d.ReferentiUI.formAttivo}" />
+</t:row>
+<t:rowdistance id="rf_fd7b" height="10" rendered="#{d.ReferentiUI.showResetPasswordButton}" />
+<t:row id="rf_f7b" coldistance="8" rendered="#{d.ReferentiUI.showResetPasswordButton}" >
+<t:coldistance id="rf_f7b_cd" width="150" />
+<t:button id="rf_f7b_btn" actionListener="#{d.ReferentiUI.onMostraResetPassword}" text="Reimposta password »" width="160" />
+</t:row>
+<t:rowdistance id="rf_fd7c" height="10" rendered="#{d.ReferentiUI.showResetPasswordPanel}" />
+<t:row id="rf_f7c" coldistance="8" rendered="#{d.ReferentiUI.showResetPasswordPanel}" >
+<t:label id="rf_f7c_lbl" labeltext="Nuova password:" width="150" />
+<t:password id="rf_f7c_field" flush="true" text="#{d.ReferentiUI.resetPasswordValue}" width="180" />
+</t:row>
+<t:rowdistance id="rf_fd7d" height="4" rendered="#{d.ReferentiUI.showResetPasswordPanel}" />
+<t:row id="rf_f7d" rendered="#{d.ReferentiUI.showResetPasswordPanel}" >
+<t:coldistance id="rf_f7d_cd" width="150" />
+<t:button id="rf_f7d_ok" actionListener="#{d.ReferentiUI.onResetPassword}" text="Conferma »" width="110" />
+<t:button id="rf_f7d_cancel" actionListener="#{d.ReferentiUI.onAnnullaResetPassword}" text="Annulla" width="90" />
+</t:row>
+<t:rowdistance id="rf_fd7" height="20" rendered="#{d.ReferentiUI.formVisible}" />
+<t:row id="rf_f8" coldistance="8" rendered="#{d.ReferentiUI.formVisible}" >
+<t:coldistance id="rf_f8_cd" width="150" />
+<t:button id="rf_save_btn" actionListener="#{d.ReferentiUI.onSalva}" text="Salva »" width="110" />
+<t:button id="rf_cancel_btn" actionListener="#{d.ReferentiUI.onAnnullaForm}" text="Annulla" width="90" />
+<t:button id="rf_delete_btn" actionListener="#{d.ReferentiUI.onElimina}" rendered="#{!d.ReferentiUI.isNuovo}" text="Elimina" width="90" />
+</t:row>
+</t:splitpanesplit>
+</t:splitpane>
+</t:row>
+</t:rowbodypane>
+
+</t:layoutdefinition>

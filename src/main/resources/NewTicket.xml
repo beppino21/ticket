@@ -12,6 +12,11 @@
 <t:field id="nt_f1" flush="true" text="#{d.NewTicketUI.titolo}" width="100%;500" />
 </t:row>
 <t:rowdistance id="nt_d1" height="10" />
+<t:row id="nt_r1c" coldistance="12" >
+<t:label id="nt_l1c" labeltext="Referente:" rowalignmenty="center" width="120" />
+<t:combobox id="nt_referente" flush="true" validvaluesbinding="#{d.NewTicketUI.referenteVVB}" value="#{d.NewTicketUI.reqidReferente}" width="280" />
+</t:row>
+<t:rowdistance id="nt_d1c" height="10" />
 <t:row id="nt_r2" coldistance="12" >
 <t:label id="nt_l2" labeltext="Descrizione:" rowalignmenty="top" width="120" />
 <t:textarea id="nt_ta" height="120" text="#{d.NewTicketUI.commentoTesto}" width="100%;500" />

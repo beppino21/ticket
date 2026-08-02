@@ -10,6 +10,7 @@ public class ClienteConfig implements Serializable {
     private String  kunnr;
     private String  nomeCliente;
     private boolean abilitato;
+    private String  prefissoReferente;
 
     public String getKunnr()                { return kunnr; }
     public void setKunnr(String v)           { this.kunnr = v; }
@@ -19,4 +20,7 @@ public class ClienteConfig implements Serializable {
 
     public boolean isAbilitato()             { return abilitato; }
     public void setAbilitato(boolean v)      { this.abilitato = v; }
+
+    public String getPrefissoReferente()     { return prefissoReferente; }
+    public void setPrefissoReferente(String v) { this.prefissoReferente = v; }
 }

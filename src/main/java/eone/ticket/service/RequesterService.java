@@ -42,7 +42,7 @@ public class RequesterService {
      */
     public java.util.List<RequesterInfo> getActiveDispatchers() throws SQLException {
         java.util.List<RequesterInfo> list = new java.util.ArrayList<>();
-        String sql = "SELECT id_user, kunnr, reqid, nome, email, password_hash, ruolo, vede_tutti, attivo, password_impostata_il, password_scadenza_giorni, password_non_scade " +
+        String sql = "SELECT id_user, kunnr, reqid, nome, email, password_hash, ruolo, vede_tutti, attivo, gestisce_referenti, reqid_richiedente, password_impostata_il, password_scadenza_giorni, password_non_scade " +
                      "FROM ticket_user " +
                      "WHERE ruolo = 'DISPATCHER' AND attivo = TRUE AND email IS NOT NULL AND email <> ''";
         try (Connection con = DBConfig.getConnection();
@@ -65,7 +65,7 @@ public class RequesterService {
         if (id_user == null || id_user.trim().isEmpty()) return null;
         if (password == null || password.isEmpty())  return null;
 
-        String sql = "SELECT id_user, kunnr, reqid, nome, email, password_hash, ruolo, vede_tutti, attivo, password_impostata_il, password_scadenza_giorni, password_non_scade " +
+        String sql = "SELECT id_user, kunnr, reqid, nome, email, password_hash, ruolo, vede_tutti, attivo, gestisce_referenti, reqid_richiedente, password_impostata_il, password_scadenza_giorni, password_non_scade " +
                      "FROM ticket_user " +
                      "WHERE id_user = ? AND attivo = TRUE";
 
@@ -126,7 +126,7 @@ public class RequesterService {
     public RequesterInfo getById(String id_user) throws SQLException {
         if (id_user == null || id_user.trim().isEmpty()) return null;
 
-        String sql = "SELECT id_user, kunnr, reqid, nome, email, password_hash, ruolo, vede_tutti, attivo, password_impostata_il, password_scadenza_giorni, password_non_scade " +
+        String sql = "SELECT id_user, kunnr, reqid, nome, email, password_hash, ruolo, vede_tutti, attivo, gestisce_referenti, reqid_richiedente, password_impostata_il, password_scadenza_giorni, password_non_scade " +
                      "FROM ticket_user WHERE id_user = ?";
 
         try (Connection con = DBConfig.getConnection();
@@ -141,8 +141,16 @@ public class RequesterService {
 
     /**
      * Cerca il richiedente (CLIENTE) collegato a una coppia kunnr+reqid.
-     * Usato per risolvere il destinatario cliente delle notifiche email.
+     * Usato per risolvere il destinatario cliente delle notifiche email e
+     * il nome da mostrare nelle liste ticket.
      * Nota: reqid non è univoco da solo — kunnr+reqid identifica il richiedente.
+     *
+     * Filtrato esplicitamente su ruolo='CLIENTE': da quando un referente_cli
+     * può condividere lo stesso kunnr+reqid di un richiedente (per disegno —
+     * un referente si "attribuisce" a un richiedente già esistente), una
+     * query senza filtro sul ruolo poteva restituire in modo non
+     * deterministico la riga del referente al posto di quella del vero
+     * richiedente, sbagliando sia i nomi mostrati sia i destinatari email.
      *
      * Il confronto su kunnr è fatto con LPAD a 10 cifre su entrambi i lati:
      * il kunnr che arriva dal ticket (via SAP OData) può non essere
@@ -156,8 +164,8 @@ public class RequesterService {
     public RequesterInfo getByKunnrReqid(String kunnr, String reqid) throws SQLException {
         if (kunnr == null || reqid == null) return null;
 
-        String sql = "SELECT id_user, kunnr, reqid, nome, email, password_hash, ruolo, vede_tutti, attivo, password_impostata_il, password_scadenza_giorni, password_non_scade " +
-                     "FROM ticket_user WHERE LPAD(kunnr, 10, '0') = LPAD(?, 10, '0') AND reqid = ? LIMIT 1";
+        String sql = "SELECT id_user, kunnr, reqid, nome, email, password_hash, ruolo, vede_tutti, attivo, gestisce_referenti, reqid_richiedente, password_impostata_il, password_scadenza_giorni, password_non_scade " +
+                     "FROM ticket_user WHERE LPAD(kunnr, 10, '0') = LPAD(?, 10, '0') AND reqid = ? AND ruolo = 'CLIENTE' LIMIT 1";
 
         try (Connection con = DBConfig.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
@@ -170,6 +178,74 @@ public class RequesterService {
         }
     }
 
+    /**
+     * Cerca il referente collegato a una coppia kunnr+reqid, per risolvere
+     * il destinatario delle notifiche email inviate al referente di un
+     * ticket. A differenza di getByKunnrReqid(), NON si limita a
+     * ruolo='CLIENTE': il referente può essere un vero REFERENTE_CLI
+     * (account separato, es. admin_becket) oppure — nel caso più comune —
+     * lo stesso richiedente che ha scelto se stesso come referente, nel
+     * qual caso esiste solo la riga CLIENTE. La riga REFERENTE_CLI, se
+     * presente, ha sempre priorità (ORDER BY): è quella con l'anagrafica
+     * corretta per quella figura specifica.
+     */
+    public RequesterInfo getReferenteInfo(String kunnr, String reqid) throws SQLException {
+        if (kunnr == null || reqid == null) return null;
+
+        String sql = "SELECT id_user, kunnr, reqid, nome, email, password_hash, ruolo, vede_tutti, attivo, gestisce_referenti, reqid_richiedente, password_impostata_il, password_scadenza_giorni, password_non_scade " +
+                     "FROM ticket_user WHERE LPAD(kunnr, 10, '0') = LPAD(?, 10, '0') AND reqid = ? " +
+                     "ORDER BY (ruolo = 'REFERENTE_CLI') DESC LIMIT 1";
+
+        try (Connection con = DBConfig.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, kunnr.trim());
+            ps.setString(2, reqid.trim());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return null;
+                return mapRow(rs);
+            }
+        }
+    }
+
+    /**
+     * Restituisce i soggetti selezionabili come "referente" di un ticket per
+     * un dato kunnr: tutti i CLIENTE (richiedenti, incluso chi sta aprendo il
+     * ticket) e tutti i REFERENTE_CLI dello stesso kunnr, attivi.
+     * Usato per popolare la combobox "Referente" in creazione/riassegnazione.
+     */
+    /**
+     * Restituisce i soggetti selezionabili come "referente" di un ticket per
+     * un dato richiedente: il richiedente stesso (reqidRichiedente) + tutti
+     * i REFERENTE_CLI dello stesso kunnr che fanno capo a lui
+     * (reqid_richiedente), attivi. NON tutti i richiedenti/referenti del
+     * cliente — ogni richiedente vede solo i "suoi" referenti (es. un
+     * richiedente per stabilimento, ciascuno con i propri).
+     * Usato per popolare la combobox "Referente" in creazione/riassegnazione.
+     */
+    public List<RequesterInfo> getEligibiliReferente(String kunnr, String reqidRichiedente) throws SQLException {
+        List<RequesterInfo> list = new ArrayList<>();
+        if (kunnr == null || kunnr.trim().isEmpty()) return list;
+        if (reqidRichiedente == null || reqidRichiedente.trim().isEmpty()) return list;
+
+        String sql = "SELECT id_user, kunnr, reqid, nome, email, password_hash, ruolo, vede_tutti, attivo, gestisce_referenti, reqid_richiedente, password_impostata_il, password_scadenza_giorni, password_non_scade " +
+                     "FROM ticket_user " +
+                     "WHERE LPAD(kunnr, 10, '0') = LPAD(?, 10, '0') AND attivo = TRUE " +
+                     "AND ( (ruolo = 'CLIENTE' AND reqid = ?) " +
+                     "   OR (ruolo = 'REFERENTE_CLI' AND reqid_richiedente = ?) ) " +
+                     "ORDER BY nome";
+
+        try (Connection con = DBConfig.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, kunnr.trim());
+            ps.setString(2, reqidRichiedente.trim());
+            ps.setString(3, reqidRichiedente.trim());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) list.add(mapRow(rs));
+            }
+        }
+        return list;
+    }
+
     /** Mapping comune ResultSet -> RequesterInfo, riusato da authenticate/getById/getByKunnrReqid */
     private RequesterInfo mapRow(ResultSet rs) throws SQLException {
         RequesterInfo info = new RequesterInfo();
@@ -180,6 +256,8 @@ public class RequesterService {
         info.setEmail    (rs.getString  ("email"));
         info.setRuolo    (rs.getString  ("ruolo"));
         info.setVedeTutti(rs.getBoolean ("vede_tutti"));
+        info.setGestisceReferenti(rs.getBoolean("gestisce_referenti"));
+        info.setReqidRichiedente(rs.getString("reqid_richiedente"));
         java.sql.Timestamp impostataIl = rs.getTimestamp("password_impostata_il");
         if (impostataIl != null) info.setPasswordImpostataIl(impostataIl.toLocalDateTime());
         info.setPasswordScadenzaGiorni(rs.getInt("password_scadenza_giorni"));

@@ -13,6 +13,7 @@ import eone.ticket.config.DBConfig;
 import eone.ticket.model.RequesterInfo;
 import eone.ticket.model.Ticket;
 import eone.ticket.model.TicketDraft;
+import eone.ticket.service.TicketReferenteService;
 
 /**
  * Service per la gestione utenti da parte di AMS_ADMIN (utenti AMS/DISPATCHER)
@@ -27,7 +28,7 @@ import eone.ticket.model.TicketDraft;
 public class UserAdminService {
 
     private static final String COLS =
-        "id_user, kunnr, reqid, nome, email, ruolo, vede_tutti, attivo, " +
+        "id_user, kunnr, reqid, nome, email, ruolo, vede_tutti, attivo, gestisce_referenti, reqid_richiedente, " +
         "password_impostata_il, password_scadenza_giorni, password_non_scade";
 
     // =========================
@@ -45,6 +46,25 @@ public class UserAdminService {
     public List<RequesterInfo> listRichiedenti(String kunnr) throws SQLException {
         String sql = "SELECT " + COLS + " FROM ticket_user " +
                      "WHERE ruolo = 'CLIENTE' AND LPAD(kunnr, 10, '0') = LPAD(?, 10, '0') ORDER BY nome";
+        try (Connection con = DBConfig.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, kunnr);
+            try (ResultSet rs = ps.executeQuery()) {
+                List<RequesterInfo> list = new ArrayList<>();
+                while (rs.next()) list.add(mapRow(rs));
+                return list;
+            }
+        }
+    }
+
+    /**
+     * Referenti_cli di un preciso Kunnr — per un CLIENTE con
+     * gestisce_referenti=TRUE (self-service sul proprio kunnr) oppure per
+     * ADMIN (kunnr scelto liberamente).
+     */
+    public List<RequesterInfo> listReferenti(String kunnr) throws SQLException {
+        String sql = "SELECT " + COLS + " FROM ticket_user " +
+                     "WHERE ruolo = 'REFERENTE_CLI' AND LPAD(kunnr, 10, '0') = LPAD(?, 10, '0') ORDER BY nome";
         try (Connection con = DBConfig.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, kunnr);
@@ -108,14 +128,41 @@ public class UserAdminService {
     }
 
     /**
-     * Aggiorna nome/email e i tre flag di stato/policy password — non tocca
+     * Crea un nuovo referente_cli per il Kunnr indicato, collegato al
+     * richiedente (reqidRichiedente) a cui fa capo. Il reqid del referente
+     * è sempre = idUser (identità propria e distinta, mai condivisa con un
+     * richiedente) — non richiede un input separato.
+     */
+    public void createReferente(String idUser, String kunnr, String reqidRichiedente, String nome,
+                                 String email, String passwordIniziale) throws SQLException {
+        String hash = BCrypt.hashpw(passwordIniziale, BCrypt.gensalt(12));
+        String sql = "INSERT INTO ticket_user " +
+                     "(id_user, kunnr, reqid, reqid_richiedente, nome, email, password_hash, ruolo, vede_tutti, attivo, " +
+                     " password_impostata_il, password_scadenza_giorni) " +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?, 'REFERENTE_CLI', FALSE, TRUE, NOW() - INTERVAL '91 days', 90)";
+        try (Connection con = DBConfig.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, idUser);
+            ps.setString(2, kunnr);
+            ps.setString(3, idUser);          // reqid del referente = idUser
+            ps.setString(4, reqidRichiedente); // a chi fa capo
+            ps.setString(5, nome);
+            ps.setString(6, email);
+            ps.setString(7, hash);
+            ps.executeUpdate();
+        }
+    }
+    /**
+     * Aggiorna nome/email e i flag di stato/policy password — non tocca
      * kunnr/reqid/ruolo (identità fissa, non modificabile dopo la creazione).
+     * gestisceReferenti ha senso solo per richiedenti CLIENTE — per utenti
+     * AMS/DISPATCHER/REFERENTE_CLI va sempre passato false.
      */
     public void updateAnagrafica(String idUser, String nome, String email, boolean attivo,
                                   boolean vedeTutti, boolean passwordNonScade,
-                                  int passwordScadenzaGiorni) throws SQLException {
+                                  int passwordScadenzaGiorni, boolean gestisceReferenti) throws SQLException {
         String sql = "UPDATE ticket_user SET nome = ?, email = ?, attivo = ?, vede_tutti = ?, " +
-                     "password_non_scade = ?, password_scadenza_giorni = ?, updated_at = NOW() " +
+                     "password_non_scade = ?, password_scadenza_giorni = ?, gestisce_referenti = ?, updated_at = NOW() " +
                      "WHERE id_user = ?";
         try (Connection con = DBConfig.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
@@ -125,7 +172,8 @@ public class UserAdminService {
             ps.setBoolean(4, vedeTutti);
             ps.setBoolean(5, passwordNonScade);
             ps.setInt(6, passwordScadenzaGiorni);
-            ps.setString(7, idUser);
+            ps.setBoolean(7, gestisceReferenti);
+            ps.setString(8, idUser);
             ps.executeUpdate();
         }
     }
@@ -191,6 +239,26 @@ public class UserAdminService {
         return 0;
     }
 
+    /**
+     * Cancella un referente_cli, ma solo se non è attualmente assegnato come
+     * referente su nessun ticket (DRAFT o SAP) — altrimenti quel ticket
+     * resterebbe con un referente inesistente. Ritorna il numero di
+     * assegnazioni attive trovate (0 = cancellazione eseguita).
+     */
+    public int deleteReferente(String idUser, String reqid,
+                                TicketReferenteService referenteService) throws Exception {
+        int attivi = contaTicketAttiviReferente(reqid, referenteService);
+        if (attivi > 0) return attivi; // bloccato, non cancella
+
+        String sql = "DELETE FROM ticket_user WHERE id_user = ?";
+        try (Connection con = DBConfig.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, idUser);
+            ps.executeUpdate();
+        }
+        return 0;
+    }
+
     /** Solo il conteggio, senza cancellare — usato dalla UI per il warning prima della conferma. */
     public int contaTicketAttiviAms(String idUser, SAPTicketService sapService) throws Exception {
         SAPTicketService.TicketResponse resp = sapService.getTickets(null, null, null, null, null, "ne:CLO");
@@ -222,6 +290,22 @@ public class UserAdminService {
         return count;
     }
 
+    /** Cambia il richiedente a cui fa capo un referente_cli già esistente. */
+    public void updateReferenteRichiedente(String idUser, String reqidRichiedente) throws SQLException {
+        String sql = "UPDATE ticket_user SET reqid_richiedente = ?, updated_at = NOW() WHERE id_user = ? AND ruolo = 'REFERENTE_CLI'";
+        try (Connection con = DBConfig.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, reqidRichiedente);
+            ps.setString(2, idUser);
+            ps.executeUpdate();
+        }
+    }
+
+    /** Solo il conteggio, senza cancellare — usato dalla UI per il warning prima della conferma. */
+    public int contaTicketAttiviReferente(String reqid, TicketReferenteService referenteService) throws Exception {
+        return referenteService.getTicktsByReferente(reqid).size();
+    }
+
     // =========================
     // UTILITY
     // =========================
@@ -246,6 +330,8 @@ public class UserAdminService {
         info.setRuolo(rs.getString("ruolo"));
         info.setVedeTutti(rs.getBoolean("vede_tutti"));
         info.setAttivo(rs.getBoolean("attivo"));
+        info.setGestisceReferenti(rs.getBoolean("gestisce_referenti"));
+        info.setReqidRichiedente(rs.getString("reqid_richiedente"));
         info.setPasswordNonScade(rs.getBoolean("password_non_scade"));
         info.setPasswordScadenzaGiorni(rs.getInt("password_scadenza_giorni"));
         return info;

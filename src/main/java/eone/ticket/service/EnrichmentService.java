@@ -138,8 +138,17 @@ public class EnrichmentService {
         // al ticket giusto avviene però sempre sulla coppia kunnr+reqid,
         // costruita lato Java per gestire anche eventuali differenze di
         // zero-padding sul kunnr tra SAP e ticket_user.
+        //
+        // IMPORTANTE: filtrato esplicitamente su ruolo='CLIENTE'. Un
+        // referente_cli può condividere lo stesso kunnr+reqid di un
+        // richiedente (per disegno: un referente si "attribuisce" a un
+        // richiedente già esistente) — senza questo filtro, la riga del
+        // referente poteva sovrascrivere qui il nome del richiedente in
+        // modo non deterministico (dipendente dall'ordine restituito da
+        // Postgres), mostrando nella colonna "Richiedente" il nome del
+        // referente invece che del vero richiedente.
         String sql = buildInClause(
-            "SELECT kunnr, reqid, nome FROM ticket_user WHERE reqid IN (",
+            "SELECT kunnr, reqid, nome FROM ticket_user WHERE ruolo = 'CLIENTE' AND reqid IN (",
             reqids.size()
         );
 

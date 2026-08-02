@@ -63,7 +63,7 @@
 <t:gridcol id="g_66" text="Priorità" width="75" >
 <t:label id="g_67" stylevariant="ccbig" text=".{rprio}" />
 </t:gridcol>
-<t:gridcol id="g_68" text="Data" width="88" >
+<t:gridcol id="g_68" text="Data Inserimento" width="88" >
 <t:label id="g_93" text=".{erdat}" timezone="UTC" />
 </t:gridcol>
 <t:gridcol id="g_70" text="Cliente" width="85" >
@@ -71,6 +71,9 @@
 </t:gridcol>
 <t:gridcol id="g_72" text="Richiedente" width="180" >
 <t:label id="g_73" background=".{reqidCellBackground}" text=".{reqidNome}" />
+</t:gridcol>
+<t:gridcol id="g_72b" text="Ref. Cliente" width="180" >
+<t:label id="g_73b" text=".{referenteNome}" />
 </t:gridcol>
 <t:gridcol id="g_74" text="Categoria" width="90" >
 <t:label id="g_75" text=".{categ}" />
@@ -84,7 +87,7 @@
 <t:gridcol id="g_80" text="AMS" width="90" >
 <t:label id="g_81" background=".{amusrCellBackground}" text=".{amusr}" />
 </t:gridcol>
-<t:gridcol id="g_82" text="Referente" width="90" >
+<t:gridcol id="g_82" text="Ref. SAP" width="90" >
 <t:label id="g_83" text=".{refer}" />
 </t:gridcol>
 <t:gridcol id="g_86" text="Stato commento" width="170" >

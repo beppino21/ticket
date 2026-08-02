@@ -4,6 +4,7 @@ import java.io.Serializable;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -26,6 +27,7 @@ import eone.ticket.service.EnrichmentService;
 import eone.ticket.service.RequesterService;
 import eone.ticket.service.SAPTicketService;
 import eone.ticket.service.SAPTicketService.TicketResponse;
+import eone.ticket.service.TicketReferenteService;
 import eone.ticket.service.SubstitutionService;
 import eone.ticket.service.TicketDraftService;
 
@@ -49,6 +51,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
     private SAPTicketService  ticketService     = null;
     private EnrichmentService enrichmentService = new EnrichmentService();
     private TicketDraftService draftService     = new TicketDraftService();
+    private TicketReferenteService referenteService = new TicketReferenteService();
     private RequesterService  requesterService  = new RequesterService();
     private SubstitutionService substitutionService = new SubstitutionService();
     private ClienteConfigService clienteConfigService = new ClienteConfigService();
@@ -127,6 +130,13 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
          * Formato: "MARIO — Mario Rossi" oppure solo "MARIO" se nome non disponibile.
          */
         public String getReqidNome() { return nn(ticket.getEncNomeRichiedente()); }
+
+        /**
+         * Referente arricchito da PostgreSQL, colonna distinta dal
+         * richiedente. Formato: "MARIO — Mario Rossi", vuoto se il ticket
+         * non ha (ancora) un referente assegnato.
+         */
+        public String getReferenteNome() { return nn(ticket.getEncNomeReferente()); }
 
         /**
          * Giallo se questo ticket appartiene a un collega attualmente
@@ -648,6 +658,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
         }
 
         enrichmentService.enrichTickets(ticketList);
+        arricchisciNomeReferente(ticketList);
         ticketsEnriched = ticketList;
 
         // DRAFT in cache solo per la lista operativa, non per l'archivio né
@@ -776,6 +787,16 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
                 System.err.println("[TicketListUI] Errore risoluzione nome DRAFT: " + e.getMessage());
             }
             t.setEncNomeRichiedente(nomeRichiedente);
+            try {
+                String reqidReferente = referenteService.getReferente(d.getTicktKey());
+                if (reqidReferente != null && !reqidReferente.trim().isEmpty()) {
+                    RequesterInfo referente = requesterService.getReferenteInfo(d.getKunnr(), reqidReferente);
+                    t.setEncNomeReferente((referente != null && referente.getNome() != null && !referente.getNome().trim().isEmpty())
+                        ? reqidReferente + " — " + referente.getNome().trim() : reqidReferente);
+                }
+            } catch (Exception e) {
+                System.err.println("[TicketListUI] Errore risoluzione nome referente DRAFT: " + e.getMessage());
+            }
             if (d.getCreatedAt() != null) {
                 t.setErdat(String.format("%04d%02d%02d",
                     d.getCreatedAt().getYear(),
@@ -867,9 +888,84 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
                         })
                         .collect(java.util.stream.Collectors.toList());
                 }
+                // Se la query era ristretta a un singolo reqid (il proprio),
+                // aggiungiamo anche i ticket SAP dove l'utente è referente_cli
+                // ma non richiedente — non presenti nella query SAP appena
+                // fatta perché appartengono ad un altro reqid. Il referente
+                // è un concetto solo nostro (Postgres), SAP non lo conosce.
+                if (reqid != null && !reqid.trim().isEmpty()) {
+                    tickets = aggiungiTicketDoveReferente(tickets, reqid, kunnr);
+                }
                 populateGrid(tickets, "Trovati " + tickets.size() + " ticket per " + utente);
             } else { setError("Errore SAP: " + response.getErrorMessage()); }
         } catch (Exception e) { setError("Eccezione: " + e.getMessage()); e.printStackTrace(); }
+    }
+
+    /**
+     * Arricchisce ogni ticket con il nome del referente assegnato (colonna
+     * "Referente" della griglia, distinta da "Richiedente"). Un ticket senza
+     * referente impostato (caso raro/legacy) resta con stringa vuota.
+     * Un errore qui non deve bloccare il caricamento della lista.
+     */
+    private void arricchisciNomeReferente(List<Ticket> tickets) {
+        try {
+            List<String> tickts = tickets.stream().map(Ticket::getTickt)
+                .filter(t -> t != null && !t.isEmpty())
+                .collect(java.util.stream.Collectors.toList());
+            if (tickts.isEmpty()) return;
+
+            java.util.Map<String, String> ticktToReqidReferente = referenteService.getReferentiBulk(tickts);
+            java.util.Map<String, String> reqidToNomeCache = new java.util.HashMap<>();
+
+            for (Ticket t : tickets) {
+                String reqidReferente = ticktToReqidReferente.get(t.getTickt());
+                if (reqidReferente == null || reqidReferente.trim().isEmpty()) continue;
+                String cacheKey = t.getKunnr() + "|" + reqidReferente;
+                String label = reqidToNomeCache.get(cacheKey);
+                if (label == null) {
+                    RequesterInfo referente = requesterService.getReferenteInfo(t.getKunnr(), reqidReferente);
+                    label = (referente != null && referente.getNome() != null && !referente.getNome().trim().isEmpty())
+                        ? reqidReferente + " — " + referente.getNome().trim() : reqidReferente;
+                    reqidToNomeCache.put(cacheKey, label);
+                }
+                t.setEncNomeReferente(label);
+            }
+        } catch (Exception e) {
+            System.err.println("[TicketListUI] Errore arricchimento nome referente: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Arricchisce la lista già ottenuta dalla query SAP (per un singolo
+     * reqid) con i ticket SAP dove reqid è referente_cli assegnato ma non
+     * richiedente. I DRAFT (tickt "DRAFT-{id}") sono esclusi qui: la
+     * visibilità di un referente sui DRAFT altrui è un caso non ancora
+     * gestito — vedi nota nel codice di NewTicketUI/CommentUI.
+     * Un errore in questa fase non deve far fallire il caricamento
+     * principale: si torna semplicemente la lista originale, loggando.
+     */
+    private List<Ticket> aggiungiTicketDoveReferente(List<Ticket> base, String reqid, String kunnrHint) {
+        try {
+            List<String> ticktReferente = referenteService.getTicktsByReferente(reqid);
+            if (ticktReferente.isEmpty()) return base;
+            List<Ticket> result = new ArrayList<>(base);
+            for (String t : ticktReferente) {
+                if (t == null || t.startsWith("DRAFT-")) continue; // vedi nota javadoc
+                boolean giaPresente = result.stream().anyMatch(x -> t.equalsIgnoreCase(x.getTickt()));
+                if (giaPresente) continue;
+                try {
+                    Ticket extra = ticketService.getTicketById(t, kunnrHint);
+                    if (extra != null) result.add(extra);
+                } catch (Exception e) {
+                    System.err.println("[TicketListUI] Errore recupero ticket " + t +
+                                       " (referente=" + reqid + "): " + e.getMessage());
+                }
+            }
+            return result;
+        } catch (Exception e) {
+            System.err.println("[TicketListUI] Errore lookup ticket dove referente: " + e.getMessage());
+            return base;
+        }
     }
 
     private void loadAllTickets(String rstatFilter) {

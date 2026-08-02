@@ -11,6 +11,7 @@ import org.eclnt.jsfserver.elements.events.BaseActionEventUpload;
 import org.eclnt.jsfserver.elements.impl.FIXGRIDItem;
 import org.eclnt.jsfserver.elements.impl.FIXGRIDListBinding;
 import org.eclnt.jsfserver.elements.util.Trigger;
+import org.eclnt.jsfserver.elements.util.ValidValuesBinding;
 import org.eclnt.jsfserver.pagebean.PageBean;
 import org.eclnt.jsfserver.util.tempfile.TempFileManager;
 
@@ -21,6 +22,7 @@ import eone.ticket.model.TicketComment;
 import eone.ticket.service.CommentService;
 import eone.ticket.service.MailService;
 import eone.ticket.service.RequesterService;
+import eone.ticket.service.TicketReferenteService;
 
 /**
  * CommentUI v2 - layout a due colonne (split verticale):
@@ -52,12 +54,20 @@ public class CommentUI extends PageBean implements Serializable {
     private final RequesterService requesterService = new RequesterService();
     private final MailService mailService = new MailService();
     private final eone.ticket.service.SubstitutionService substitutionService = new eone.ticket.service.SubstitutionService();
+    private final TicketReferenteService referenteService = new TicketReferenteService();
 
     private String m_currentTickt;
     private String m_currentKunnr;
     private String m_currentReqid;
     private String m_currentAmusr;
     private String m_currentRefer;
+
+    // Referente_cli assegnato al ticket — visualizzazione e riassegnazione.
+    // Modificabile dal richiedente del ticket o dal referente attualmente assegnato.
+    private final ValidValuesBinding m_referenteVVB = new ValidValuesBinding();
+    private String  m_reqidReferenteAttuale;
+    private String  m_reqidReferenteNuovo;
+    private boolean m_puoModificareReferente;
 
     // Lista commenti (colonna sinistra)
     private FIXGRIDListBinding<GridCommentItem> m_gridComments = new FIXGRIDListBinding<>();
@@ -179,6 +189,59 @@ public class CommentUI extends PageBean implements Serializable {
         m_gridPending.getItems().clear();
         m_gridAttachList.getItems().clear();
         loadComments();
+        loadReferente();
+    }
+
+    /**
+     * Carica il referente_cli attualmente assegnato al ticket, popola la
+     * combobox di riassegnazione (richiedenti + referenti_cli dello stesso
+     * kunnr) e determina se l'utente loggato può modificarlo: solo il
+     * richiedente del ticket o il referente attualmente assegnato.
+     */
+    private void loadReferente() {
+        m_referenteVVB.clear();
+        m_reqidReferenteAttuale = null;
+        m_reqidReferenteNuovo   = null;
+        m_puoModificareReferente = false;
+        try {
+            m_reqidReferenteAttuale = referenteService.getReferente(m_currentTickt);
+            m_reqidReferenteNuovo   = m_reqidReferenteAttuale;
+
+            if (m_currentKunnr != null && !m_currentKunnr.trim().isEmpty()) {
+                for (RequesterInfo r : requesterService.getEligibiliReferente(m_currentKunnr, m_currentReqid)) {
+                    m_referenteVVB.addValidValue(r.getReqid(), r.getNomeOReqid());
+                }
+            }
+
+            ViewSessionContext ctx = ViewSessionContext.instance();
+            if (ctx.isClienteOReferente()) {
+                m_puoModificareReferente = referenteService.canModificareReferente(
+                    m_currentTickt, m_currentReqid, ctx.getRichiedente());
+            }
+        } catch (Exception e) {
+            System.err.println("[CommentUI] Errore caricamento referente: " + e.getMessage());
+        }
+    }
+
+    /** Riassegna il referente del ticket — solo richiedente o referente attuale. */
+    public void onCambiaReferente(ActionEvent ae) {
+        if (!m_puoModificareReferente) {
+            Statusbar.outputError("Non hai i permessi per modificare il referente di questo ticket");
+            return;
+        }
+        if (m_reqidReferenteNuovo == null || m_reqidReferenteNuovo.trim().isEmpty()) {
+            Statusbar.outputWarning("Selezionare un referente");
+            return;
+        }
+        try {
+            ViewSessionContext ctx = ViewSessionContext.instance();
+            referenteService.setReferente(m_currentTickt, m_reqidReferenteNuovo.trim(), ctx.getUsername());
+            m_reqidReferenteAttuale = m_reqidReferenteNuovo.trim();
+            Statusbar.outputSuccess("Referente aggiornato");
+        } catch (Exception e) {
+            Statusbar.outputError("Errore aggiornamento referente: " + e.getMessage());
+            System.err.println("[CommentUI] Errore onCambiaReferente: " + e.getMessage());
+        }
     }
 
     private void loadComments() {
@@ -223,7 +286,7 @@ public class CommentUI extends PageBean implements Serializable {
 
         ViewSessionContext ctx = ViewSessionContext.instance();
         String kunnr = ctx.getKunnr();
-        String autoreTipo = ctx.isCliente()
+        String autoreTipo = ctx.isClienteOReferente()
             ? TicketComment.TIPO_CLIENTE : TicketComment.TIPO_ASSISTENZA;
 
         TicketComment comment = new TicketComment();
@@ -266,7 +329,7 @@ public class CommentUI extends PageBean implements Serializable {
     /** True se la combobox CLIENTE va mostrata: utente CLIENTE oppure ADMIN (vede tutto) */
     public boolean getIsCliente() {
         ViewSessionContext ctx = ViewSessionContext.instance();
-        return ctx.isCliente() || isAdminOrUnknown(ctx);
+        return ctx.isClienteOReferente() || isAdminOrUnknown(ctx);
     }
 
     /** True se la combobox ASSISTENZA va mostrata: utente AMS oppure ADMIN (vede tutto) */
@@ -355,6 +418,27 @@ public class CommentUI extends PageBean implements Serializable {
             }
         } catch (Exception e) {
             System.err.println("[CommentUI] Errore invio notifica AMS: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        // Destinatario REFERENTE_CLI: il referente assegnato al ticket
+        // (tabella ticket_referente) — solo se diverso dal richiedente già
+        // notificato sopra come CLIENTE, per non duplicare la notifica nel
+        // caso comune in cui il richiedente ha scelto se stesso come referente.
+        try {
+            if (m_reqidReferenteAttuale != null && !m_reqidReferenteAttuale.trim().isEmpty() &&
+                !m_reqidReferenteAttuale.equalsIgnoreCase(m_currentReqid) && m_currentKunnr != null) {
+                RequesterInfo referenteCli = requesterService.getReferenteInfo(m_currentKunnr, m_reqidReferenteAttuale);
+                if (referenteCli != null) {
+                    notificaConEventualeSostituto(referenteCli, autoreId, statoLabel, comment.getTesto(), allegati,
+                        "REFERENTE_CLI", "Ricevi questa comunicazione in quanto Referente del ticket.");
+                } else {
+                    System.out.println("[CommentUI] Notifica REFERENTE_CLI saltata: utente non trovato per kunnr=" +
+                        m_currentKunnr + " reqid=" + m_reqidReferenteAttuale);
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[CommentUI] Errore invio notifica REFERENTE_CLI: " + e.getMessage());
             e.printStackTrace();
         }
 
@@ -511,6 +595,15 @@ public class CommentUI extends PageBean implements Serializable {
     public void setNewCommentStato(String s) { this.m_newCommentStato = s; }
 
     public Trigger getDownloadTrigger() { return m_downloadTrigger; }
+
+    public ValidValuesBinding getReferenteVVB()   { return m_referenteVVB; }
+    public String  getReqidReferenteNuovo()       { return m_reqidReferenteNuovo; }
+    public void    setReqidReferenteNuovo(String v) { this.m_reqidReferenteNuovo = v; }
+    public boolean getPuoModificareReferente()    { return m_puoModificareReferente; }
+    public boolean getMostraSezioneReferente() {
+        ViewSessionContext ctx = ViewSessionContext.instance();
+        return ctx.isClienteOReferente() || isAdminOrUnknown(ctx);
+    }
     public String  getDownloadUrl()     { return m_downloadUrl; }
 
     public boolean getHasPending()  { return !m_pendingAttachments.isEmpty(); }

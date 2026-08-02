@@ -100,8 +100,10 @@ CREATE TABLE IF NOT EXISTS ticket_user (
     nome          VARCHAR(100),
     email         VARCHAR(150),
     password_hash VARCHAR(255)  NOT NULL,        -- hash BCrypt (jbcrypt)
-    ruolo         VARCHAR(15)   NOT NULL CHECK (ruolo IN ('CLIENTE','AMS','ADMIN','DISPATCHER','AMS_ADMIN','REQ_ADMIN')),
+    ruolo         VARCHAR(15)   NOT NULL CHECK (ruolo IN ('CLIENTE','AMS','ADMIN','DISPATCHER','AMS_ADMIN','REQ_ADMIN','REFERENTE_CLI')),
     vede_tutti    BOOLEAN       NOT NULL DEFAULT FALSE,
+    gestisce_referenti BOOLEAN  NOT NULL DEFAULT FALSE,  -- self-service: può creare/disattivare i REFERENTE_CLI del proprio kunnr
+    reqid_richiedente VARCHAR(40),  -- solo per ruolo REFERENTE_CLI: reqid del richiedente a cui fa capo
     attivo        BOOLEAN       NOT NULL DEFAULT TRUE,
     password_impostata_il    TIMESTAMP NOT NULL DEFAULT NOW(),  -- v3: policy scadenza password
     password_scadenza_giorni INTEGER   NOT NULL DEFAULT 90,      -- v3: periodicità in giorni
@@ -214,8 +216,30 @@ COMMENT ON TABLE ticket_draft IS 'Ticket locali creati dal cliente via WebApp, n
 
 
 -- =====================================================================
+-- SEZIONE 6bis — ticket_referente (referente_cli assegnato al ticket)
+-- =====================================================================
+-- Referente obbligatorio scelto alla creazione del DRAFT (tra richiedenti
+-- e REFERENTE_CLI dello stesso kunnr, incluso il richiedente stesso),
+-- riassegnabile da richiedente o dal referente attuale. Stessa
+-- convenzione di chiave "tickt" di ticket_comment (DRAFT-{id} o numero
+-- SAP) — migrato in TicketDraftService.mergeDraft() alla fusione.
+
+CREATE TABLE IF NOT EXISTS ticket_referente (
+    tickt            VARCHAR(20)  PRIMARY KEY,
+    reqid_referente  VARCHAR(40)  NOT NULL,
+    updated_by       VARCHAR(20),
+    updated_at       TIMESTAMP    NOT NULL DEFAULT NOW()
+);
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON ticket_referente TO ticket_app;
+
+COMMENT ON TABLE ticket_referente IS 'Referente_cli assegnato a un ticket (DRAFT-{id} o numero SAP), riassegnabile';
+
+
+-- =====================================================================
 -- SEZIONE 7 — ticket_access_log (audit logon)                    [CONFERMATO]
 -- =====================================================================
+
 
 CREATE TABLE IF NOT EXISTS ticket_access_log (
     id            BIGSERIAL   PRIMARY KEY,
@@ -263,13 +287,19 @@ CREATE TABLE IF NOT EXISTS ticket_cliente_config (
     kunnr         VARCHAR(10) PRIMARY KEY,
     nome_cliente  VARCHAR(100),
     abilitato     BOOLEAN     NOT NULL DEFAULT TRUE,
+    prefisso_referente VARCHAR(10),  -- obbligatorio per poter creare referenti self-service per questo cliente
     created_at    TIMESTAMP   NOT NULL DEFAULT NOW(),
     updated_at    TIMESTAMP   NOT NULL DEFAULT NOW()
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_cliente_config_prefisso
+    ON ticket_cliente_config (UPPER(prefisso_referente))
+    WHERE prefisso_referente IS NOT NULL;
+
 GRANT SELECT, INSERT, UPDATE, DELETE ON ticket_cliente_config TO ticket_app;
 
 COMMENT ON TABLE ticket_cliente_config IS 'Clienti (Kunnr) abilitati alla nuova gestione ticket — un Kunnr assente è considerato non abilitato.';
+COMMENT ON COLUMN ticket_cliente_config.prefisso_referente IS 'Prefisso breve e univoco per costruire lo username dei referenti self-service (prefisso_codice)';
 
 
 -- =====================================================================

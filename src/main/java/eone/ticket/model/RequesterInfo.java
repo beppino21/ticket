@@ -17,9 +17,11 @@ public class RequesterInfo implements Serializable {
     private String  reqid;
     private String  nome;
     private String  email;
-    private String  ruolo;       // CLIENTE | AMS | ADMIN | DISPATCHER | AMS_ADMIN | REQ_ADMIN
+    private String  ruolo;       // CLIENTE | AMS | ADMIN | DISPATCHER | AMS_ADMIN | REQ_ADMIN | REFERENTE_CLI
     private boolean vedeTutti;   // true = vede tutti i ticket del cliente
     private boolean attivo = true;
+    private boolean gestisceReferenti; // permesso aggiuntivo per un CLIENTE: può creare/disattivare i REFERENTE_CLI del proprio kunnr
+    private String  reqidRichiedente;  // solo per REFERENTE_CLI: reqid del richiedente a cui fa capo
 
     // --- Policy password (v3) ---------------------------------
     // Nessun flag "deve cambiare password" a parte: tutto si deriva da
@@ -55,6 +57,16 @@ public class RequesterInfo implements Serializable {
     /** True se l'utente amministra i richiedenti (CLIENTE) del proprio kunnr */
     public boolean isReqAdmin() {
         return "REQ_ADMIN".equalsIgnoreCase(ruolo);
+    }
+
+    /** True se l'utente è un referente_cli (agisce come un CLIENTE sui ticket in cui è assegnato come referente) */
+    public boolean isReferente() {
+        return "REFERENTE_CLI".equalsIgnoreCase(ruolo);
+    }
+
+    /** True se l'utente è CLIENTE o REFERENTE_CLI — entrambi possono agire sui ticket lato cliente */
+    public boolean isClienteOReferente() {
+        return isCliente() || isReferente();
     }
 
     /**
@@ -119,6 +131,12 @@ public class RequesterInfo implements Serializable {
 
     public boolean isAttivo()           { return attivo; }
     public void setAttivo(boolean v)    { this.attivo = v; }
+
+    public boolean isGestisceReferenti()        { return gestisceReferenti; }
+    public void setGestisceReferenti(boolean v) { this.gestisceReferenti = v; }
+
+    public String  getReqidRichiedente()        { return reqidRichiedente; }
+    public void    setReqidRichiedente(String v){ this.reqidRichiedente = v; }
 
     public LocalDateTime getPasswordImpostataIl()        { return passwordImpostataIl; }
     public void setPasswordImpostataIl(LocalDateTime v)  { this.passwordImpostataIl = v; }

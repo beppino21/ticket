@@ -90,6 +90,21 @@ public class ViewSessionContext {
         return requesterInfo != null && requesterInfo.isReqAdmin();
     }
 
+    /** True se l'utente è un referente_cli. */
+    public boolean isReferente() {
+        return requesterInfo != null && requesterInfo.isReferente();
+    }
+
+    /** True se l'utente è CLIENTE o REFERENTE_CLI — entrambi possono agire sui ticket lato cliente. */
+    public boolean isClienteOReferente() {
+        return isCliente() || isReferente();
+    }
+
+    /** True se l'utente (CLIENTE) ha il permesso di gestire i REFERENTE_CLI del proprio kunnr. */
+    public boolean isGestisceReferenti() {
+        return requesterInfo != null && requesterInfo.isGestisceReferenti();
+    }
+
     /** Ruolo stringa (CLIENTE / AMS / ADMIN), o stringa vuota se non disponibile. */
     public String getRuolo() {
         if (requesterInfo != null && requesterInfo.getRuolo() != null)

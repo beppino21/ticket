@@ -7,6 +7,17 @@
 <t:rowtitlebar id="c_1" text="Commenti — Ticket #{d.CommentUI.currentTickt}" >
 <t:button id="c_1_close" actionListener="#{d.CommentUI.onClose}" text="✕ Chiudi" width="80" />
 </t:rowtitlebar>
+<t:row id="c_referente_bar_row" rendered="#{d.CommentUI.mostraSezioneReferente}" >
+<t:pane id="c_referente_bar_pane" background="#F5F7FA" border="bottom:1;color:#D0D7E2" padding="6" width="100%" >
+<t:row id="c_referente_bar" coldistance="8" >
+<t:label id="c_referente_bar_lbl" font="weight:bold;size:11;color:#37474F" labeltext="Referente del ticket:" width="140" />
+<t:combobox id="c_referente_bar_cb" enabled="#{d.CommentUI.puoModificareReferente}" flush="true" validvaluesbinding="#{d.CommentUI.referenteVVB}" value="#{d.CommentUI.reqidReferenteNuovo}" width="220" />
+<t:button id="c_referente_bar_btn" actionListener="#{d.CommentUI.onCambiaReferente}" enabled="#{d.CommentUI.puoModificareReferente}" text="Cambia" width="80" />
+<t:coldistance id="c_referente_bar_cd" width="100%" />
+<t:label id="c_referente_bar_hint" font="size:10;color:#78909C" rendered="#{!d.CommentUI.puoModificareReferente}" text="Modificabile solo dal richiedente o dal referente attuale" />
+</t:row>
+</t:pane>
+</t:row>
 <t:row id="c_main" >
 <t:splitpane id="c_split" dividerlocation="35%" height="100%" orientation="horizontal" width="100%" >
 <t:splitpanesplit id="c_left" padding="4" >

@@ -10,9 +10,14 @@
 <t:coldistance id="ua_hcd2" width="12" />
 <t:button id="ua_ref" actionListener="#{d.UserAdminUI.refresh}" text="Aggiorna" width="80" />
 <t:coldistance id="ua_hcd3" width="12" />
-<t:button id="ua_new" actionListener="#{d.UserAdminUI.onNuovo}" text="Nuovo »" width="90" />
+<t:button id="ua_new" actionListener="#{d.UserAdminUI.onNuovo}" rendered="#{d.UserAdminUI.canCreate}" text="Nuovo »" width="90" />
 </t:rowheader>
 <t:rowbodypane id="ua_body" >
+<t:row id="ua_kunnr_row" coldistance="8" rendered="#{d.UserAdminUI.modeAdminRichiedenti}" >
+<t:label id="ua_kunnr_lbl" labeltext="Cliente:" width="80" />
+<t:combobox id="ua_kunnr_combo" actionListener="#{d.UserAdminUI.onKunnrAction}" flush="true" validvaluesbinding="#{d.UserAdminUI.kunnrVVB}" value="#{d.UserAdminUI.kunnrAmministrato}" width="280" withnullitem="true" />
+</t:row>
+<t:rowdistance id="ua_kunnr_dist" height="8" rendered="#{d.UserAdminUI.modeAdminRichiedenti}" />
 <t:row id="ua_r1" >
 <t:splitpane id="ua_split" dividerlocation="55%" height="100%" orientation="horizontal" width="100%" >
 <t:splitpanesplit id="ua_left" padding="8" >
@@ -41,7 +46,7 @@
 </t:splitpanesplit>
 <t:splitpanesplit id="ua_right" padding="8" >
 <t:row id="ua_nosel" rendered="#{!d.UserAdminUI.formVisible}" >
-<t:label id="ua_nosel_lbl" font="color:#999999" text="Seleziona un utente dalla lista, oppure crea un nuovo utente." />
+<t:label id="ua_nosel_lbl" font="color:#999999" text="#{d.UserAdminUI.canCreate ? &#39;Seleziona un utente dalla lista, oppure crea un nuovo utente.&#39; : &#39;Seleziona un richiedente dalla lista per modificarlo.&#39;}" />
 </t:row>
 <t:row id="ua_form_title" rendered="#{d.UserAdminUI.formVisible}" >
 <t:label id="ua_form_title_lbl" font="weight:bold;color:#1565C0" text="#{d.UserAdminUI.isNuovo ? &#39;Nuovo utente&#39; : &#39;Modifica utente&#39;}" />
@@ -90,6 +95,11 @@
 <t:row id="ua_f7c" coldistance="8" rendered="#{d.UserAdminUI.showEditFlags}" >
 <t:label id="ua_f7c_lbl" labeltext="Vede tutti i ticket:" width="150" />
 <t:checkbox id="ua_f7c_check" flush="true" selected="#{d.UserAdminUI.formVedeTutti}" />
+</t:row>
+<t:rowdistance id="ua_fd7c2" height="6" rendered="#{d.UserAdminUI.showGestisceReferentiField}" />
+<t:row id="ua_f7cbis" coldistance="8" rendered="#{d.UserAdminUI.showGestisceReferentiField}" >
+<t:label id="ua_f7cbis_lbl" labeltext="Gestisce referenti:" width="150" />
+<t:checkbox id="ua_f7cbis_check" flush="true" selected="#{d.UserAdminUI.formGestisceReferenti}" />
 </t:row>
 <t:rowdistance id="ua_fd7d" height="6" rendered="#{d.UserAdminUI.showEditFlags}" />
 <t:row id="ua_f7e" coldistance="8" rendered="#{d.UserAdminUI.showEditFlags}" >

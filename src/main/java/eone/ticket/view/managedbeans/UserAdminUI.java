@@ -12,15 +12,20 @@ import org.eclnt.jsfserver.elements.util.ValidValuesBinding;
 import org.eclnt.jsfserver.pagebean.PageBean;
 
 import eone.ticket.context.ViewSessionContext;
+import eone.ticket.model.ClienteConfig;
 import eone.ticket.model.RequesterInfo;
+import eone.ticket.service.ClienteConfigService;
 import eone.ticket.service.SAPTicketService;
 import eone.ticket.service.TicketDraftService;
 import eone.ticket.service.UserAdminService;
 
 /**
- * UI di amministrazione utenti — un'unica classe per due ruoli distinti:
+ * UI di amministrazione utenti — un'unica classe per tre casi distinti:
  *  - AMS_ADMIN: gestisce utenti AMS/DISPATCHER (nessuno scoping cliente)
- *  - REQ_ADMIN: gestisce richiedenti CLIENTE del proprio Kunnr
+ *  - REQ_ADMIN: manutiene (non crea) i richiedenti CLIENTE del proprio Kunnr
+ *  - ADMIN: crea e manutiene richiedenti CLIENTE di un cliente scelto
+ *    liberamente (combobox sui clienti abilitati) — è l'unico ruolo che può
+ *    davvero creare nuovi richiedenti, dato che REQ_ADMIN non può più farlo.
  *
  * Lo "spostamento ticket da un utente all'altro" non è implementato: il
  * servizio OData SAP dichiara esplicitamente CCListOfTicketsSet come
@@ -39,15 +44,18 @@ public class UserAdminUI extends PageBean implements Serializable {
 
     private IListener m_listener;
 
-    private final UserAdminService  adminService  = new UserAdminService();
-    private final SAPTicketService  sapService    = new SAPTicketService();
-    private final TicketDraftService draftService = new TicketDraftService();
+    private final UserAdminService     adminService        = new UserAdminService();
+    private final SAPTicketService     sapService          = new SAPTicketService();
+    private final TicketDraftService   draftService        = new TicketDraftService();
+    private final ClienteConfigService clienteConfigService = new ClienteConfigService();
 
-    private boolean m_modeAms; // true = AMS_ADMIN, false = REQ_ADMIN
-    private String  m_kunnrAmministrato; // solo REQ_ADMIN
+    private boolean m_modeAms;              // true = AMS_ADMIN
+    private boolean m_modeAdminRichiedenti; // true = ADMIN (kunnr libero, creazione consentita)
+    private String  m_kunnrAmministrato;    // REQ_ADMIN: fisso: ADMIN: scelto da combobox
 
     private FIXGRIDListBinding<UserRow> m_grid = new FIXGRIDListBinding<>();
     private ValidValuesBinding m_ruoloVVS = new ValidValuesBinding();
+    private final ValidValuesBinding m_kunnrVVB = new ValidValuesBinding(); // solo ADMIN
 
     // Form di dettaglio (nuovo utente o modifica di quello selezionato)
     private boolean m_isNuovo;
@@ -58,6 +66,7 @@ public class UserAdminUI extends PageBean implements Serializable {
     private String  m_formRuolo;      // solo AMS_ADMIN (AMS | DISPATCHER)
     private boolean m_formAttivo = true;
     private boolean m_formVedeTutti;
+    private boolean m_formGestisceReferenti; // solo richiedenti CLIENTE
     private boolean m_formPasswordNonScade;
     private String  m_formPasswordScadenzaGiorniStr = "90"; // stringa per il binding col campo — convertita in int al salvataggio
     private String  m_formPassword;   // solo in creazione
@@ -79,20 +88,62 @@ public class UserAdminUI extends PageBean implements Serializable {
         this.m_listener = listener;
         ViewSessionContext ctx = ViewSessionContext.instance();
         m_modeAms = ctx.isAmsAdmin();
-        m_kunnrAmministrato = ctx.getKunnr();
+        m_modeAdminRichiedenti = "ADMIN".equalsIgnoreCase(ctx.getRuolo());
+        m_formVisible = false;
 
-        if (!m_modeAms) {
-            m_ruoloVVS = null; // REQ_ADMIN non sceglie il ruolo, è sempre CLIENTE
-        } else {
+        if (m_modeAms) {
+            m_kunnrAmministrato = ctx.getKunnr();
             m_ruoloVVS = new ValidValuesBinding();
             m_ruoloVVS.addValidValue("AMS", "AMS");
             m_ruoloVVS.addValidValue("DISPATCHER", "DISPATCHER (smistamento)");
+            caricaLista();
+        } else if (m_modeAdminRichiedenti) {
+            m_kunnrAmministrato = null; // scelto dalla combobox
+            m_ruoloVVS = null;
+            caricaClientiAbilitati();
+            m_grid.getItems().clear();
+        } else {
+            // REQ_ADMIN: kunnr fisso, solo manutenzione
+            m_kunnrAmministrato = ctx.getKunnr();
+            m_ruoloVVS = null;
+            caricaLista();
         }
+    }
 
+    /** Solo ADMIN: elenco clienti abilitati per la combobox Cliente. */
+    private void caricaClientiAbilitati() {
+        m_kunnrVVB.clear();
+        try {
+            int count = 0;
+            for (ClienteConfig c : clienteConfigService.listAll()) {
+                if (c.isAbilitato()) {
+                    String label = c.getNomeCliente() != null && !c.getNomeCliente().trim().isEmpty()
+                        ? c.getKunnr() + " — " + c.getNomeCliente() : c.getKunnr();
+                    m_kunnrVVB.addValidValue(c.getKunnr(), label);
+                    count++;
+                }
+            }
+            if (count == 0) {
+                Statusbar.outputWarning("Nessun cliente risulta \"Abilitato\" — verificare in Clienti abilitati.");
+            }
+        } catch (Exception e) {
+            Statusbar.outputError("Errore caricamento clienti abilitati: " + e.getMessage());
+            System.err.println("[UserAdminUI] Errore caricamento clienti abilitati: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /** Solo ADMIN: cambia il cliente amministrato (la combobox ha flush=true). */
+    public void onKunnrAction(ActionEvent ae) {
+        m_formVisible = false;
         caricaLista();
     }
 
     private void caricaLista() {
+        if (m_modeAdminRichiedenti && (m_kunnrAmministrato == null || m_kunnrAmministrato.trim().isEmpty())) {
+            m_grid.getItems().clear();
+            return;
+        }
         try {
             List<RequesterInfo> utenti = m_modeAms
                 ? adminService.listAmsUsers()
@@ -120,6 +171,20 @@ public class UserAdminUI extends PageBean implements Serializable {
     }
 
     public void onNuovo(ActionEvent ae) {
+        if (!m_modeAms && !m_modeAdminRichiedenti) {
+            // REQ_ADMIN: la creazione di nuovi richiedenti è riservata ad
+            // ADMIN (qualsiasi cliente) o al backoffice AMS_ADMIN (per
+            // AMS/DISPATCHER) — REQ_ADMIN può solo manutenere quelli
+            // già esistenti. Il pulsante è già nascosto in UI per questo
+            // caso, ma il controllo va ripetuto qui perché è la sede in
+            // cui l'operazione avviene davvero.
+            Statusbar.outputError("La creazione di nuovi richiedenti è riservata ad ADMIN — contatta l'assistenza.");
+            return;
+        }
+        if (m_modeAdminRichiedenti && (m_kunnrAmministrato == null || m_kunnrAmministrato.trim().isEmpty())) {
+            Statusbar.outputWarning("Selezionare un cliente prima di creare un richiedente");
+            return;
+        }
         m_isNuovo = true;
         m_formVisible = true;
         m_formIdUser = null;
@@ -129,6 +194,7 @@ public class UserAdminUI extends PageBean implements Serializable {
         m_formRuolo = m_modeAms ? "AMS" : null;
         m_formAttivo = true;
         m_formVedeTutti = false;
+        m_formGestisceReferenti = false;
         m_formPasswordNonScade = false;
         m_formPasswordScadenzaGiorniStr = "90";
         m_formPassword = null;
@@ -183,6 +249,10 @@ public class UserAdminUI extends PageBean implements Serializable {
         }
         try {
             if (m_isNuovo) {
+                if (!m_modeAms && !m_modeAdminRichiedenti) {
+                    Statusbar.outputError("La creazione di nuovi richiedenti è riservata ad ADMIN — contatta l'assistenza.");
+                    return;
+                }
                 if (m_formPassword == null || m_formPassword.trim().length() < 6) {
                     Statusbar.outputWarning("Password iniziale obbligatoria (almeno 6 caratteri) — l'utente dovrà cambiarla al primo accesso");
                     return;
@@ -209,7 +279,7 @@ public class UserAdminUI extends PageBean implements Serializable {
                     return;
                 }
                 adminService.updateAnagrafica(m_formIdUser, m_formNome.trim(), m_formEmail, m_formAttivo,
-                    m_formVedeTutti, m_formPasswordNonScade, scadenzaGiorni);
+                    m_formVedeTutti, m_formPasswordNonScade, scadenzaGiorni, m_formGestisceReferenti);
                 Statusbar.outputSuccess("Utente " + m_formIdUser + " aggiornato — valori riletti dal DB qui sotto");
                 caricaLista();
                 ripopolaFormDaRiga(m_formIdUser); // rilettura fresca dal DB, form resta aperto per verifica immediata
@@ -305,13 +375,30 @@ public class UserAdminUI extends PageBean implements Serializable {
     @Override public String getRootExpressionUsedInPage() { return "#{d.UserAdminUI}"; }
 
     public boolean isModeAms() { return m_modeAms; }
-    public String  getTitolo()  { return m_modeAms ? "Gestione utenti AMS" : "Gestione richiedenti"; }
+    public boolean isModeAdminRichiedenti() { return m_modeAdminRichiedenti; }
+    /** True se questo utente può creare nuovi record (AMS_ADMIN o ADMIN) — falso solo per REQ_ADMIN puro. */
+    public boolean isCanCreate() { return m_modeAms || m_modeAdminRichiedenti; }
+
+    public String  getTitolo()  {
+        if (m_modeAms) return "Gestione utenti AMS";
+        if (m_modeAdminRichiedenti) return "Gestione richiedenti";
+        return "Gestione richiedenti";
+    }
     public String  getSottotitolo() {
-        return m_modeAms ? "Utenti AMS e DISPATCHER" : "Cliente " + m_kunnrAmministrato;
+        if (m_modeAms) return "Utenti AMS e DISPATCHER";
+        if (m_modeAdminRichiedenti) {
+            return (m_kunnrAmministrato == null || m_kunnrAmministrato.trim().isEmpty())
+                ? "Seleziona un cliente" : "Cliente " + m_kunnrAmministrato;
+        }
+        return "Cliente " + m_kunnrAmministrato;
     }
 
     public FIXGRIDListBinding<UserRow> getGrid() { return m_grid; }
     public ValidValuesBinding getRuoloVVS()      { return m_ruoloVVS; }
+    public ValidValuesBinding getKunnrVVB()      { return m_kunnrVVB; }
+
+    public String  getKunnrAmministrato()         { return m_kunnrAmministrato; }
+    public void    setKunnrAmministrato(String v) { this.m_kunnrAmministrato = v; }
 
     public boolean isFormVisible()      { return m_formVisible; }
     public boolean getIsNuovo()          { return m_isNuovo; }
@@ -353,6 +440,11 @@ public class UserAdminUI extends PageBean implements Serializable {
 
     public boolean isFormVedeTutti()         { return m_formVedeTutti; }
     public void    setFormVedeTutti(boolean v){ this.m_formVedeTutti = v; }
+
+    public boolean isFormGestisceReferenti()         { return m_formGestisceReferenti; }
+    public void    setFormGestisceReferenti(boolean v){ this.m_formGestisceReferenti = v; }
+    /** Il flag ha senso solo per richiedenti CLIENTE, non per utenti AMS/DISPATCHER. */
+    public boolean isShowGestisceReferentiField() { return m_formVisible && !m_isNuovo && !m_modeAms; }
 
     public boolean isFormPasswordNonScade()         { return m_formPasswordNonScade; }
     public void    setFormPasswordNonScade(boolean v){ this.m_formPasswordNonScade = v; }
@@ -396,6 +488,7 @@ public class UserAdminUI extends PageBean implements Serializable {
             m_formRuolo = info.getRuolo();
             m_formAttivo = info.isAttivo();
             m_formVedeTutti = info.isVedeTutti();
+            m_formGestisceReferenti = info.isGestisceReferenti();
             m_formPasswordNonScade = info.isPasswordNonScade();
             m_formPasswordScadenzaGiorniStr = String.valueOf(info.getPasswordScadenzaGiorni());
             System.out.println("[UserAdminUI] onRowSelect — id_user='" + m_formIdUser +

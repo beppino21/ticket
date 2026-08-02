@@ -37,6 +37,7 @@ public class ClienteConfigUI extends PageBean implements Serializable {
     private String  m_formKunnr;
     private String  m_formNomeCliente;
     private boolean m_formAbilitato = true;
+    private String  m_formPrefissoReferente;
     private boolean m_isNuovo;
 
     public void prepare(IListener listener) {
@@ -71,6 +72,7 @@ public class ClienteConfigUI extends PageBean implements Serializable {
         m_formKunnr = null;
         m_formNomeCliente = null;
         m_formAbilitato = true;
+        m_formPrefissoReferente = null;
     }
 
     public void onAnnullaForm(ActionEvent ae) {
@@ -82,11 +84,18 @@ public class ClienteConfigUI extends PageBean implements Serializable {
             Statusbar.outputWarning("Il Kunnr è obbligatorio");
             return;
         }
+        if (m_formPrefissoReferente != null && !m_formPrefissoReferente.trim().isEmpty()
+                && !m_formPrefissoReferente.trim().matches("[A-Za-z0-9]{1,10}")) {
+            Statusbar.outputWarning("Il prefisso può contenere solo lettere e cifre (max 10 caratteri)");
+            return;
+        }
         try {
-            clienteConfigService.save(m_formKunnr.trim(), m_formNomeCliente, m_formAbilitato);
+            clienteConfigService.save(m_formKunnr.trim(), m_formNomeCliente, m_formAbilitato, m_formPrefissoReferente);
             Statusbar.outputSuccess("Cliente " + m_formKunnr + " salvato");
             m_formVisible = false;
             caricaLista();
+        } catch (IllegalStateException e) {
+            Statusbar.outputError(e.getMessage());
         } catch (Exception e) {
             Statusbar.outputError("Errore salvataggio: " + e.getMessage());
             System.err.println("[ClienteConfigUI] Errore onSalva: " + e.getMessage());
@@ -127,6 +136,9 @@ public class ClienteConfigUI extends PageBean implements Serializable {
     public boolean isFormAbilitato()           { return m_formAbilitato; }
     public void    setFormAbilitato(boolean v) { this.m_formAbilitato = v; }
 
+    public String  getFormPrefissoReferente()         { return m_formPrefissoReferente; }
+    public void    setFormPrefissoReferente(String v) { this.m_formPrefissoReferente = v; }
+
     public class ClienteRow extends FIXGRIDItem implements Serializable {
         private static final long serialVersionUID = 1L;
         private final ClienteConfig config;
@@ -135,6 +147,7 @@ public class ClienteConfigUI extends PageBean implements Serializable {
 
         public String  getKunnr()       { return config.getKunnr(); }
         public String  getNomeCliente() { return config.getNomeCliente(); }
+        public String  getPrefissoReferente() { return config.getPrefissoReferente() != null ? config.getPrefissoReferente() : ""; }
         public String  getStatoLabel()  { return config.isAbilitato() ? "Abilitato" : "Non abilitato"; }
         public String  getStatoColor()  { return config.isAbilitato() ? "#E8F5E9" : "#FFEBEE"; }
 
@@ -144,6 +157,7 @@ public class ClienteConfigUI extends PageBean implements Serializable {
             m_formKunnr = config.getKunnr();
             m_formNomeCliente = config.getNomeCliente();
             m_formAbilitato = config.isAbilitato();
+            m_formPrefissoReferente = config.getPrefissoReferente();
         }
     }
 }

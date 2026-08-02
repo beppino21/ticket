@@ -25,6 +25,9 @@
 <t:gridcol id="cc_gc2" text="Stato" width="120" >
 <t:label id="cc_gl2" background=".{statoColor}" text=".{statoLabel}" />
 </t:gridcol>
+<t:gridcol id="cc_gc3" text="Pref. referenti" width="100" >
+<t:label id="cc_gl3" background=".{statoColor}" text=".{prefissoReferente}" />
+</t:gridcol>
 </t:fixgrid>
 </t:row>
 </t:splitpanesplit>
@@ -54,6 +57,16 @@
 <t:row id="cc_f3_hint" rendered="#{d.ClienteConfigUI.formVisible}" >
 <t:coldistance id="cc_f3_hint_cd" width="118" />
 <t:label id="cc_f3_hint_lbl" font="size:10;color:#888888" text="Solo i ticket dei clienti abilitati sono visibili ad AMS e Dispatcher." />
+</t:row>
+<t:rowdistance id="cc_fd3b" height="10" rendered="#{d.ClienteConfigUI.formVisible}" />
+<t:row id="cc_f3b" coldistance="8" rendered="#{d.ClienteConfigUI.formVisible}" >
+<t:label id="cc_f3b_lbl" labeltext="Prefisso referenti:" width="110" />
+<t:field id="cc_f3b_field" flush="true" text="#{d.ClienteConfigUI.formPrefissoReferente}" width="80" />
+</t:row>
+<t:rowdistance id="cc_fd3c" height="4" rendered="#{d.ClienteConfigUI.formVisible}" />
+<t:row id="cc_f3b_hint" rendered="#{d.ClienteConfigUI.formVisible}" >
+<t:coldistance id="cc_f3b_hint_cd" width="118" />
+<t:label id="cc_f3b_hint_lbl" font="size:10;color:#888888" text="Breve e univoco (es. BK). Obbligatorio per creare referenti self-service di questo cliente — usato per costruire lo username (prefisso_codice)." />
 </t:row>
 <t:rowdistance id="cc_fd4" height="20" rendered="#{d.ClienteConfigUI.formVisible}" />
 <t:row id="cc_f4" coldistance="8" rendered="#{d.ClienteConfigUI.formVisible}" >

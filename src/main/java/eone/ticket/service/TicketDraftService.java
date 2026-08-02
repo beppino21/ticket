@@ -176,7 +176,8 @@ public class TicketDraftService {
 
         String sqlUpdateDraft = "UPDATE ticket_draft SET stato='MERGED', tickt_sap=?, " +
                                 "updated_at=NOW() WHERE id=? AND stato='DRAFT'";
-        String sqlMigrateComments = "UPDATE ticket_comment SET tickt=? WHERE tickt=?";
+        String sqlMigrateComments  = "UPDATE ticket_comment SET tickt=? WHERE tickt=?";
+        String sqlMigrateReferente = "UPDATE ticket_referente SET tickt=? WHERE tickt=?";
 
         try (Connection con = DBConfig.getConnection()) {
             con.setAutoCommit(false);
@@ -200,6 +201,15 @@ public class TicketDraftService {
                     int commentsMigrati = ps.executeUpdate();
                     System.out.println("[TicketDraftService] Migrati " + commentsMigrati +
                                        " commenti da " + draftKey + " a " + ticktSap);
+                }
+
+                // Step 3: migra il referente_cli assegnato al draft
+                try (PreparedStatement ps = con.prepareStatement(sqlMigrateReferente)) {
+                    ps.setString(1, ticktSap.trim());
+                    ps.setString(2, draftKey);
+                    int referenteMigrato = ps.executeUpdate();
+                    System.out.println("[TicketDraftService] Referente migrato (" + referenteMigrato +
+                                       " riga) da " + draftKey + " a " + ticktSap);
                 }
 
                 con.commit();

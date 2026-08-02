@@ -11,6 +11,7 @@ import org.eclnt.jsfserver.elements.events.BaseActionEventUpload;
 import org.eclnt.jsfserver.elements.impl.FIXGRIDItem;
 import org.eclnt.jsfserver.elements.impl.FIXGRIDListBinding;
 import org.eclnt.jsfserver.elements.util.Trigger;
+import org.eclnt.jsfserver.elements.util.ValidValuesBinding;
 import org.eclnt.jsfserver.pagebean.PageBean;
 import org.eclnt.jsfserver.util.tempfile.TempFileManager;
 
@@ -23,6 +24,7 @@ import eone.ticket.service.CommentService;
 import eone.ticket.service.MailService;
 import eone.ticket.service.RequesterService;
 import eone.ticket.service.TicketDraftService;
+import eone.ticket.service.TicketReferenteService;
 
 /**
  * UI per la creazione di un nuovo ticket DRAFT da parte del cliente.
@@ -46,9 +48,15 @@ public class NewTicketUI extends PageBean implements Serializable {
     private final CommentService     commentService  = new CommentService();
     private final MailService        mailService     = new MailService();
     private final RequesterService   requesterService = new RequesterService();
+    private final TicketReferenteService referenteService = new TicketReferenteService();
 
     private String m_titolo;
     private String m_commentoTesto;
+
+    // Referente (obbligatorio): richiedenti + referenti_cli dello stesso
+    // kunnr, incluso il richiedente stesso che sta aprendo il ticket.
+    private final ValidValuesBinding m_referenteVVB = new ValidValuesBinding();
+    private String m_reqidReferente;
 
     private FIXGRIDListBinding<GridAttachItem> m_gridPending = new FIXGRIDListBinding<>();
     private List<TicketAttachment> m_pendingAttachments      = new ArrayList<>();
@@ -79,7 +87,33 @@ public class NewTicketUI extends PageBean implements Serializable {
     // COSTRUTTORE / PREPARE
     // =========================
 
-    public NewTicketUI() {}
+    public NewTicketUI() {
+        caricaEligibiliReferente();
+    }
+
+    /**
+     * Carica in m_referenteVVB i soggetti selezionabili come referente:
+     * richiedenti + referenti_cli dello stesso kunnr, incluso il
+     * richiedente stesso (così per un cliente senza REFERENTE_CLI
+     * configurati la procedura resta di fatto identica a oggi: basta
+     * selezionare se stesso).
+     */
+    private void caricaEligibiliReferente() {
+        try {
+            ViewSessionContext ctx = ViewSessionContext.instance();
+            String kunnr = ctx.getKunnr();
+            m_referenteVVB.clear();
+            for (RequesterInfo r : requesterService.getEligibiliReferente(kunnr, ctx.getRichiedente())) {
+                m_referenteVVB.addValidValue(r.getReqid(), r.getNomeOReqid());
+            }
+            // Preseleziona il richiedente stesso, se presente tra le opzioni.
+            if (ctx.getRichiedente() != null) {
+                m_reqidReferente = ctx.getRichiedente();
+            }
+        } catch (Exception e) {
+            System.err.println("[NewTicketUI] Errore caricamento elenco referenti: " + e.getMessage());
+        }
+    }
 
     public void prepare(IListener listener) {
         this.m_listener = listener;
@@ -101,6 +135,10 @@ public class NewTicketUI extends PageBean implements Serializable {
         }
         if (m_commentoTesto == null || m_commentoTesto.trim().isEmpty()) {
             Statusbar.outputWarning("Il commento iniziale è obbligatorio");
+            return;
+        }
+        if (m_reqidReferente == null || m_reqidReferente.trim().isEmpty()) {
+            Statusbar.outputWarning("Il referente è obbligatorio");
             return;
         }
 
@@ -139,6 +177,10 @@ public class NewTicketUI extends PageBean implements Serializable {
             draft.setTitolo(m_titolo.trim());
 
             long draftId = draftService.createDraft(draft);
+
+            // 1bis. Referente obbligatorio: salvato in ticket_referente,
+            // riassegnabile in seguito da richiedente o referente stesso.
+            referenteService.setReferente(draft.getTicktKey(), m_reqidReferente.trim(), ctx.getUsername());
 
             // 2. Salva il commento iniziale con gli allegati
             TicketComment comment = new TicketComment();
@@ -251,6 +293,10 @@ public class NewTicketUI extends PageBean implements Serializable {
 
     public String getCommentoTesto()          { return m_commentoTesto; }
     public void setCommentoTesto(String v)    { this.m_commentoTesto = v; }
+
+    public ValidValuesBinding getReferenteVVB() { return m_referenteVVB; }
+    public String getReqidReferente()           { return m_reqidReferente; }
+    public void setReqidReferente(String v)     { this.m_reqidReferente = v; }
 
     public FIXGRIDListBinding<GridAttachItem> getGridPending() { return m_gridPending; }
     public boolean getHasPending()  { return !m_pendingAttachments.isEmpty(); }
