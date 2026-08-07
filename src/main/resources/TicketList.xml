@@ -37,19 +37,20 @@
 <t:field id="g_h60" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterTickt}" />
 <t:field id="g_h62" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterTitle}" />
 <t:field id="g_h64" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterRstat}" />
-<t:label id="g_h66" background="#C0C0C0" />
-<t:label id="g_h68" background="#C0C0C0" />
+<t:field id="g_h66" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterRprio}" />
+<t:field id="g_h68" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterErdat}" />
 <t:field id="g_h70" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterKunnr}" />
 <t:field id="g_h72" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterReqidNome}" />
-<t:label id="g_h74" background="#C0C0C0" />
-<t:label id="g_h76" background="#C0C0C0" />
-<t:label id="g_h78" background="#C0C0C0" />
-<t:label id="g_h80" background="#C0C0C0" />
-<t:label id="g_h82" background="#C0C0C0" />
+<t:field id="g_h73b" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterReferenteNome}" />
+<t:field id="g_h80" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterAmusr}" />
+<t:field id="g_h82" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterRefer}" />
 <t:field id="g_h86" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterEncUltimoStato}" />
 <t:label id="g_h84" background="#C0C0C0" />
 <t:label id="g_h_giorni" background="#C0C0C0" />
 <t:label id="g_h_vita" background="#C0C0C0" />
+<t:field id="g_h74" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterCateg}" />
+<t:field id="g_h76" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterPrdct}" />
+<t:field id="g_h78" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterModul}" />
 </t:gridheader>
 <t:gridcol id="g_60" text="Ticket" width="100" >
 <t:label id="g_61" align="right!" stylevariant="ccbig" text=".{tickt}" />
@@ -75,15 +76,6 @@
 <t:gridcol id="g_72b" text="Ref. Cliente" width="180" >
 <t:label id="g_73b" text=".{referenteNome}" />
 </t:gridcol>
-<t:gridcol id="g_74" text="Categoria" width="90" >
-<t:label id="g_75" text=".{categ}" />
-</t:gridcol>
-<t:gridcol id="g_76" text="Prodotto" width="90" >
-<t:label id="g_77" text=".{prdct}" />
-</t:gridcol>
-<t:gridcol id="g_78" text="Modulo" width="90" >
-<t:label id="g_79" text=".{modul}" />
-</t:gridcol>
 <t:gridcol id="g_80" text="AMS" width="90" >
 <t:label id="g_81" background=".{amusrCellBackground}" text=".{amusr}" />
 </t:gridcol>
@@ -101,6 +93,15 @@
 </t:gridcol>
 <t:gridcol id="g_vita" sortenabled="true" text="Vita" width="55" sortvalue=".{giorniVitaLabel}" >
 <t:label id="g_vita_lbl" font="size:11;weight:bold" text=".{giorniVitaLabel}" />
+</t:gridcol>
+<t:gridcol id="g_74" text="Categoria" width="90" >
+<t:label id="g_75" text=".{categ}" />
+</t:gridcol>
+<t:gridcol id="g_76" text="Prodotto" width="90" >
+<t:label id="g_77" text=".{prdct}" />
+</t:gridcol>
+<t:gridcol id="g_78" text="Modulo" width="90" >
+<t:label id="g_79" text=".{modul}" />
 </t:gridcol>
 </t:fixgrid>
 </t:row>
