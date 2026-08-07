@@ -79,8 +79,16 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
     private String  m_colFilterTickt           = "";
     private String  m_colFilterTitle           = "";
     private String  m_colFilterRstat           = "";
+    private String  m_colFilterRprio           = "";
+    private String  m_colFilterErdat           = "";
     private String  m_colFilterKunnr           = "";
     private String  m_colFilterReqidNome       = "";
+    private String  m_colFilterReferenteNome   = "";
+    private String  m_colFilterCateg           = "";
+    private String  m_colFilterPrdct           = "";
+    private String  m_colFilterModul           = "";
+    private String  m_colFilterAmusr           = "";
+    private String  m_colFilterRefer           = "";
     private String  m_colFilterEncUltimoStato  = "";
 
     private String  m_statusMessage  = "Pronto per caricare i ticket";
@@ -833,6 +841,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
                 if (!matches(t.getTitle(), m_colFilterTitle)) continue;
                 if (!matches(t.getRstat(), m_colFilterRstat)) continue;
                 if (!matches(t.getKunnr(), m_colFilterKunnr)) continue;
+                if (!matches(t.getEncNomeReferente(), m_colFilterReferenteNome)) continue;
                 m_gridTickets.getItems().add(new GridTicketItem(t));
             }
         }
@@ -843,8 +852,16 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
             if (!matches(t.getTickt(), m_colFilterTickt)) continue;
             if (!matches(t.getTitle(), m_colFilterTitle)) continue;
             if (!matches(t.getRstat(), m_colFilterRstat)) continue;
+            if (!matches(t.getRprio(), m_colFilterRprio)) continue;
+            if (!matches(t.getErdat(), m_colFilterErdat)) continue;
             if (!matches(t.getKunnr(), m_colFilterKunnr)) continue;
             if (!matches(t.getEncNomeRichiedente(), m_colFilterReqidNome)) continue;
+            if (!matches(t.getEncNomeReferente(), m_colFilterReferenteNome)) continue;
+            if (!matches(t.getCateg(), m_colFilterCateg)) continue;
+            if (!matches(t.getPrdct(), m_colFilterPrdct)) continue;
+            if (!matches(t.getModul(), m_colFilterModul)) continue;
+            if (!matches(t.getAmusr(), m_colFilterAmusr)) continue;
+            if (!matches(t.getRefer(), m_colFilterRefer)) continue;
             if (!matches(t.getEncUltimoStato(), m_colFilterEncUltimoStato)) continue;
             m_gridTickets.getItems().add(new GridTicketItem(t));
         }
@@ -864,7 +881,10 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
     /** Reset di tutti i filtri colonna */
     public void onResetColFilters(ActionEvent ae) {
         m_colFilterTickt = m_colFilterTitle = m_colFilterRstat = "";
-        m_colFilterKunnr = m_colFilterReqidNome = m_colFilterEncUltimoStato = "";
+        m_colFilterRprio = m_colFilterErdat = "";
+        m_colFilterKunnr = m_colFilterReqidNome = m_colFilterReferenteNome = "";
+        m_colFilterCateg = m_colFilterPrdct = m_colFilterModul = m_colFilterAmusr = m_colFilterRefer = "";
+        m_colFilterEncUltimoStato = "";
         rebuildGridWithColFilters();
     }
 
@@ -1109,6 +1129,23 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
     public void setColFilterReqidNome(String v) { this.m_colFilterReqidNome = v; }
     public String getColFilterEncUltimoStato()        { return m_colFilterEncUltimoStato; }
     public void setColFilterEncUltimoStato(String v)  { this.m_colFilterEncUltimoStato = v; }
+
+    public String getColFilterRprio()             { return m_colFilterRprio; }
+    public void setColFilterRprio(String v)       { this.m_colFilterRprio = v; }
+    public String getColFilterErdat()             { return m_colFilterErdat; }
+    public void setColFilterErdat(String v)       { this.m_colFilterErdat = v; }
+    public String getColFilterReferenteNome()     { return m_colFilterReferenteNome; }
+    public void setColFilterReferenteNome(String v) { this.m_colFilterReferenteNome = v; }
+    public String getColFilterCateg()             { return m_colFilterCateg; }
+    public void setColFilterCateg(String v)       { this.m_colFilterCateg = v; }
+    public String getColFilterPrdct()             { return m_colFilterPrdct; }
+    public void setColFilterPrdct(String v)       { this.m_colFilterPrdct = v; }
+    public String getColFilterModul()             { return m_colFilterModul; }
+    public void setColFilterModul(String v)       { this.m_colFilterModul = v; }
+    public String getColFilterAmusr()             { return m_colFilterAmusr; }
+    public void setColFilterAmusr(String v)       { this.m_colFilterAmusr = v; }
+    public String getColFilterRefer()             { return m_colFilterRefer; }
+    public void setColFilterRefer(String v)       { this.m_colFilterRefer = v; }
 
     public String  getStatusMessage()           { return m_statusMessage; }
     public void setStatusMessage(String v)      { this.m_statusMessage = v; }
