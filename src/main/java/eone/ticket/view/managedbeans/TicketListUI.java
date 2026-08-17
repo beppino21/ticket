@@ -648,7 +648,13 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
     private List<Ticket> draftsCache;     // ticket DRAFT locali — persistono tra i rebuild della grid
     private boolean      m_archivio = false; // true = vista archivio (solo CLO)
 
-    private void populateGrid(List<Ticket> ticketList, String statusMsg) {
+    private void populateGrid(List<Ticket> ticketList, String suffix) {
+        // Lista grezza (tutti gli stati) — serve per il riepilogo completo
+        // nel menu (Riepilogo Ticket = vero totale, comprese le voci
+        // RES/CLO/CAN), separatamente dalla lista effettivamente mostrata
+        // qui sotto, che resta filtrata come prima.
+        List<Ticket> raw = ticketList;
+
         // Filtro client-side: SAP non supporta 'ne' come operatore OData
         // quindi filtriamo qui dopo aver ricevuto tutti i ticket.
         // RES (Risolto) trattato esattamente come CLO (Chiuso): tolto dalla
@@ -694,15 +700,24 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
         rebuildGridWithColFilters();
         m_hasError      = false;
         m_hasTickets    = !ticketList.isEmpty();
-        m_statusMessage = statusMsg;
-        Statusbar.outputSuccess(statusMsg);
+
+        // Il messaggio usa il conteggio DOPO il filtro (quello che l'utente
+        // vede davvero in griglia), non il totale grezzo — "attivi" solo
+        // per la vista operativa, l'archivio resta "ticket" e basta.
+        String tipoLabel = m_archivio ? "ticket" : "ticket attivi";
+        m_statusMessage = "Trovati " + ticketList.size() + " " + tipoLabel +
+                          (suffix == null || suffix.isEmpty() ? "" : " " + suffix);
+        Statusbar.outputSuccess(m_statusMessage);
 
         // Aggiorna il summary SOLO dalla lista operativa (non dall'archivio)
-        // per mantenere il riepilogo stabile e coerente nel menu.
+        // per mantenere il riepilogo stabile e coerente nel menu — costruito
+        // dalla lista GREZZA (raw), non da quella già filtrata, altrimenti
+        // "Riepilogo Ticket" perderebbe i RES/CLO/CAN e non sarebbe più un
+        // vero totale.
         if (!m_archivio && !m_modoReferente && m_listener != null) {
             int draftCount = draftsCache != null ? draftsCache.size() : 0;
             int sostituitiCount = contaTicketDiSostituiti();
-            m_listener.reactOnSummaryUpdated(TicketSummary.build(ticketsEnriched, draftCount, sostituitiCount));
+            m_listener.reactOnSummaryUpdated(TicketSummary.build(raw, draftCount, sostituitiCount));
         }
     }
 
@@ -916,7 +931,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
                 if (reqid != null && !reqid.trim().isEmpty()) {
                     tickets = aggiungiTicketDoveReferente(tickets, reqid, kunnr);
                 }
-                populateGrid(tickets, "Trovati " + tickets.size() + " ticket per " + utente);
+                populateGrid(tickets, "per " + utente);
             } else { setError("Errore SAP: " + response.getErrorMessage()); }
         } catch (Exception e) { setError("Eccezione: " + e.getMessage()); e.printStackTrace(); }
     }
@@ -994,7 +1009,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
             TicketResponse response = ticketService.getTickets(null, null, null, null, null, rstatFilter);
             if (response.isSuccess()) {
                 tickets = filtraClientiAbilitati(response.getTickets());
-                populateGrid(tickets, "Caricati " + tickets.size() + " ticket");
+                populateGrid(tickets, "");
             } else { setError("Errore SAP: " + response.getErrorMessage()); }
         } catch (Exception e) { setError("Eccezione: " + e.getMessage()); e.printStackTrace(); }
     }
@@ -1009,9 +1024,9 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
                     .filter(t -> idUserAms.equalsIgnoreCase(t.getAmusr()) ||
                                  (t.getAmusr() != null && m_amusrSostituitiAttivi.contains(t.getAmusr().trim())))
                     .collect(java.util.stream.Collectors.toList());
-                String msg = "Trovati " + tickets.size() + " ticket assegnati a " + idUserAms;
-                if (!m_amusrSostituitiAttivi.isEmpty()) msg += " (incl. sostituzioni)";
-                populateGrid(tickets, msg);
+                String suffix = "assegnati a " + idUserAms;
+                if (!m_amusrSostituitiAttivi.isEmpty()) suffix += " (incl. sostituzioni)";
+                populateGrid(tickets, suffix);
             } else { setError("Errore SAP: " + response.getErrorMessage()); }
         } catch (Exception e) { setError("Eccezione: " + e.getMessage()); e.printStackTrace(); }
     }
@@ -1033,9 +1048,9 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
                     .filter(t -> idUserAms.equalsIgnoreCase(t.getRefer()) ||
                                  (t.getRefer() != null && m_amusrSostituitiAttivi.contains(t.getRefer().trim())))
                     .collect(java.util.stream.Collectors.toList());
-                String msg = "Trovati " + tickets.size() + " ticket dove sei Referente";
-                if (!m_amusrSostituitiAttivi.isEmpty()) msg += " (incl. sostituzioni)";
-                populateGrid(tickets, msg);
+                String suffix = "dove sei Referente";
+                if (!m_amusrSostituitiAttivi.isEmpty()) suffix += " (incl. sostituzioni)";
+                populateGrid(tickets, suffix);
             } else { setError("Errore SAP: " + response.getErrorMessage()); }
         } catch (Exception e) { setError("Eccezione: " + e.getMessage()); e.printStackTrace(); }
     }
@@ -1084,7 +1099,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
                 m_filterKunnr, m_filterReqid, null, m_filterFromDate, m_filterToDate);
             if (response.isSuccess()) {
                 tickets = response.getTickets();
-                populateGrid(tickets, "Trovati " + tickets.size() + " ticket");
+                populateGrid(tickets, "");
             } else { setError("Errore SAP: " + response.getErrorMessage()); }
         } catch (Exception e) { setError("Eccezione: " + e.getMessage()); e.printStackTrace(); }
     }

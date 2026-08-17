@@ -182,6 +182,19 @@ public class NewTicketUI extends PageBean implements Serializable {
             // riassegnabile in seguito da richiedente o referente stesso.
             referenteService.setReferente(draft.getTicktKey(), m_reqidReferente.trim(), ctx.getUsername());
 
+            // Notifica il referente della prima attribuzione — solo
+            // informativa, nessun "precedente referente" perché il ticket
+            // è appena stato creato.
+            try {
+                RequesterInfo referente = requesterService.getReferenteInfo(ctx.getKunnr(), m_reqidReferente.trim());
+                if (referente != null) {
+                    mailService.sendNotificaCambioReferente(referente.getEmail(), draft.getTicktKey(), true, null);
+                }
+            } catch (Exception e) {
+                System.err.println("[NewTicketUI] Errore invio notifica attribuzione referente: " + e.getMessage());
+                e.printStackTrace();
+            }
+
             // 2. Salva il commento iniziale con gli allegati
             TicketComment comment = new TicketComment();
             comment.setTickt     (draft.getTicktKey());   // "DRAFT-{id}"

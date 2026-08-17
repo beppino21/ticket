@@ -233,11 +233,36 @@ public class CommentUI extends PageBean implements Serializable {
             Statusbar.outputWarning("Selezionare un referente");
             return;
         }
+        String reqidVecchio = m_reqidReferenteAttuale;
+        String reqidNuovo   = m_reqidReferenteNuovo.trim();
+        if (reqidVecchio != null && reqidVecchio.equalsIgnoreCase(reqidNuovo)) {
+            Statusbar.outputWarning("Il referente selezionato è già quello attuale");
+            return;
+        }
         try {
             ViewSessionContext ctx = ViewSessionContext.instance();
-            referenteService.setReferente(m_currentTickt, m_reqidReferenteNuovo.trim(), ctx.getUsername());
-            m_reqidReferenteAttuale = m_reqidReferenteNuovo.trim();
+            referenteService.setReferente(m_currentTickt, reqidNuovo, ctx.getUsername());
+            m_reqidReferenteAttuale = reqidNuovo;
             Statusbar.outputSuccess("Referente aggiornato");
+
+            // Notifica entrambi — solo informativa, nessuna azione richiesta.
+            try {
+                RequesterInfo nuovo = requesterService.getReferenteInfo(m_currentKunnr, reqidNuovo);
+                RequesterInfo vecchio = (reqidVecchio != null && !reqidVecchio.trim().isEmpty())
+                    ? requesterService.getReferenteInfo(m_currentKunnr, reqidVecchio) : null;
+
+                if (nuovo != null) {
+                    mailService.sendNotificaCambioReferente(nuovo.getEmail(), m_currentTickt, true,
+                        vecchio != null ? vecchio.getNome() : null);
+                }
+                if (vecchio != null) {
+                    mailService.sendNotificaCambioReferente(vecchio.getEmail(), m_currentTickt, false,
+                        nuovo != null ? nuovo.getNome() : reqidNuovo);
+                }
+            } catch (Exception e) {
+                System.err.println("[CommentUI] Errore invio notifica cambio referente: " + e.getMessage());
+                e.printStackTrace();
+            }
         } catch (Exception e) {
             Statusbar.outputError("Errore aggiornamento referente: " + e.getMessage());
             System.err.println("[CommentUI] Errore onCambiaReferente: " + e.getMessage());

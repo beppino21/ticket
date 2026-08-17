@@ -237,6 +237,57 @@ public class MailService {
         }
     }
 
+    /**
+     * Notifica il cambio di referente su un ticket — usata sia per la prima
+     * attribuzione (altroNome = null, nessun referente precedente) sia per
+     * una riassegnazione (altroNome = nome del referente precedente/nuovo).
+     * Tono solo informativo, nessuna azione richiesta.
+     *
+     * @param seiIlNuovo true se il destinatario è il NUOVO referente
+     *                   (altroNome = nome del precedente, o null se prima
+     *                   attribuzione), false se il destinatario è il
+     *                   VECCHIO referente appena rimosso (altroNome = nome
+     *                   del nuovo, sempre valorizzato in questo caso).
+     */
+    public void sendNotificaCambioReferente(String toEmail, String tickt, boolean seiIlNuovo, String altroNome) {
+        if (toEmail == null || toEmail.trim().isEmpty()) {
+            System.out.println("[MailService] Notifica cambio referente saltata: destinatario vuoto (tickt=" + tickt + ")");
+            return;
+        }
+
+        String subject;
+        String body;
+        if (seiIlNuovo) {
+            subject = "Sei il referente del ticket " + nn(tickt);
+            body = "Ricevi questa mail perché ora sei il referente per il ticket " + nn(tickt) +
+                   (altroNome != null && !altroNome.trim().isEmpty()
+                       ? ". Il precedente referente era l'utente " + altroNome
+                       : "") + "\n";
+        } else {
+            subject = "Non sei più referente del ticket " + nn(tickt);
+            body = "Ricevi questa mail perché ora non sei più il referente per il ticket " + nn(tickt) +
+                   ". Il nuovo referente è l'utente " + nn(altroNome) + "\n";
+        }
+
+        if (isDryRun()) {
+            System.out.println("========== [MailService] DRY-RUN — notifica cambio referente non inviata ==========");
+            System.out.println("To:      " + toEmail);
+            System.out.println("Subject: " + subject);
+            System.out.println("Body:\n" + body);
+            System.out.println("==================================================================");
+            return;
+        }
+
+        try {
+            send(toEmail, subject, body, null);
+            System.out.println("[MailService] Notifica cambio referente (" + (seiIlNuovo ? "nuovo" : "vecchio") +
+                               ") inviata a " + toEmail + " per ticket " + tickt);
+        } catch (Exception e) {
+            System.err.println("[MailService] Errore invio notifica cambio referente a " + toEmail + ": " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
     private void send(String toEmail, String subject, String body,
                        List<TicketAttachment> allegati) throws MessagingException {
 

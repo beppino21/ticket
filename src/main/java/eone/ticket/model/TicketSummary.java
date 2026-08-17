@@ -35,13 +35,20 @@ public class TicketSummary implements Serializable {
     private int totaleSAP   = 0;
     private int totaleDraft = 0;
     private int sostituitiCount = 0;
+    private int totaleAttiviSAP = 0;
     private final List<StatoCount> voci = new ArrayList<>();
+
+    /** Stati SAP considerati "conclusi" — esclusi da "Ticket attivi" e sempre in fondo alla lista delle voci. */
+    private static final List<String> STATI_CONCLUSI = java.util.Arrays.asList("RES", "CLO", "CAN");
 
     public static TicketSummary build(List<Ticket> tickets, int draftCount) {
         return build(tickets, draftCount, 0);
     }
 
     /**
+     * @param tickets         lista COMPLETA (tutti gli stati, non filtrata) —
+     *                        da qui si ricava sia il vero totale sia il
+     *                        conteggio dei soli "attivi".
      * @param sostituitiCount quanti dei ticket/draft passati appartengono a
      *                        colleghi attualmente sostituiti dall'utente
      *                        (già inclusi in tickets/draftCount — non un
@@ -59,19 +66,35 @@ public class TicketSummary implements Serializable {
         for (Ticket t : tickets) {
             String rstat = t.getRstat() != null ? t.getRstat() : "?";
             conteggioMap.merge(rstat, 1, Integer::sum);
+            if (!STATI_CONCLUSI.contains(rstat)) s.totaleAttiviSAP++;
         }
 
-        // Costruisce le voci con colori da TicketStatoService
+        // Costruisce le voci con colori da TicketStatoService, con gli stati
+        // "conclusi" (Resolved, Closed, Cancelled) sempre spostati in fondo
+        // alla lista, in quest'ordine — indipendentemente da dove compaiono
+        // nella mappa di conteggio (che segue il primo incontro nella lista).
         eone.ticket.service.TicketStatoService statoService = new eone.ticket.service.TicketStatoService();
+        List<StatoCount> attivi = new ArrayList<>();
+        java.util.Map<String, StatoCount> conclusi = new java.util.LinkedHashMap<>();
         conteggioMap.forEach((rstat, count) -> {
             TicketStatoInfo info = statoService.getStatoInfo(rstat);
-            s.voci.add(new StatoCount(rstat, info.getDescrizioneCorta(), count,
-                                      info.getColore(), info.getColoreTesto()));
+            StatoCount sc = new StatoCount(rstat, info.getDescrizioneCorta(), count,
+                                            info.getColore(), info.getColoreTesto());
+            if (STATI_CONCLUSI.contains(rstat)) conclusi.put(rstat, sc);
+            else attivi.add(sc);
         });
+        s.voci.addAll(attivi);
+        for (String rstat : STATI_CONCLUSI) {
+            StatoCount sc = conclusi.get(rstat);
+            if (sc != null) s.voci.add(sc);
+        }
 
-        // Aggiunge voce DRAFT se presenti
+        // Aggiunge voce DRAFT se presenti — è per definizione "attivo"
+        // (un draft non è ancora nemmeno un ticket SAP), quindi va prima
+        // dei conclusi ma qui in coda alle voci attive per semplicità: si
+        // riposiziona subito dopo l'ultimo attivo, prima dei conclusi.
         if (draftCount > 0) {
-            s.voci.add(new StatoCount("DRAFT", "DRAFT", draftCount, "#FF8F00", "#FFFFFF"));
+            s.voci.add(attivi.size(), new StatoCount("DRAFT", "DRAFT", draftCount, "#FF8F00", "#FFFFFF"));
         }
 
         return s;
@@ -80,6 +103,8 @@ public class TicketSummary implements Serializable {
     public int getTotaleSAP()       { return totaleSAP; }
     public int getTotaleDraft()     { return totaleDraft; }
     public int getTotale()          { return totaleSAP + totaleDraft; }
+    /** Totale ticket "attivi": tutto tranne Resolved/Closed/Cancelled, DRAFT inclusi (sono per natura attivi). */
+    public int getTotaleAttivi()    { return totaleAttiviSAP + totaleDraft; }
     public int getSostituitiCount() { return sostituitiCount; }
     public List<StatoCount> getVoci() { return voci; }
 }
