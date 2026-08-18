@@ -43,11 +43,11 @@
 <t:coldistance id="g_3" width="100%" />
 <t:label id="m_sum_tot" align="right!" font="size:26;weight:bold;color:#1565C0" text="#{d.MenuUI.summaryTotale}" />
 </t:row>
-<t:rowdistance id="m_sum_d_attivi" height="4" />
+<t:rowdistance id="m_sum_d_attivi" height="8" />
 <t:row id="m_sum_t_attivi" >
-<t:label id="m_sum_tl_attivi" font="size:12;color:#555555" text="di cui Ticket attivi" />
+<t:label id="m_sum_tl_attivi" font="size:20;weight:bold;color:#2E7D32" text="di cui Ticket attivi" width="200" />
 <t:coldistance id="g_3b" width="100%" />
-<t:label id="m_sum_tot_attivi" align="right!" font="size:16;weight:bold;color:#2E7D32" text="#{d.MenuUI.summaryAttivi}" />
+<t:label id="m_sum_tot_attivi" align="right!" font="size:24;weight:bold;color:#2E7D32" text="#{d.MenuUI.summaryAttivi}" width="50" />
 </t:row>
 <t:rowdistance id="m_sum_d0" height="14" />
 <t:row id="m_sum_grid_row" >

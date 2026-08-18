@@ -57,6 +57,7 @@ public class NewTicketUI extends PageBean implements Serializable {
     // kunnr, incluso il richiedente stesso che sta aprendo il ticket.
     private final ValidValuesBinding m_referenteVVB = new ValidValuesBinding();
     private String m_reqidReferente;
+    private boolean m_notificaRichiedente = true;
 
     private FIXGRIDListBinding<GridAttachItem> m_gridPending = new FIXGRIDListBinding<>();
     private List<TicketAttachment> m_pendingAttachments      = new ArrayList<>();
@@ -180,7 +181,7 @@ public class NewTicketUI extends PageBean implements Serializable {
 
             // 1bis. Referente obbligatorio: salvato in ticket_referente,
             // riassegnabile in seguito da richiedente o referente stesso.
-            referenteService.setReferente(draft.getTicktKey(), m_reqidReferente.trim(), ctx.getUsername());
+            referenteService.setReferente(draft.getTicktKey(), m_reqidReferente.trim(), ctx.getUsername(), m_notificaRichiedente);
 
             // Notifica il referente della prima attribuzione — solo
             // informativa, nessun "precedente referente" perché il ticket
@@ -310,6 +311,15 @@ public class NewTicketUI extends PageBean implements Serializable {
     public ValidValuesBinding getReferenteVVB() { return m_referenteVVB; }
     public String getReqidReferente()           { return m_reqidReferente; }
     public void setReqidReferente(String v)     { this.m_reqidReferente = v; }
+
+    public boolean getNotificaRichiedente()        { return m_notificaRichiedente; }
+    public void    setNotificaRichiedente(boolean v) { this.m_notificaRichiedente = v; }
+
+    /** Il checkbox ha senso solo quando il referente scelto è diverso dal richiedente stesso. */
+    public boolean getShowNotificaRichiedente() {
+        ViewSessionContext ctx = ViewSessionContext.instance();
+        return m_reqidReferente != null && !m_reqidReferente.equalsIgnoreCase(ctx.getRichiedente());
+    }
 
     public FIXGRIDListBinding<GridAttachItem> getGridPending() { return m_gridPending; }
     public boolean getHasPending()  { return !m_pendingAttachments.isEmpty(); }

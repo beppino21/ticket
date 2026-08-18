@@ -16,6 +16,11 @@
 <t:label id="nt_l1c" labeltext="Referente:" rowalignmenty="center" width="120" />
 <t:combobox id="nt_referente" flush="true" validvaluesbinding="#{d.NewTicketUI.referenteVVB}" value="#{d.NewTicketUI.reqidReferente}" width="280" />
 </t:row>
+<t:rowdistance id="nt_d1c2" height="6" rendered="#{d.NewTicketUI.showNotificaRichiedente}" />
+<t:row id="nt_r1c2" coldistance="8" rendered="#{d.NewTicketUI.showNotificaRichiedente}" >
+<t:label id="nt_notifica_lbl" labeltext="Notifica anche il richiedente:" width="200" />
+<t:checkbox id="nt_notifica_check" flush="true" selected="#{d.NewTicketUI.notificaRichiedente}" />
+</t:row>
 <t:rowdistance id="nt_d1c" height="10" />
 <t:row id="nt_r2" coldistance="12" >
 <t:label id="nt_l2" labeltext="Descrizione:" rowalignmenty="top" width="120" />

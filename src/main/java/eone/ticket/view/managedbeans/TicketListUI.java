@@ -559,7 +559,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
      * fuso in SAP, e appartiene al CLIENTE loggato (o a un collega che sta
      * attualmente sostituendo) — condizione per mostrare "Elimina DRAFT".
      */
-    public boolean isSelectedDraftEliminabile() {
+    public boolean getSelectedDraftEliminabile() {
         if (m_selectedTicketObj == null || !"DRAFT".equals(m_selectedTicketObj.getRstat())) return false;
         ViewSessionContext ctx = ViewSessionContext.instance();
         if (!ctx.isCliente()) return false;
@@ -571,7 +571,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
 
     /** Cancella il DRAFT selezionato — solo se non ancora fuso in SAP e di propria competenza. */
     public void onEliminaDraft(ActionEvent ae) {
-        if (!isSelectedDraftEliminabile()) {
+        if (!getSelectedDraftEliminabile()) {
             Statusbar.outputWarning("Nessun DRAFT eliminabile selezionato");
             return;
         }
@@ -691,6 +691,12 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
                     // CLIENTE: solo i suoi DRAFT
                     draftsCache = buildDraftTickets(ctx.getKunnr(), ctx.getRichiedente());
                 }
+            } else if (ctx.isReferente() && ctx.getKunnr() != null && !ctx.getKunnr().isEmpty()) {
+                // REFERENTE_CLI: i DRAFT dove è stato indicato come referente
+                // (individuati via ticket_referente, non via kunnr/reqid
+                // come per un CLIENTE — un referente non "possiede" il
+                // draft, vi compare solo come referente).
+                draftsCache = buildDraftTicketsForReferente(ctx.getRichiedente());
             } else if ("DISPATCHER".equalsIgnoreCase(ctx.getRuolo())) {
                 // DISPATCHER: tutti i DRAFT in attesa da tutti i clienti
                 draftsCache = buildAllDraftTickets();
@@ -772,6 +778,28 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
             return new java.util.ArrayList<>();
         }
         return buildTicketsFromDrafts(drafts);
+    }
+
+    /** DRAFT dove reqidReferente è indicato come referente — per REFERENTE_CLI. */
+    private List<Ticket> buildDraftTicketsForReferente(String reqidReferente) {
+        try {
+            List<String> tickts = referenteService.getTicktsByReferente(reqidReferente);
+            List<Long> draftIds = new java.util.ArrayList<>();
+            for (String t : tickts) {
+                if (t == null || !t.startsWith("DRAFT-")) continue;
+                try {
+                    draftIds.add(Long.parseLong(t.substring("DRAFT-".length())));
+                } catch (NumberFormatException nfe) {
+                    System.err.println("[TicketListUI] Tickt DRAFT non numerico ignorato: " + t);
+                }
+            }
+            if (draftIds.isEmpty()) return new java.util.ArrayList<>();
+            List<TicketDraft> drafts = draftService.getDraftsByIds(draftIds);
+            return buildTicketsFromDrafts(drafts);
+        } catch (Exception e) {
+            System.err.println("[TicketListUI] Errore caricamento DRAFT per referente: " + e.getMessage());
+            return new java.util.ArrayList<>();
+        }
     }
 
     /** Tutti i DRAFT in attesa — per il DISPATCHER */

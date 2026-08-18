@@ -26,10 +26,11 @@ public class TicketComment implements Serializable {
     public static final String TIPO_ASSISTENZA = "ASSISTENZA";
 
     // Valori costanti per stato_ticket — settabili dal CLIENTE
-    public static final String STATO_CLI_ATTESA_ASSISTENZA    = "CLI_ATTESA_ASSISTENZA";
-    public static final String STATO_CLI_SOLLECITO_ASSISTENZA = "CLI_SOLLECITO_ASSISTENZA";
-    public static final String STATO_CLI_RICHIESTA_CHIUSURA   = "CLI_RICHIESTA_CHIUSURA";
-    public static final String STATO_CLI_RISOLTO              = "CLI_RISOLTO";
+    public static final String STATO_CLI_ATTESA_ASSISTENZA      = "CLI_ATTESA_ASSISTENZA";
+    public static final String STATO_CLI_SOLLECITO_ASSISTENZA   = "CLI_SOLLECITO_ASSISTENZA";
+    public static final String STATO_CLI_RICHIESTA_CHIUSURA     = "CLI_RICHIESTA_CHIUSURA";
+    public static final String STATO_CLI_RICHIESTA_CANCELLAZIONE = "CLI_RICHIESTA_CANCELLAZIONE";
+    public static final String STATO_CLI_RISOLTO                = "CLI_RISOLTO";
 
     // Valori costanti per stato_ticket — settabili dall'ASSISTENZA
     public static final String STATO_ASS_ATTESA_CLIENTE    = "ASS_ATTESA_CLIENTE";
@@ -108,14 +109,15 @@ public class TicketComment implements Serializable {
     public String getStatoTicketLabel() {
         if (statoTicket == null) return "";
         switch (statoTicket) {
-            case STATO_CLI_ATTESA_ASSISTENZA:    return "Attesa attività AMS";
-            case STATO_CLI_SOLLECITO_ASSISTENZA: return "Sollecito attività AMS";
-            case STATO_CLI_RICHIESTA_CHIUSURA:   return "Richiesta chiusura ticket";
-            case STATO_CLI_RISOLTO:              return "Ticket risolto";
-            case STATO_ASS_ATTESA_CLIENTE:       return "Attesa attività Cliente";
-            case STATO_ASS_SOLLECITO_CLIENTE:    return "Sollecito attività Cliente";
-            case STATO_ASS_CONCLUSO:             return "Ticket concluso";
-            default:                             return statoTicket;
+            case STATO_CLI_ATTESA_ASSISTENZA:      return "Attesa attività AMS";
+            case STATO_CLI_SOLLECITO_ASSISTENZA:   return "Sollecito attività AMS";
+            case STATO_CLI_RICHIESTA_CHIUSURA:     return "Richiesta chiusura ticket";
+            case STATO_CLI_RICHIESTA_CANCELLAZIONE: return "Richiesta cancellazione ticket";
+            case STATO_CLI_RISOLTO:                return "Ticket risolto";
+            case STATO_ASS_ATTESA_CLIENTE:         return "Attesa attività Cliente";
+            case STATO_ASS_SOLLECITO_CLIENTE:      return "Sollecito attività Cliente";
+            case STATO_ASS_CONCLUSO:               return "Ticket concluso";
+            default:                               return statoTicket;
         }
     }
 
@@ -128,14 +130,15 @@ public class TicketComment implements Serializable {
     public String getStatoColor() {
         if (statoTicket == null) return "#EEEEEE";
         switch (statoTicket) {
-            case STATO_ASS_CONCLUSO:             return "#D8D4F0"; // viola pastello
-            case STATO_CLI_RISOLTO:              return "#C5D8F0"; // blu pastello
-            case STATO_CLI_RICHIESTA_CHIUSURA:   return "#B8E4DE"; // ciano pastello
-            case STATO_ASS_ATTESA_CLIENTE:       return "#C8E6C9"; // verde pastello
-            case STATO_CLI_ATTESA_ASSISTENZA:    return "#FFF9C4"; // giallo pastello
-            case STATO_ASS_SOLLECITO_CLIENTE:    return "#FFE0B2"; // arancione pastello
-            case STATO_CLI_SOLLECITO_ASSISTENZA: return "#FFCDD2"; // rosso pastello
-            default:                             return "#EEEEEE";
+            case STATO_ASS_CONCLUSO:               return "#D8D4F0"; // viola pastello
+            case STATO_CLI_RISOLTO:                return "#C5D8F0"; // blu pastello
+            case STATO_CLI_RICHIESTA_CHIUSURA:     return "#B8E4DE"; // ciano pastello
+            case STATO_CLI_RICHIESTA_CANCELLAZIONE: return "#CFE0E8"; // grigio-azzurro pastello
+            case STATO_ASS_ATTESA_CLIENTE:         return "#C8E6C9"; // verde pastello
+            case STATO_CLI_ATTESA_ASSISTENZA:      return "#FFF9C4"; // giallo pastello
+            case STATO_ASS_SOLLECITO_CLIENTE:      return "#FFE0B2"; // arancione pastello
+            case STATO_CLI_SOLLECITO_ASSISTENZA:   return "#FFCDD2"; // rosso pastello
+            default:                               return "#EEEEEE";
         }
     }
 
@@ -143,14 +146,15 @@ public class TicketComment implements Serializable {
     public String getStatoTextColor() {
         if (statoTicket == null) return "#333333";
         switch (statoTicket) {
-            case STATO_ASS_CONCLUSO:             return "#3D2F72";
-            case STATO_CLI_RISOLTO:              return "#1A3A6B";
-            case STATO_CLI_RICHIESTA_CHIUSURA:   return "#144040";
-            case STATO_ASS_ATTESA_CLIENTE:       return "#1B5E20";
-            case STATO_CLI_ATTESA_ASSISTENZA:    return "#5D4000";
-            case STATO_ASS_SOLLECITO_CLIENTE:    return "#7A3800";
-            case STATO_CLI_SOLLECITO_ASSISTENZA: return "#7B1515";
-            default:                             return "#333333";
+            case STATO_ASS_CONCLUSO:               return "#3D2F72";
+            case STATO_CLI_RISOLTO:                return "#1A3A6B";
+            case STATO_CLI_RICHIESTA_CHIUSURA:     return "#144040";
+            case STATO_CLI_RICHIESTA_CANCELLAZIONE: return "#2C4A55";
+            case STATO_ASS_ATTESA_CLIENTE:         return "#1B5E20";
+            case STATO_CLI_ATTESA_ASSISTENZA:      return "#5D4000";
+            case STATO_ASS_SOLLECITO_CLIENTE:      return "#7A3800";
+            case STATO_CLI_SOLLECITO_ASSISTENZA:   return "#7B1515";
+            default:                               return "#333333";
         }
     }
 

@@ -13,6 +13,7 @@
 <t:label id="c_referente_bar_lbl" font="weight:bold;size:11;color:#37474F" labeltext="Referente del ticket:" width="140" />
 <t:combobox id="c_referente_bar_cb" enabled="#{d.CommentUI.puoModificareReferente}" flush="true" validvaluesbinding="#{d.CommentUI.referenteVVB}" value="#{d.CommentUI.reqidReferenteNuovo}" width="220" />
 <t:button id="c_referente_bar_btn" actionListener="#{d.CommentUI.onCambiaReferente}" enabled="#{d.CommentUI.puoModificareReferente}" text="Cambia" width="80" />
+<t:checkbox id="c_referente_bar_notifica" enabled="#{d.CommentUI.puoModificareReferente}" flush="true" rendered="#{d.CommentUI.showNotificaRichiedente}" selected="#{d.CommentUI.notificaRichiedenteNuovo}" text="Notifica anche il richiedente" />
 <t:coldistance id="c_referente_bar_cd" width="100%" />
 <t:label id="c_referente_bar_hint" font="size:10;color:#78909C" rendered="#{!d.CommentUI.puoModificareReferente}" text="Modificabile solo dal richiedente o dal referente attuale" />
 </t:row>
@@ -97,13 +98,13 @@
 <t:comboboxitem id="c_fsc_b" text="Attesa attività Assistenza" value="CLI_ATTESA_ASSISTENZA" />
 <t:comboboxitem id="c_fsc_c" text="Sollecito attività Assistenza" value="CLI_SOLLECITO_ASSISTENZA" />
 <t:comboboxitem id="c_fsc_d" text="Richiesta chiusura ticket" value="CLI_RICHIESTA_CHIUSURA" />
+<t:comboboxitem id="c_fsc_f" text="Richiesta cancellazione ticket" value="CLI_RICHIESTA_CANCELLAZIONE" />
 <t:comboboxitem id="c_fsc_e" text="Ticket risolto" value="CLI_RISOLTO" />
 </t:combobox>
 <t:combobox id="c_form_stato_ass" flush="true" rendered="#{d.CommentUI.isAssistenza}" value="#{d.CommentUI.newCommentStato}" width="280" >
 <t:comboboxitem id="c_fsa_a" />
 <t:comboboxitem id="c_fsa_b" text="Attesa attività Cliente" value="ASS_ATTESA_CLIENTE" />
 <t:comboboxitem id="c_fsa_c" text="Sollecito Attività Cliente" value="ASS_SOLLECITO_CLIENTE" />
-<t:comboboxitem id="c_fsa_d" text="Ticket concluso" value="ASS_CONCLUSO" />
 </t:combobox>
 </t:row>
 <t:rowdistance id="c_form_dist2" height="6" />

@@ -227,6 +227,7 @@ COMMENT ON TABLE ticket_draft IS 'Ticket locali creati dal cliente via WebApp, n
 CREATE TABLE IF NOT EXISTS ticket_referente (
     tickt            VARCHAR(20)  PRIMARY KEY,
     reqid_referente  VARCHAR(40)  NOT NULL,
+    notifica_richiedente BOOLEAN  NOT NULL DEFAULT TRUE,  -- FALSE = il richiedente non vuole notifiche quando referente != richiedente
     updated_by       VARCHAR(20),
     updated_at       TIMESTAMP    NOT NULL DEFAULT NOW()
 );

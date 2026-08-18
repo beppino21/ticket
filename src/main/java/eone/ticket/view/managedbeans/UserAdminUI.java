@@ -227,6 +227,7 @@ public class UserAdminUI extends PageBean implements Serializable {
         }
         try {
             adminService.resetPassword(m_formIdUser, m_resetPasswordValue.trim());
+            m_formPasswordNonScade = false; // il reset lo azzera sempre lato DB — allinea anche il checkbox a video
             Statusbar.outputSuccess("Password di " + m_formIdUser +
                 " reimpostata — dovrà sceglierne una propria al prossimo accesso.");
             m_resetPasswordVisible = false;

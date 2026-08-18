@@ -132,6 +132,30 @@ public class TicketDraftService {
         return queryList(sql, params.toArray(new String[0]));
     }
 
+    /**
+     * Recupera DRAFT specifici a partire dai loro id — usato per i DRAFT
+     * dove l'utente è referente_cli ma non richiedente (individuati via
+     * ticket_referente, che conosce solo il tickt "DRAFT-{id}").
+     */
+    public List<TicketDraft> getDraftsByIds(List<Long> ids) throws SQLException {
+        if (ids == null || ids.isEmpty()) return new ArrayList<>();
+        StringBuilder placeholders = new StringBuilder();
+        for (int i = 0; i < ids.size(); i++) {
+            if (i > 0) placeholders.append(",");
+            placeholders.append("?");
+        }
+        String sql = "SELECT id, kunnr, reqid, id_user, titolo, stato, tickt_sap, created_at, updated_at " +
+                     "FROM ticket_draft WHERE id IN (" + placeholders + ") AND stato = 'DRAFT' " +
+                     "ORDER BY created_at DESC";
+        try (Connection con = DBConfig.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            for (int i = 0; i < ids.size(); i++) ps.setLong(i + 1, ids.get(i));
+            try (ResultSet rs = ps.executeQuery()) {
+                return mapRows(rs);
+            }
+        }
+    }
+
     /** Solo i DRAFT in stato DRAFT — per il DISPATCHER. */
     public List<TicketDraft> getPendingDrafts() throws SQLException {
         String sql = "SELECT id, kunnr, reqid, id_user, titolo, stato, tickt_sap, created_at, updated_at " +

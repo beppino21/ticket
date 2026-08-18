@@ -185,10 +185,16 @@ public class UserAdminService {
      * scaduta" (stesso meccanismo della policy password, nessun flag a
      * parte): l'utente dovrà sceglierne una propria al primo accesso.
      */
+    /**
+     * Reimposta la password e forza il cambio al prossimo accesso —
+     * azzera SEMPRE anche password_non_scade: chi effettua un reset si
+     * aspetta che la persona debba cambiarla al primo accesso, anche se in
+     * precedenza era stata impostata come esente da scadenza.
+     */
     public void resetPassword(String idUser, String nuovaPasswordTemporanea) throws SQLException {
         String hash = BCrypt.hashpw(nuovaPasswordTemporanea, BCrypt.gensalt(12));
         String sql = "UPDATE ticket_user SET password_hash = ?, " +
-                     "password_impostata_il = NOW() - INTERVAL '3650 days', updated_at = NOW() " +
+                     "password_impostata_il = NOW() - INTERVAL '3650 days', password_non_scade = FALSE, updated_at = NOW() " +
                      "WHERE id_user = ?";
         try (Connection con = DBConfig.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {

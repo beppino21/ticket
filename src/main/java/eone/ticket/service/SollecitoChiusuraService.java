@@ -13,13 +13,14 @@ import eone.ticket.model.TicketComment;
 
 /**
  * Sollecito automatico di chiusura: individua i ticket il cui ULTIMO stato
- * (dedotto dall'ultimo commento) è "Richiesta chiusura ticket" o "Ticket
- * risolto" da almeno N giorni, e invia un'unica mail aggregata al
- * backoffice per sollecitarne la chiusura sul backend SAP.
+ * (dedotto dall'ultimo commento) è "Richiesta chiusura ticket", "Richiesta
+ * cancellazione ticket" o "Ticket risolto" da almeno N giorni, e invia
+ * un'unica mail aggregata al backoffice per sollecitarne la chiusura sul
+ * backend SAP.
  *
  * Un ticket il cui ultimo stato è "Ticket concluso" (ASS_CONCLUSO, impostato
  * dall'AMS) NON viene mai incluso — per costruzione, dato che il filtro è
- * una lista esplicita dei soli due stati "lato cliente": si aspetta che sia
+ * una lista esplicita dei soli stati "lato cliente": si aspetta che sia
  * il cliente a spostarlo su uno di quelli prima che scatti il sollecito.
  */
 public class SollecitoChiusuraService {
@@ -46,6 +47,7 @@ public class SollecitoChiusuraService {
             for (TicketComment c : ultimiStati) {
                 boolean statoDaSollecitare =
                     TicketComment.STATO_CLI_RICHIESTA_CHIUSURA.equals(c.getStatoTicket()) ||
+                    TicketComment.STATO_CLI_RICHIESTA_CANCELLAZIONE.equals(c.getStatoTicket()) ||
                     TicketComment.STATO_CLI_RISOLTO.equals(c.getStatoTicket());
                 if (statoDaSollecitare && c.getCreatedAt() != null && c.getCreatedAt().isBefore(soglia)) {
                     candidati.add(c);

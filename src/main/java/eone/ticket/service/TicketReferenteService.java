@@ -82,30 +82,61 @@ public class TicketReferenteService {
     }
 
     /**
+     * True se il richiedente vuole essere notificato via email quando il
+     * referente del ticket è diverso da lui (default TRUE — comportamento
+     * di sempre, nessuna sorpresa per chi non tocca questa opzione).
+     * Ritorna TRUE anche se il ticket non ha ancora un referente impostato
+     * (nessuna riga trovata), per non bloccare per errore le notifiche.
+     */
+    public boolean getNotificaRichiedente(String tickt) throws SQLException {
+        if (tickt == null || tickt.trim().isEmpty()) return true;
+        String sql = "SELECT notifica_richiedente FROM ticket_referente WHERE tickt = ?";
+        try (Connection con = DBConfig.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, tickt.trim());
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getBoolean("notifica_richiedente") : true;
+            }
+        }
+    }
+
+    /**
      * Imposta/riassegna il referente di un ticket (upsert). Usato sia alla
      * creazione del DRAFT sia per una successiva riassegnazione.
+     * @param notificaRichiedente se FALSE e reqidReferente è diverso dal
+     *        richiedente del ticket, il richiedente non verrà più
+     *        notificato via email su questo ticket (vedi CommentUI.inviaNotifiche).
+     *        Irrilevante (il richiedente riceve comunque le notifiche, in
+     *        quanto referente) se reqidReferente coincide col richiedente.
      */
-    public void setReferente(String tickt, String reqidReferente, String updatedBy) throws SQLException {
+    public void setReferente(String tickt, String reqidReferente, String updatedBy, boolean notificaRichiedente) throws SQLException {
         if (tickt == null || tickt.trim().isEmpty())
             throw new IllegalArgumentException("tickt obbligatorio");
         if (reqidReferente == null || reqidReferente.trim().isEmpty())
             throw new IllegalArgumentException("reqidReferente obbligatorio");
 
-        String sql = "INSERT INTO ticket_referente (tickt, reqid_referente, updated_by, updated_at) " +
-                     "VALUES (?, ?, ?, NOW()) " +
+        String sql = "INSERT INTO ticket_referente (tickt, reqid_referente, notifica_richiedente, updated_by, updated_at) " +
+                     "VALUES (?, ?, ?, ?, NOW()) " +
                      "ON CONFLICT (tickt) DO UPDATE SET " +
                      "reqid_referente = EXCLUDED.reqid_referente, " +
+                     "notifica_richiedente = EXCLUDED.notifica_richiedente, " +
                      "updated_by = EXCLUDED.updated_by, " +
                      "updated_at = NOW()";
         try (Connection con = DBConfig.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, tickt.trim());
             ps.setString(2, reqidReferente.trim());
-            ps.setString(3, updatedBy);
+            ps.setBoolean(3, notificaRichiedente);
+            ps.setString(4, updatedBy);
             ps.executeUpdate();
         }
         System.out.println("[TicketReferenteService] Referente di " + tickt + " impostato a '" +
-                            reqidReferente + "' da '" + updatedBy + "'");
+                            reqidReferente + "' da '" + updatedBy + "' (notificaRichiedente=" + notificaRichiedente + ")");
+    }
+
+    /** Sovraccarico retrocompatibile: notifica il richiedente per default (comportamento di sempre). */
+    public void setReferente(String tickt, String reqidReferente, String updatedBy) throws SQLException {
+        setReferente(tickt, reqidReferente, updatedBy, true);
     }
 
     /**

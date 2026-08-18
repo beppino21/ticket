@@ -46,7 +46,16 @@ public class CommentUI extends PageBean implements Serializable {
 
     public void setCloseListener(IListener l) { this.m_closeListener = l; }
 
+    private boolean m_chiusuraWaitingConfirm;
+
     public void onClose(ActionEvent ae) {
+        if (hasUnsavedReferenteChanges() && !m_chiusuraWaitingConfirm) {
+            m_chiusuraWaitingConfirm = true;
+            Statusbar.outputWarning("Ci sono modifiche al referente non salvate — premi di nuovo \"Chiudi\" per abbandonarle, " +
+                                     "oppure salvale prima con \"Cambia\".");
+            return;
+        }
+        m_chiusuraWaitingConfirm = false;
         if (m_closeListener != null) m_closeListener.reactOnClose();
     }
 
@@ -67,6 +76,7 @@ public class CommentUI extends PageBean implements Serializable {
     private final ValidValuesBinding m_referenteVVB = new ValidValuesBinding();
     private String  m_reqidReferenteAttuale;
     private String  m_reqidReferenteNuovo;
+    private boolean m_notificaRichiedenteNuovo = true;
     private boolean m_puoModificareReferente;
 
     // Lista commenti (colonna sinistra)
@@ -97,7 +107,7 @@ public class CommentUI extends PageBean implements Serializable {
         public String getAutoreId()    { return nn(comment.getAutoreId()); }
         public String getAutoreTipo()  { return nn(comment.getAutoreTipo()); }
         public String getStatoLabel()  { return comment.getStatoTicketLabel(); }
-        public boolean isFromCliente() { return comment.isFromCliente(); }
+        public boolean getFromCliente() { return comment.isFromCliente(); }
         public int    getAttachCount() { return comment.getAttachCount(); }
 
         public String getAnteprimaTesto() {
@@ -118,7 +128,7 @@ public class CommentUI extends PageBean implements Serializable {
             if (m_selectedComment != null && m_selectedComment.getId() == comment.getId()) {
                 return "#D6E8FB";
             }
-            return isFromCliente() ? "#FAFAFA" : "#FFFFFF";
+            return getFromCliente() ? "#FAFAFA" : "#FFFFFF";
         }
 
         /** Colore del badge di stato (scala termica) */
@@ -188,6 +198,7 @@ public class CommentUI extends PageBean implements Serializable {
         m_pendingAttachments.clear();
         m_gridPending.getItems().clear();
         m_gridAttachList.getItems().clear();
+        m_chiusuraWaitingConfirm = false;
         loadComments();
         loadReferente();
     }
@@ -202,10 +213,12 @@ public class CommentUI extends PageBean implements Serializable {
         m_referenteVVB.clear();
         m_reqidReferenteAttuale = null;
         m_reqidReferenteNuovo   = null;
+        m_notificaRichiedenteNuovo = true;
         m_puoModificareReferente = false;
         try {
             m_reqidReferenteAttuale = referenteService.getReferente(m_currentTickt);
             m_reqidReferenteNuovo   = m_reqidReferenteAttuale;
+            m_notificaRichiedenteNuovo = referenteService.getNotificaRichiedente(m_currentTickt);
 
             if (m_currentKunnr != null && !m_currentKunnr.trim().isEmpty()) {
                 for (RequesterInfo r : requesterService.getEligibiliReferente(m_currentKunnr, m_currentReqid)) {
@@ -224,6 +237,29 @@ public class CommentUI extends PageBean implements Serializable {
     }
 
     /** Riassegna il referente del ticket — solo richiedente o referente attuale. */
+    /**
+     * True se il referente scelto o la spunta "notifica" differiscono da
+     * quanto risulta effettivamente salvato — usato sia per decidere se
+     * "Cambia" ha qualcosa da fare, sia per avvisare alla chiusura del
+     * pannello se si stanno per perdere modifiche non salvate.
+     */
+    private boolean hasUnsavedReferenteChanges() {
+        if (!m_puoModificareReferente) return false;
+        if (m_reqidReferenteNuovo == null || m_reqidReferenteNuovo.trim().isEmpty()) return false;
+        String reqidNuovo = m_reqidReferenteNuovo.trim();
+        boolean referenteCambiato = m_reqidReferenteAttuale == null || !m_reqidReferenteAttuale.equalsIgnoreCase(reqidNuovo);
+
+        boolean notificaPrecedente = true;
+        try {
+            notificaPrecedente = referenteService.getNotificaRichiedente(m_currentTickt);
+        } catch (Exception e) {
+            System.err.println("[CommentUI] Errore lettura notifica precedente: " + e.getMessage());
+        }
+        boolean notificaCambiata = notificaPrecedente != m_notificaRichiedenteNuovo;
+
+        return referenteCambiato || notificaCambiata;
+    }
+
     public void onCambiaReferente(ActionEvent ae) {
         if (!m_puoModificareReferente) {
             Statusbar.outputError("Non hai i permessi per modificare il referente di questo ticket");
@@ -233,35 +269,42 @@ public class CommentUI extends PageBean implements Serializable {
             Statusbar.outputWarning("Selezionare un referente");
             return;
         }
-        String reqidVecchio = m_reqidReferenteAttuale;
-        String reqidNuovo   = m_reqidReferenteNuovo.trim();
-        if (reqidVecchio != null && reqidVecchio.equalsIgnoreCase(reqidNuovo)) {
-            Statusbar.outputWarning("Il referente selezionato è già quello attuale");
+        if (!hasUnsavedReferenteChanges()) {
+            Statusbar.outputWarning("Nessuna modifica da salvare");
             return;
         }
+        String reqidVecchio = m_reqidReferenteAttuale;
+        String reqidNuovo   = m_reqidReferenteNuovo.trim();
+        boolean referenteCambiato = reqidVecchio == null || !reqidVecchio.equalsIgnoreCase(reqidNuovo);
+
         try {
             ViewSessionContext ctx = ViewSessionContext.instance();
-            referenteService.setReferente(m_currentTickt, reqidNuovo, ctx.getUsername());
+            referenteService.setReferente(m_currentTickt, reqidNuovo, ctx.getUsername(), m_notificaRichiedenteNuovo);
             m_reqidReferenteAttuale = reqidNuovo;
             Statusbar.outputSuccess("Referente aggiornato");
+            m_chiusuraWaitingConfirm = false; // eventuale richiesta di conferma in corso non ha più senso
 
-            // Notifica entrambi — solo informativa, nessuna azione richiesta.
-            try {
-                RequesterInfo nuovo = requesterService.getReferenteInfo(m_currentKunnr, reqidNuovo);
-                RequesterInfo vecchio = (reqidVecchio != null && !reqidVecchio.trim().isEmpty())
-                    ? requesterService.getReferenteInfo(m_currentKunnr, reqidVecchio) : null;
+            // Le mail di cambio referente hanno senso solo se il referente
+            // è DAVVERO cambiato — se si è modificata solo la spunta
+            // notifica, nessuno va avvisato di un cambio che non c'è stato.
+            if (referenteCambiato) {
+                try {
+                    RequesterInfo nuovo = requesterService.getReferenteInfo(m_currentKunnr, reqidNuovo);
+                    RequesterInfo vecchio = (reqidVecchio != null && !reqidVecchio.trim().isEmpty())
+                        ? requesterService.getReferenteInfo(m_currentKunnr, reqidVecchio) : null;
 
-                if (nuovo != null) {
-                    mailService.sendNotificaCambioReferente(nuovo.getEmail(), m_currentTickt, true,
-                        vecchio != null ? vecchio.getNome() : null);
+                    if (nuovo != null) {
+                        mailService.sendNotificaCambioReferente(nuovo.getEmail(), m_currentTickt, true,
+                            vecchio != null ? vecchio.getNome() : null);
+                    }
+                    if (vecchio != null) {
+                        mailService.sendNotificaCambioReferente(vecchio.getEmail(), m_currentTickt, false,
+                            nuovo != null ? nuovo.getNome() : reqidNuovo);
+                    }
+                } catch (Exception e) {
+                    System.err.println("[CommentUI] Errore invio notifica cambio referente: " + e.getMessage());
+                    e.printStackTrace();
                 }
-                if (vecchio != null) {
-                    mailService.sendNotificaCambioReferente(vecchio.getEmail(), m_currentTickt, false,
-                        nuovo != null ? nuovo.getNome() : reqidNuovo);
-                }
-            } catch (Exception e) {
-                System.err.println("[CommentUI] Errore invio notifica cambio referente: " + e.getMessage());
-                e.printStackTrace();
             }
         } catch (Exception e) {
             Statusbar.outputError("Errore aggiornamento referente: " + e.getMessage());
@@ -328,6 +371,24 @@ public class CommentUI extends PageBean implements Serializable {
             // Notifica email a cliente + AMS assegnato (esclude l'autore stesso)
             inviaNotifiche(comment, m_pendingAttachments);
 
+            // Notifica immediata al backoffice se lo stato impostato è uno
+            // dei tre "conclusivi" — stesso indirizzo del sollecito
+            // aggregato giornaliero (SOLLECITO_CHIUSURA_EMAIL), ma inviata
+            // subito invece di attendere la soglia di giorni.
+            if (TicketComment.STATO_CLI_RICHIESTA_CHIUSURA.equals(m_newCommentStato) ||
+                TicketComment.STATO_CLI_RICHIESTA_CANCELLAZIONE.equals(m_newCommentStato) ||
+                TicketComment.STATO_CLI_RISOLTO.equals(m_newCommentStato)) {
+                try {
+                    String emailSollecito = eone.ticket.config.AppConfig.get("SOLLECITO_CHIUSURA_EMAIL", "");
+                    RequesterInfo autore = requesterService.getById(ctx.getUsername());
+                    mailService.sendNotificaStatoConclusivo(emailSollecito, m_currentTickt,
+                        comment.getStatoTicketLabel(), autore != null ? autore.getNome() : ctx.getUsername());
+                } catch (Exception e) {
+                    System.err.println("[CommentUI] Errore invio notifica stato conclusivo: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            }
+
             m_newCommentText  = null;
             m_newCommentStato = null;
             m_pendingAttachments.clear();
@@ -364,15 +425,18 @@ public class CommentUI extends PageBean implements Serializable {
     }
 
     /**
-     * True se il ruolo è ADMIN, oppure se non è risolvibile a CLIENTE/AMS
-     * (fallback di sicurezza: meglio mostrare entrambe le combobox che
-     * lasciare l'utente senza alcuna opzione di stato selezionabile).
+     * True se il ruolo è ADMIN, oppure se non è risolvibile a CLIENTE/AMS/
+     * REFERENTE_CLI (fallback di sicurezza: meglio mostrare entrambe le
+     * combobox che lasciare l'utente senza alcuna opzione di stato
+     * selezionabile). REFERENTE_CLI è escluso dal fallback: è un ruolo noto,
+     * mappato sul lato CLIENTE — includerlo qui gli mostrava per errore
+     * anche la combobox degli stati lato Assistenza.
      */
     private boolean isAdminOrUnknown(ViewSessionContext ctx) {
         String ruolo = ctx.getRuolo();
         if (ruolo == null || ruolo.trim().isEmpty()) return true;
         String r = ruolo.trim().toUpperCase();
-        return "ADMIN".equals(r) || (!"CLIENTE".equals(r) && !"AMS".equals(r));
+        return "ADMIN".equals(r) || (!"CLIENTE".equals(r) && !"AMS".equals(r) && !"REFERENTE_CLI".equals(r));
     }
 
     public void onFileUpload(ActionEvent ae) {
@@ -412,8 +476,18 @@ public class CommentUI extends PageBean implements Serializable {
         String statoLabel = comment.getStatoTicketLabel();
 
         // Destinatario CLIENTE: il richiedente collegato a kunnr+reqid del ticket
+        // Saltata se il richiedente ha esplicitamente disattivato le notifiche
+        // per questo ticket (solo possibile quando il referente è diverso da
+        // lui — se referente = richiedente le riceve comunque, in quanto
+        // referente, e il flag non ha effetto su quel canale).
         try {
-            if (m_currentKunnr != null && m_currentReqid != null) {
+            boolean referenteDiverso = m_reqidReferenteAttuale != null &&
+                !m_reqidReferenteAttuale.equalsIgnoreCase(m_currentReqid);
+            boolean notificaRichiedente = !referenteDiverso || referenteService.getNotificaRichiedente(m_currentTickt);
+
+            if (!notificaRichiedente) {
+                System.out.println("[CommentUI] Notifica CLIENTE saltata: il richiedente ha disattivato le notifiche per questo ticket (referente diverso)");
+            } else if (m_currentKunnr != null && m_currentReqid != null) {
                 RequesterInfo cliente = requesterService.getByKunnrReqid(m_currentKunnr, m_currentReqid);
                 if (cliente != null) {
                     notificaConEventualeSostituto(cliente, autoreId, statoLabel, comment.getTesto(), allegati, "CLIENTE");
@@ -624,10 +698,20 @@ public class CommentUI extends PageBean implements Serializable {
     public ValidValuesBinding getReferenteVVB()   { return m_referenteVVB; }
     public String  getReqidReferenteNuovo()       { return m_reqidReferenteNuovo; }
     public void    setReqidReferenteNuovo(String v) { this.m_reqidReferenteNuovo = v; }
+
+    public boolean getNotificaRichiedenteNuovo()        { return m_notificaRichiedenteNuovo; }
+    public void    setNotificaRichiedenteNuovo(boolean v) { this.m_notificaRichiedenteNuovo = v; }
+
+    /** Il checkbox ha senso solo quando il referente scelto è diverso dal richiedente del ticket. */
+
+    public boolean getShowNotificaRichiedente() {
+        return m_reqidReferenteNuovo != null && !m_reqidReferenteNuovo.equalsIgnoreCase(m_currentReqid);
+    }
     public boolean getPuoModificareReferente()    { return m_puoModificareReferente; }
+    /** Visibile a CLIENTE/REFERENTE_CLI (possono modificarlo) e ad AMS (sola lettura — vede chi è il referente ma non può cambiarlo). */
     public boolean getMostraSezioneReferente() {
         ViewSessionContext ctx = ViewSessionContext.instance();
-        return ctx.isClienteOReferente() || isAdminOrUnknown(ctx);
+        return ctx.isClienteOReferente() || ctx.isAms() || isAdminOrUnknown(ctx);
     }
     public String  getDownloadUrl()     { return m_downloadUrl; }
 

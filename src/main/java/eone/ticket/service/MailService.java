@@ -288,6 +288,41 @@ public class MailService {
         }
     }
 
+    /**
+     * Notifica immediata (non aggregata, non attende i giorni di soglia) al
+     * momento in cui il cliente imposta uno stato "conclusivo" — Richiesta
+     * chiusura, Richiesta cancellazione, Ticket risolto. Usa lo stesso
+     * destinatario del sollecito aggregato giornaliero (SOLLECITO_CHIUSURA_EMAIL),
+     * ma è un avviso a sé, inviato subito.
+     */
+    public void sendNotificaStatoConclusivo(String toEmail, String tickt, String statoLabel, String autoreNome) {
+        if (toEmail == null || toEmail.trim().isEmpty()) {
+            System.out.println("[MailService] Notifica stato conclusivo saltata: destinatario vuoto (tickt=" + tickt + ")");
+            return;
+        }
+
+        String subject = "Ticket " + nn(tickt) + " — " + nn(statoLabel);
+        String body = "Il ticket " + nn(tickt) + " è stato impostato allo stato \"" + nn(statoLabel) + "\"" +
+                      (autoreNome != null && !autoreNome.trim().isEmpty() ? " da " + autoreNome : "") + ".\n";
+
+        if (isDryRun()) {
+            System.out.println("========== [MailService] DRY-RUN — notifica stato conclusivo non inviata ==========");
+            System.out.println("To:      " + toEmail);
+            System.out.println("Subject: " + subject);
+            System.out.println("Body:\n" + body);
+            System.out.println("==================================================================");
+            return;
+        }
+
+        try {
+            send(toEmail, subject, body, null);
+            System.out.println("[MailService] Notifica stato conclusivo (" + statoLabel + ") inviata a " + toEmail + " per ticket " + tickt);
+        } catch (Exception e) {
+            System.err.println("[MailService] Errore invio notifica stato conclusivo a " + toEmail + ": " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
     private void send(String toEmail, String subject, String body,
                        List<TicketAttachment> allegati) throws MessagingException {
 
