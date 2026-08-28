@@ -268,6 +268,10 @@ public class MailService {
             body = "Ricevi questa mail perché ora non sei più il referente per il ticket " + nn(tickt) +
                    ". Il nuovo referente è l'utente " + nn(altroNome) + "\n";
         }
+        String link = buildTicketLink(tickt);
+        if (link != null) {
+            body += "\nApri il ticket: " + link + "\n";
+        }
 
         if (isDryRun()) {
             System.out.println("========== [MailService] DRY-RUN — notifica cambio referente non inviata ==========");
@@ -319,6 +323,40 @@ public class MailService {
             System.out.println("[MailService] Notifica stato conclusivo (" + statoLabel + ") inviata a " + toEmail + " per ticket " + tickt);
         } catch (Exception e) {
             System.err.println("[MailService] Errore invio notifica stato conclusivo a " + toEmail + ": " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Notifica l'eliminazione di un DRAFT prima che venga smistato in SAP —
+     * stesso destinatari della creazione (tutti i DISPATCHER attivi + il
+     * referente indicato, se presente), tono solo informativo.
+     */
+    public void sendNotificaDraftEliminato(String toEmail, String tickt, String titolo) {
+        if (toEmail == null || toEmail.trim().isEmpty()) {
+            System.out.println("[MailService] Notifica eliminazione DRAFT saltata: destinatario vuoto (tickt=" + tickt + ")");
+            return;
+        }
+
+        String subject = "DRAFT " + nn(tickt) + " eliminato";
+        String body = "Il DRAFT " + nn(tickt) +
+                      (titolo != null && !titolo.trim().isEmpty() ? " (\"" + titolo.trim() + "\")" : "") +
+                      " è stato eliminato dal richiedente prima di essere smistato in SAP.\n";
+
+        if (isDryRun()) {
+            System.out.println("========== [MailService] DRY-RUN — notifica eliminazione DRAFT non inviata ==========");
+            System.out.println("To:      " + toEmail);
+            System.out.println("Subject: " + subject);
+            System.out.println("Body:\n" + body);
+            System.out.println("==================================================================");
+            return;
+        }
+
+        try {
+            send(toEmail, subject, body, null);
+            System.out.println("[MailService] Notifica eliminazione DRAFT inviata a " + toEmail + " per " + tickt);
+        } catch (Exception e) {
+            System.err.println("[MailService] Errore invio notifica eliminazione DRAFT a " + toEmail + ": " + e.getMessage());
             e.printStackTrace();
         }
     }

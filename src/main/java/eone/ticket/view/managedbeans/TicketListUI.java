@@ -53,6 +53,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
     private TicketDraftService draftService     = new TicketDraftService();
     private TicketReferenteService referenteService = new TicketReferenteService();
     private RequesterService  requesterService  = new RequesterService();
+    private final eone.ticket.service.MailService mailService = new eone.ticket.service.MailService();
     private SubstitutionService substitutionService = new SubstitutionService();
     private ClienteConfigService clienteConfigService = new ClienteConfigService();
 
@@ -576,6 +577,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
             return;
         }
         String ticktKey = m_selectedTicketObj.getTickt(); // "DRAFT-{id}"
+        String titolo   = m_selectedTicketObj.getTitle();
         try {
             long draftId = Long.parseLong(ticktKey.replace("DRAFT-", "").trim());
             // NOTA: uso ctx.getKunnr() (con zero-padding originale), non
@@ -584,9 +586,20 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
             // buildTicketsFromDrafts) e non farebbe match nella query DB.
             String kunnr = ViewSessionContext.instance().getKunnr();
             String reqid = m_selectedTicketObj.getReqid();
+
+            // Il referente va letto PRIMA di eliminare — deleteDraft() lo
+            // ripulisce insieme al resto (vedi TicketDraftService).
+            String reqidReferente = null;
+            try {
+                reqidReferente = referenteService.getReferente(ticktKey);
+            } catch (Exception e) {
+                System.err.println("[TicketListUI] Errore lettura referente prima di eliminare: " + e.getMessage());
+            }
+
             boolean eliminato = draftService.deleteDraft(draftId, kunnr, reqid);
             if (eliminato) {
                 Statusbar.outputSuccess("DRAFT " + ticktKey + " eliminato");
+                inviaNotificaDraftEliminato(ticktKey, titolo, kunnr, reqidReferente);
                 m_selectedTicketNumber = null;
                 m_selectedTicketObj = null;
                 init(m_archivio, m_modoReferente);
@@ -597,6 +610,34 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
             Statusbar.outputError("Errore eliminazione DRAFT: " + e.getMessage());
             System.err.println("[TicketListUI] Errore onEliminaDraft: " + e.getMessage());
             e.printStackTrace();
+        }
+    }
+
+    /**
+     * Notifica l'eliminazione di un DRAFT — stessi destinatari della
+     * creazione: tutti i DISPATCHER attivi + il referente indicato, se
+     * presente (letto PRIMA della delete, dato che deleteDraft() lo ripulisce).
+     */
+    private void inviaNotificaDraftEliminato(String ticktKey, String titolo, String kunnr, String reqidReferente) {
+        try {
+            List<RequesterInfo> dispatchers = requesterService.getActiveDispatchers();
+            for (RequesterInfo dispatcher : dispatchers) {
+                if (dispatcher.getEmail() == null || dispatcher.getEmail().trim().isEmpty()) continue;
+                mailService.sendNotificaDraftEliminato(dispatcher.getEmail(), ticktKey, titolo);
+            }
+        } catch (Exception e) {
+            System.err.println("[TicketListUI] Errore recupero DISPATCHER per notifica eliminazione: " + e.getMessage());
+        }
+
+        if (reqidReferente != null && !reqidReferente.trim().isEmpty()) {
+            try {
+                RequesterInfo referente = requesterService.getReferenteInfo(kunnr, reqidReferente);
+                if (referente != null) {
+                    mailService.sendNotificaDraftEliminato(referente.getEmail(), ticktKey, titolo);
+                }
+            } catch (Exception e) {
+                System.err.println("[TicketListUI] Errore invio notifica eliminazione a referente: " + e.getMessage());
+            }
         }
     }
 

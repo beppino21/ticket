@@ -84,6 +84,10 @@ public class TicketDraftService {
                     ps.setString(1, ticktKey);
                     ps.executeUpdate();
                 }
+                try (PreparedStatement ps = con.prepareStatement("DELETE FROM ticket_referente WHERE tickt = ?")) {
+                    ps.setString(1, ticktKey);
+                    ps.executeUpdate();
+                }
                 try (PreparedStatement ps = con.prepareStatement("DELETE FROM ticket_draft WHERE id = ?")) {
                     ps.setLong(1, draftId);
                     ps.executeUpdate();
