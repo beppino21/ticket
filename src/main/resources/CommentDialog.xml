@@ -114,7 +114,7 @@
 <t:rowdistance id="c_form_dist3" height="6" />
 <t:row id="c_form_upload_row" coldistance="8" >
 <t:fileuploadbutton id="c_form_upload" actionListener="#{d.CommentUI.onFileUpload}" maxfilesize="5000000" multiselect="true" text="Allega file..." width="160" />
-<t:label id="c_form_upload_hint" font="size:10;color:#888888" text="(max 5 MB per file)" />
+<t:label id="c_form_upload_hint" font="size:10;color:#888888" text="(max 5 MB per file, 15 MB totali)" />
 </t:row>
 <t:row id="c_form_pending_row" rendered="#{d.CommentUI.hasPending}" >
 <t:fixgrid id="c_form_pending_grid" avoidrowstretching="true" dynamicheightsizing="true" height="90" objectbinding="#{d.CommentUI.gridPending}" rowheight="26" sbvisibleamount="3" width="100%" >

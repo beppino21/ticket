@@ -54,7 +54,7 @@ public class LogonUI extends PageBean implements Serializable {
     private String              m_backgroundImage = null;
 
     // Documentazione PDF — file statico in /docs/, accanto a /images/
-    private static final String DOC_URL = "/docs/WebApp_ticketing_uso_interno.pdf";
+    private static final String DOC_URL = "/docs/TicketingDoc.pdf";
     private final Trigger m_docTrigger = new Trigger();
 
     // =========================================================

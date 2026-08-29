@@ -19,6 +19,7 @@ import eone.ticket.context.ViewSessionContext;
 import eone.ticket.model.RequesterInfo;
 import eone.ticket.model.TicketAttachment;
 import eone.ticket.model.TicketComment;
+import eone.ticket.service.AttachmentLimits;
 import eone.ticket.service.CommentService;
 import eone.ticket.service.MailService;
 import eone.ticket.service.RequesterService;
@@ -442,6 +443,7 @@ public class CommentUI extends PageBean implements Serializable {
     public void onFileUpload(ActionEvent ae) {
         if (!(ae instanceof BaseActionEventUpload)) return;
         BaseActionEventUpload bae = (BaseActionEventUpload) ae;
+        int aggiunti = 0;
         for (int i = 0; i < bae.getNumberOfUploadedFiles(); i++) {
             String filename = bae.getClientFileName(i);
             String hex = bae.getHexByteString(i);
@@ -450,15 +452,38 @@ public class CommentUI extends PageBean implements Serializable {
                 continue;
             }
             byte[] data = hexToBytes(hex);
+
+            if (data.length > AttachmentLimits.MAX_SINGLE_FILE_BYTES) {
+                Statusbar.outputError("File \"" + filename + "\" troppo grande ("
+                    + AttachmentLimits.formatMB(data.length) + "): il limite per singolo file è "
+                    + AttachmentLimits.formatMB(AttachmentLimits.MAX_SINGLE_FILE_BYTES) + ".");
+                continue;
+            }
+            if (totalPendingBytes() + data.length > AttachmentLimits.MAX_TOTAL_BYTES) {
+                Statusbar.outputError("File \"" + filename + "\" non aggiunto: supererebbe il limite totale allegati di "
+                    + AttachmentLimits.formatMB(AttachmentLimits.MAX_TOTAL_BYTES) + " per questo commento.");
+                continue;
+            }
+
             TicketAttachment a = new TicketAttachment();
             a.setFilename(filename);
             a.setFileData(data);
             a.setFileSize(data.length);
             a.setMimeType(CommentService.detectMimeType(filename));
             m_pendingAttachments.add(a);
+            aggiunti++;
         }
         rebuildGridPending();
-        Statusbar.outputSuccess(bae.getNumberOfUploadedFiles() + " file aggiunto/i");
+        if (aggiunti > 0) {
+            Statusbar.outputSuccess(aggiunti + " file aggiunto/i");
+        }
+    }
+
+    /** Somma in byte degli allegati già in coda per questo commento (non ancora salvati). */
+    private long totalPendingBytes() {
+        long tot = 0;
+        for (TicketAttachment a : m_pendingAttachments) tot += a.getFileSize();
+        return tot;
     }
 
     /**

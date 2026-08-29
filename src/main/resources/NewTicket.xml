@@ -30,7 +30,7 @@
 <t:row id="nt_r3" coldistance="12" >
 <t:label id="nt_l3" labeltext="Allega file:" rowalignmenty="center" width="120" />
 <t:fileuploadbutton id="nt_upload" actionListener="#{d.NewTicketUI.onFileUpload}" maxfilesize="5000000" multiselect="true" text="Seleziona file..." width="180" />
-<t:label id="nt_hint" font="size:10;color:#888888" text="(max 5 MB per file)" />
+<t:label id="nt_hint" font="size:10;color:#888888" text="(max 5 MB per file, 15 MB totali)" />
 </t:row>
 <t:row id="nt_r4" rendered="#{d.NewTicketUI.hasPending}" >
 <t:coldistance id="g_2" width="132" />
