@@ -115,6 +115,27 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
 
         // Campi SAP
         public String getTickt()  { return nn(ticket.getTickt()); }
+
+        /**
+         * Valore numerico derivato da tickt, usato SOLO per l'ordinamento
+         * della colonna "Ticket" (sortreference) — tickt resta una stringa
+         * a tutti gli altri effetti (arriva così da SAP, e come "DRAFT-{id}"
+         * per i DRAFT), ma un ordinamento su stringa sarebbe lessicografico
+         * (1, 10, 100, 116, 2, 20, ...) invece che numerico. Estrae solo le
+         * cifre — per un DRAFT "DRAFT-116" diventa 116, coerente con
+         * l'ordinamento dei ticket SAP veri.
+         */
+        public Long getTicktOrdinamento() {
+            String t = ticket.getTickt();
+            if (t == null) return 0L;
+            String digits = t.replaceAll("[^0-9]", "");
+            if (digits.isEmpty()) return 0L;
+            try {
+                return Long.parseLong(digits);
+            } catch (NumberFormatException e) {
+                return 0L;
+            }
+        }
         public String getTitle()  { return nn(ticket.getTitle()); }
         public String getRstat()  { return nn(ticket.getRstat()); }
         public String getEncRstatLabel()     { return nn(ticket.getEncRstatLabel()); }

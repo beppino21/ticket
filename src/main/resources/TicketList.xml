@@ -52,7 +52,7 @@
 <t:field id="g_h76" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterPrdct}" />
 <t:field id="g_h78" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterModul}" />
 </t:gridheader>
-<t:gridcol id="g_60" text="Ticket" width="100" >
+<t:gridcol id="g_60" sortreference=".{ticktOrdinamento}" text="Ticket" width="100" >
 <t:label id="g_61" align="right!" stylevariant="ccbig" text=".{tickt}" />
 </t:gridcol>
 <t:gridcol id="g_62" text="Oggetto" width="260" >

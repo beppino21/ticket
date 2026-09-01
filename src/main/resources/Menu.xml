@@ -67,6 +67,32 @@
 </t:pane>
 </t:row>
 </t:pane>
+<t:coldistance id="g_2b" rendered="#{d.MenuUI.hasSummaryReferente}" width="24" />
+<t:pane id="m_sum_ref" border="#DDDDDD" padding="16" rendered="#{d.MenuUI.hasSummaryReferente}" rowalignmenty="top" width="320" >
+<t:row id="m_sum_ref_t" >
+<t:label id="m_sum_ref_tl" font="size:14;weight:bold;color:#E65100" text="Ticket come Referente" />
+<t:coldistance id="g_3c" width="100%" />
+<t:label id="m_sum_ref_tot" align="right!" font="size:26;weight:bold;color:#E65100" text="#{d.MenuUI.summaryReferenteTotale}" />
+</t:row>
+<t:rowdistance id="m_sum_ref_d_attivi" height="8" />
+<t:row id="m_sum_ref_t_attivi" >
+<t:label id="m_sum_ref_tl_attivi" font="size:20;weight:bold;color:#EF6C00" text="di cui Ticket attivi" width="200" />
+<t:coldistance id="g_3d" width="100%" />
+<t:label id="m_sum_ref_tot_attivi" align="right!" font="size:24;weight:bold;color:#EF6C00" text="#{d.MenuUI.summaryReferenteAttivi}" width="50" />
+</t:row>
+<t:rowdistance id="m_sum_ref_d0" height="14" />
+<t:row id="m_sum_ref_grid_row" >
+<t:pane id="m_sum_ref_badges" width="100%" >
+<t:repeat id="m_sum_ref_rep" listbinding="#{d.MenuUI.summaryReferenteVoci}" >
+<t:row id="m_sum_ref_rep_r" coldistance="8" >
+<t:label id="m_sum_ref_rep_lbl" background=".{color}" font="size:20;weight:bold" text=".{label}" width="200" />
+<t:label id="m_sum_ref_rep_cnt" align="right!" font="size:24;weight:bold" text=".{count}" width="50" />
+</t:row>
+<t:rowdistance id="m_sum_ref_rep_d" height="5" />
+</t:repeat>
+</t:pane>
+</t:row>
+</t:pane>
 </t:row>
 </t:rowbodypane>
 
