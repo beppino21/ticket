@@ -34,7 +34,7 @@
 <t:label id="c_lg_data" font="size:11;color:#777777" text=".{createdAt}" />
 <t:label id="c_lg_tipo" font="size:11;weight:bold;#{.{isFromCliente} ? &#39;color:#1565C0&#39; : &#39;color:#2E7D32&#39;}" text=".{autoreTipo}" />
 <t:coldistance id="c_lg_cd" width="100%" />
-<t:label id="c_lg_all" font="size:10;color:#888888" text=".{allegatiLabel}" />
+<t:label id="c_lg_all" background="#FFF3CD" font="size:12;weight:bold;color:#8A6D00" rendered=".{hasAttachments}" text=".{allegatiLabel}" />
 </t:row>
 <t:row id="c_lg_r1b" >
 <t:label id="c_lg_stato_badge" background=".{statoColor}" font="size:12;weight:bold;color:.{statoTextColor}" text=".{statoLabel}" />
@@ -50,8 +50,8 @@
 </t:splitpanesplit>
 <t:splitpanesplit id="c_right" >
 <t:row id="c_right_main" >
-<t:splitpane id="c_right_split" dividerlocation="45%" height="100%" orientation="vertical" width="100%" >
-<t:splitpanesplit id="c_detail" padding="8" >
+<t:tabbedpane id="c_right_tabs" height="100%" value="#{d.CommentUI.activeTab}" width="100%" >
+<t:tabbedpanetab id="c_tab_dettaglio" padding="8" text="Dettaglio" >
 <t:row id="c_detail_norow" rendered="#{!d.CommentUI.hasSelectedComment}" >
 <t:label id="c_detail_empty" font="color:#999999" text="Seleziona un commento dalla lista per vederne il dettaglio." />
 </t:row>
@@ -70,10 +70,10 @@
 </t:row>
 <t:rowdistance id="c_detail_dist2" height="6" rendered="#{d.CommentUI.selectedHasAttachments}" />
 <t:row id="c_detail_att_title" rendered="#{d.CommentUI.selectedHasAttachments}" >
-<t:label id="c_detail_att_lbl" font="weight:bold;size:11" text="Allegati" />
+<t:label id="c_detail_att_lbl" font="weight:bold;size:13;color:#8A6D00" text="#{d.CommentUI.selectedAttachCountLabel}" />
 </t:row>
 <t:row id="c_detail_att_row" rendered="#{d.CommentUI.selectedHasAttachments}" >
-<t:fixgrid id="c_detail_att_grid" height="90" objectbinding="#{d.CommentUI.gridAttachList}" sbvisibleamount="3" width="100%" >
+<t:fixgrid id="c_detail_att_grid" bordercolor="#DDDDDD" borderwidth="1" borderheight="1" height="130" objectbinding="#{d.CommentUI.gridAttachList}" rowheight="40" sbvisibleamount="3" width="100%" >
 <t:gridcol id="c_da_col3" width="80" >
 <t:button id="c_da_btn" actionListener=".{onDownload}" text="Scarica" width="70" />
 </t:gridcol>
@@ -85,8 +85,8 @@
 </t:gridcol>
 </t:fixgrid>
 </t:row>
-</t:splitpanesplit>
-<t:splitpanesplit id="c_form" padding="8" >
+</t:tabbedpanetab>
+<t:tabbedpanetab id="c_tab_nuovo" padding="8" text="Nuova comunicazione" >
 <t:row id="c_form_title" >
 <t:label id="c_form_lbl" font="weight:bold" text="Aggiungi commento" />
 </t:row>
@@ -133,8 +133,8 @@
 <t:row id="c_form_save_row" >
 <t:button id="c_form_save" actionListener="#{d.CommentUI.saveComment}" hotkey="10" text="Salva commento" width="160" />
 </t:row>
-</t:splitpanesplit>
-</t:splitpane>
+</t:tabbedpanetab>
+</t:tabbedpane>
 </t:row>
 </t:splitpanesplit>
 </t:splitpane>

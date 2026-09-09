@@ -37,6 +37,9 @@ public class DispatcherUI extends WorkpageDispatchedPageBean implements Serializ
     private final TicketDraftService draftService = new TicketDraftService();
     private final SAPTicketService   sapService   = new SAPTicketService();
     private final RequesterService   requesterService = new RequesterService();
+    private final eone.ticket.service.CommentService commentService = new eone.ticket.service.CommentService();
+    private final eone.ticket.service.TicketReferenteService referenteService = new eone.ticket.service.TicketReferenteService();
+    private final eone.ticket.service.MailService    mailService  = new eone.ticket.service.MailService();
 
     private FIXGRIDListBinding<GridDraftItem> m_gridDrafts = new FIXGRIDListBinding<>();
     private GridDraftItem  m_selectedItem;
@@ -240,10 +243,104 @@ public class DispatcherUI extends WorkpageDispatchedPageBean implements Serializ
     }
 
     private void eseguiFusione(long draftId, String ticktSap) throws Exception {
+        String kunnr = m_selectedItem != null ? m_selectedItem.getKunnr() : null;
+        String titolo = m_selectedItem != null ? m_selectedItem.getTitolo() : null;
+
         draftService.mergeDraft(draftId, ticktSap);
         Statusbar.outputSuccess("Fusione completata: DRAFT-" + draftId +
                                 " → ticket SAP " + ticktSap);
+
+        inviaNotificaTicketDisponibile(ticktSap, kunnr, titolo);
+
         loadDrafts();
+    }
+
+    /**
+     * Notifica "ticket disponibile sul portale" a tutti i soggetti coinvolti
+     * dopo la fusione: richiedente, referente cliente (se diverso), AMS
+     * assegnato e referente SAP (campo Refer) — con deduplica per indirizzo
+     * (non invia due volte alla stessa persona se ricopre più ruoli).
+     * Un errore qui non deve far fallire la fusione, già avvenuta: solo loggato.
+     */
+    private void inviaNotificaTicketDisponibile(String ticktSap, String kunnr, String titolo) {
+        try {
+            // Allegati del commento iniziale (il più vecchio — getComments()
+            // ordina DESC, quindi è l'ultimo della lista), con contenuto
+            // reale caricato da DB, non solo i metadati.
+            java.util.List<eone.ticket.model.TicketAttachment> allegati = new java.util.ArrayList<>();
+            try {
+                java.util.List<eone.ticket.model.TicketComment> comments = commentService.getComments(ticktSap);
+                if (!comments.isEmpty()) {
+                    eone.ticket.model.TicketComment primo = comments.get(comments.size() - 1);
+                    for (eone.ticket.model.TicketAttachment meta : primo.getAttachments()) {
+                        try {
+                            allegati.add(commentService.getAttachmentData(meta.getId()));
+                        } catch (Exception e) {
+                            System.err.println("[DispatcherUI] Errore caricamento allegato " + meta.getId() + ": " + e.getMessage());
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("[DispatcherUI] Errore recupero commento iniziale per allegati: " + e.getMessage());
+            }
+
+            java.util.Set<String> giaNotificati = new java.util.HashSet<>();
+
+            // Richiedente
+            String reqid = m_selectedItem != null ? m_selectedItem.getReqid() : null;
+            if (kunnr != null && reqid != null) {
+                try {
+                    RequesterInfo richiedente = requesterService.getByKunnrReqid(kunnr, reqid);
+                    inviaSeNuovo(richiedente, ticktSap, titolo, allegati, giaNotificati);
+                } catch (Exception e) {
+                    System.err.println("[DispatcherUI] Errore risoluzione richiedente per notifica: " + e.getMessage());
+                }
+            }
+
+            // Referente cliente (se impostato)
+            try {
+                String reqidReferente = referenteService.getReferente(ticktSap);
+                if (reqidReferente != null && !reqidReferente.trim().isEmpty() && kunnr != null) {
+                    RequesterInfo referente = requesterService.getReferenteInfo(kunnr, reqidReferente);
+                    inviaSeNuovo(referente, ticktSap, titolo, allegati, giaNotificati);
+                }
+            } catch (Exception e) {
+                System.err.println("[DispatcherUI] Errore risoluzione referente cliente per notifica: " + e.getMessage());
+            }
+
+            // AMS assegnato e Referente SAP — letti dal ticket SAP appena
+            // fuso: per come è organizzato il processo, a questo punto
+            // devono già essere stati inseriti in SAP.
+            try {
+                eone.ticket.model.Ticket ticket = sapService.getTicketById(ticktSap, kunnr);
+                if (ticket != null) {
+                    if (ticket.getAmusr() != null && !ticket.getAmusr().trim().isEmpty()) {
+                        RequesterInfo ams = requesterService.getById(ticket.getAmusr().trim());
+                        inviaSeNuovo(ams, ticktSap, titolo, allegati, giaNotificati);
+                    }
+                    if (ticket.getRefer() != null && !ticket.getRefer().trim().isEmpty()) {
+                        RequesterInfo referenteSap = requesterService.getById(ticket.getRefer().trim());
+                        inviaSeNuovo(referenteSap, ticktSap, titolo, allegati, giaNotificati);
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("[DispatcherUI] Errore recupero AMS/Referente SAP dal ticket fuso: " + e.getMessage());
+            }
+        } catch (Exception e) {
+            System.err.println("[DispatcherUI] Errore invio notifica ticket disponibile: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /** Invia solo se l'indirizzo non ha già ricevuto questa notifica (stessa persona in più ruoli). */
+    private void inviaSeNuovo(RequesterInfo destinatario, String ticktSap, String titolo,
+                               java.util.List<eone.ticket.model.TicketAttachment> allegati,
+                               java.util.Set<String> giaNotificati) {
+        if (destinatario == null || destinatario.getEmail() == null || destinatario.getEmail().trim().isEmpty()) return;
+        String email = destinatario.getEmail().trim().toLowerCase();
+        if (giaNotificati.contains(email)) return;
+        giaNotificati.add(email);
+        mailService.sendNotificaTicketDisponibile(destinatario.getEmail(), ticktSap, titolo, allegati);
     }
 
     // =========================

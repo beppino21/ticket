@@ -361,6 +361,49 @@ public class MailService {
         }
     }
 
+    /**
+     * Notifica che un ticket è ora disponibile sul portale web — inviata al
+     * momento della fusione DRAFT → ticket SAP. Distinta e complementare
+     * alla comunicazione che parte dal backend SAP (Newton): quella non
+     * garantisce che il destinatario sappia che il ticket è consultabile
+     * anche via portale. Include link diretto e gli allegati del commento
+     * iniziale, se presenti.
+     */
+    public void sendNotificaTicketDisponibile(String toEmail, String tickt, String titolo,
+                                               List<TicketAttachment> allegati) {
+        if (toEmail == null || toEmail.trim().isEmpty()) {
+            System.out.println("[MailService] Notifica ticket disponibile saltata: destinatario vuoto (tickt=" + tickt + ")");
+            return;
+        }
+
+        String subject = "Ticket " + nn(tickt) + " disponibile sul portale";
+        String body = "Il ticket " + nn(tickt) +
+                      (titolo != null && !titolo.trim().isEmpty() ? " (\"" + titolo.trim() + "\")" : "") +
+                      " è ora disponibile sul portale di Ticketing WEB.\n";
+        String link = buildTicketLink(tickt);
+        if (link != null) {
+            body += "\nApri il ticket: " + link + "\n";
+        }
+
+        if (isDryRun()) {
+            System.out.println("========== [MailService] DRY-RUN — notifica ticket disponibile non inviata ==========");
+            System.out.println("To:      " + toEmail);
+            System.out.println("Subject: " + subject);
+            System.out.println("Body:\n" + body);
+            System.out.println("Allegati: " + (allegati != null ? allegati.size() : 0));
+            System.out.println("==================================================================");
+            return;
+        }
+
+        try {
+            send(toEmail, subject, body, allegati);
+            System.out.println("[MailService] Notifica ticket disponibile inviata a " + toEmail + " per " + tickt);
+        } catch (Exception e) {
+            System.err.println("[MailService] Errore invio notifica ticket disponibile a " + toEmail + ": " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
     private void send(String toEmail, String subject, String body,
                        List<TicketAttachment> allegati) throws MessagingException {
 

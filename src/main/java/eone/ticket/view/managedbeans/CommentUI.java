@@ -67,6 +67,9 @@ public class CommentUI extends PageBean implements Serializable {
     private final TicketReferenteService referenteService = new TicketReferenteService();
 
     private String m_currentTickt;
+    public static final String TAB_DETTAGLIO = "DETTAGLIO";
+    public static final String TAB_NUOVO     = "NUOVO";
+    private String m_activeTab = TAB_DETTAGLIO;
     private String m_currentKunnr;
     private String m_currentReqid;
     private String m_currentAmusr;
@@ -110,6 +113,7 @@ public class CommentUI extends PageBean implements Serializable {
         public String getStatoLabel()  { return comment.getStatoTicketLabel(); }
         public boolean getFromCliente() { return comment.isFromCliente(); }
         public int    getAttachCount() { return comment.getAttachCount(); }
+        public boolean getHasAttachments() { return comment.getAttachCount() > 0; }
 
         public String getAnteprimaTesto() {
             String t = comment.getTesto();
@@ -122,7 +126,7 @@ public class CommentUI extends PageBean implements Serializable {
         public String getAllegatiLabel() {
             int n = comment.getAttachCount();
             if (n == 0) return "";
-            return n == 1 ? "1 allegato" : n + " allegati";
+            return n == 1 ? "\uD83D\uDCCE 1 allegato" : "\uD83D\uDCCE " + n + " allegati";
         }
 
         public String getRowBackground() {
@@ -200,6 +204,7 @@ public class CommentUI extends PageBean implements Serializable {
         m_gridPending.getItems().clear();
         m_gridAttachList.getItems().clear();
         m_chiusuraWaitingConfirm = false;
+        m_activeTab = TAB_DETTAGLIO;
         loadComments();
         loadReferente();
     }
@@ -335,6 +340,7 @@ public class CommentUI extends PageBean implements Serializable {
 
     private void selectComment(TicketComment comment) {
         m_selectedComment = comment;
+        m_activeTab = TAB_DETTAGLIO;
         m_gridAttachList.getItems().clear();
         if (comment != null && comment.getAttachments() != null) {
             for (TicketAttachment a : comment.getAttachments()) {
@@ -677,6 +683,8 @@ public class CommentUI extends PageBean implements Serializable {
     @Override public String getRootExpressionUsedInPage() { return "#{d.CommentUI}"; }
 
     public String getCurrentTickt() { return m_currentTickt; }
+    public String  getActiveTab()          { return m_activeTab; }
+    public void    setActiveTab(String v)  { this.m_activeTab = v; }
 
     public FIXGRIDListBinding<GridCommentItem>    getGridComments()   { return m_gridComments; }
     public FIXGRIDListBinding<GridAttachItem>     getGridPending()    { return m_gridPending; }
@@ -710,6 +718,12 @@ public class CommentUI extends PageBean implements Serializable {
 
     public boolean getSelectedHasAttachments() {
         return m_selectedComment != null && m_selectedComment.getAttachCount() > 0;
+    }
+
+    /** "Allegati (3)" — conteggio esplicito nel titolo, non solo intuibile dal numero di righe della griglia. */
+    public String getSelectedAttachCountLabel() {
+        int n = m_selectedComment != null ? m_selectedComment.getAttachCount() : 0;
+        return "\uD83D\uDCCE Allegati (" + n + ")";
     }
 
     public String getNewCommentText()        { return m_newCommentText; }
