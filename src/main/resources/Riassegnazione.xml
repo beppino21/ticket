@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8"?>
+<t:layoutdefinition xmlns:t="http://www.captaincasa.com/controllibrary/t" >
+
+<t:beanprocessing id="ri_0" beanbinding="#{d.RiassegnazioneUI}" />
+<t:rowtitlebar id="ri_1" text="#{d.RiassegnazioneUI.titolo}" />
+<t:rowheader id="ri_h" >
+<t:button id="ri_back" actionListener="#{d.RiassegnazioneUI.backToMenu}" text="« Menu" width="80" />
+<t:coldistance id="ri_hcd" width="100%" />
+<t:button id="ri_ref" actionListener="#{d.RiassegnazioneUI.refresh}" text="Aggiorna" width="80" />
+<t:coldistance id="ri_hcd2" width="12" />
+<t:button id="ri_storico" actionListener="#{d.RiassegnazioneUI.onToggleStorico}" text="#{d.RiassegnazioneUI.toggleStoricoLabel}" width="90" />
+<t:coldistance id="ri_hcd3" width="12" />
+<t:button id="ri_new" actionListener="#{d.RiassegnazioneUI.onNuovaRichiesta}" rendered="#{d.RiassegnazioneUI.showNuovaRichiestaButton}" text="Nuova richiesta »" width="140" />
+</t:rowheader>
+<t:rowbodypane id="ri_body" padding="8" >
+<t:row id="ri_r1" >
+<t:splitpane id="ri_split" dividerlocation="60%" height="100%" orientation="horizontal" width="100%" >
+<t:splitpanesplit id="ri_left" padding="4" >
+<t:row id="ri_lg" >
+<t:fixgrid id="ri_grid" avoidrowstretching="true" dynamicheightsizing="true" height="100%" objectbinding="#{d.RiassegnazioneUI.grid}" rowheight="28" sbvisibleamount="20" width="100%" >
+<t:gridcol id="ri_gc0" width="70" >
+<t:button id="ri_gb0" actionListener=".{onSeleziona}" text="Apri" width="60" />
+</t:gridcol>
+<t:gridcol id="ri_gc1" text="Ticket" width="90" >
+<t:label id="ri_gl1" text=".{tickt}" />
+</t:gridcol>
+<t:gridcol id="ri_gc2" text="AMS richiedente" width="130" >
+<t:label id="ri_gl2" text=".{amusrRichiedente}" />
+</t:gridcol>
+<t:gridcol id="ri_gc3" text="Motivo" width="220" >
+<t:label id="ri_gl3" text=".{testo}" />
+</t:gridcol>
+<t:gridcol id="ri_gc4" text="Aperta il" width="120" >
+<t:label id="ri_gl4" text=".{createdAtFormatted}" />
+</t:gridcol>
+<t:gridcol id="ri_gc5" text="Nuovo AMS" width="110" >
+<t:label id="ri_gl5" text=".{nuovoAmusr}" />
+</t:gridcol>
+<t:gridcol id="ri_gc6" text="Conclusa il" width="120" >
+<t:label id="ri_gl6" text=".{concludedAtFormatted}" />
+</t:gridcol>
+</t:fixgrid>
+</t:row>
+</t:splitpanesplit>
+<t:splitpanesplit id="ri_right" padding="8" >
+
+<t:row id="ri_nosel" rendered="#{d.RiassegnazioneUI.nessunFormVisible}" >
+<t:label id="ri_nosel_lbl" font="color:#999999" text="#{d.RiassegnazioneUI.modeDispatcher ? &#39;Seleziona una richiesta per aprirne il dettaglio.&#39; : &#39;Seleziona una richiesta per modificarla, oppure aprine una nuova.&#39;}" />
+</t:row>
+
+<!-- FORM NUOVA RICHIESTA (solo AMS, vista attiva) -->
+<t:row id="ri_nf_title" rendered="#{d.RiassegnazioneUI.formNuovaVisible}" >
+<t:label id="ri_nf_title_lbl" font="weight:bold;color:#1565C0" text="Nuova richiesta di riattribuzione" />
+</t:row>
+<t:rowdistance id="ri_nf_d0" height="10" rendered="#{d.RiassegnazioneUI.formNuovaVisible}" />
+<t:row id="ri_nf1" coldistance="8" rendered="#{d.RiassegnazioneUI.formNuovaVisible}" >
+<t:label id="ri_nf1_lbl" labeltext="Ticket:" width="110" />
+<t:combobox id="ri_nf1_combo" flush="true" validvaluesbinding="#{d.RiassegnazioneUI.ticketVVB}" value="#{d.RiassegnazioneUI.nuovoTickt}" width="280" withnullitem="true" />
+</t:row>
+<t:rowdistance id="ri_nf_d1" height="8" rendered="#{d.RiassegnazioneUI.formNuovaVisible}" />
+<t:row id="ri_nf2" coldistance="8" rendered="#{d.RiassegnazioneUI.formNuovaVisible}" >
+<t:label id="ri_nf2_lbl" labeltext="Motivo:" width="110" />
+</t:row>
+<t:row id="ri_nf2b" rendered="#{d.RiassegnazioneUI.formNuovaVisible}" >
+<t:textarea id="ri_nf2_ta" height="90" text="#{d.RiassegnazioneUI.nuovoTesto}" width="100%" />
+</t:row>
+<t:rowdistance id="ri_nf_d1b" height="4" rendered="#{d.RiassegnazioneUI.formNuovaVisible}" />
+<t:row id="ri_nf2_hint" rendered="#{d.RiassegnazioneUI.formNuovaVisible}" >
+<t:label id="ri_nf2_hint_lbl" font="size:10;color:#888888" text="Spiega al DISPATCHER perché ritieni che il ticket non sia di tua competenza." />
+</t:row>
+<t:rowdistance id="ri_nf_d2" height="16" rendered="#{d.RiassegnazioneUI.formNuovaVisible}" />
+<t:row id="ri_nf3" coldistance="8" rendered="#{d.RiassegnazioneUI.formNuovaVisible}" >
+<t:button id="ri_nf_save" actionListener="#{d.RiassegnazioneUI.onSalvaNuova}" text="Invia »" width="110" />
+<t:button id="ri_nf_cancel" actionListener="#{d.RiassegnazioneUI.onAnnullaNuova}" text="Annulla" width="90" />
+</t:row>
+
+<!-- FORM MODIFICA (solo AMS, vista attiva, riga selezionata) -->
+<t:row id="ri_mf_title" rendered="#{d.RiassegnazioneUI.formModificaVisible}" >
+<t:label id="ri_mf_title_lbl" font="weight:bold;color:#1565C0" text="Richiesta sul ticket #{d.RiassegnazioneUI.selezionatoTickt}" />
+</t:row>
+<t:rowdistance id="ri_mf_d0" height="10" rendered="#{d.RiassegnazioneUI.formModificaVisible}" />
+<t:row id="ri_mf1" coldistance="8" rendered="#{d.RiassegnazioneUI.formModificaVisible}" >
+<t:label id="ri_mf1_lbl" labeltext="Motivo:" width="110" />
+</t:row>
+<t:row id="ri_mf1b" rendered="#{d.RiassegnazioneUI.formModificaVisible}" >
+<t:textarea id="ri_mf1_ta" height="90" text="#{d.RiassegnazioneUI.testoModifica}" width="100%" />
+</t:row>
+<t:rowdistance id="ri_mf_d1" height="16" rendered="#{d.RiassegnazioneUI.formModificaVisible}" />
+<t:row id="ri_mf2" coldistance="8" rendered="#{d.RiassegnazioneUI.formModificaVisible}" >
+<t:button id="ri_mf_save" actionListener="#{d.RiassegnazioneUI.onSalvaModifica}" text="Salva »" width="110" />
+<t:button id="ri_mf_cancel" actionListener="#{d.RiassegnazioneUI.onAnnullaModifica}" text="Annulla" width="90" />
+<t:button id="ri_mf_delete" actionListener="#{d.RiassegnazioneUI.onElimina}" text="Elimina" width="90" />
+</t:row>
+
+<!-- DETTAGLIO (solo DISPATCHER, riga selezionata — attiva o storico) -->
+<t:row id="ri_df_title" rendered="#{d.RiassegnazioneUI.formDettaglioVisible}" >
+<t:label id="ri_df_title_lbl" font="weight:bold;color:#1565C0" text="Richiesta sul ticket #{d.RiassegnazioneUI.dettaglioTickt}" />
+</t:row>
+<t:rowdistance id="ri_df_d0" height="10" rendered="#{d.RiassegnazioneUI.formDettaglioVisible}" />
+<t:row id="ri_df1" coldistance="8" rendered="#{d.RiassegnazioneUI.formDettaglioVisible}" >
+<t:label id="ri_df1_lbl" labeltext="AMS richiedente:" width="130" />
+<t:label id="ri_df1_val" font="weight:bold" text="#{d.RiassegnazioneUI.dettaglioAmusrRichiedente}" />
+</t:row>
+<t:rowdistance id="ri_df_d1" height="8" rendered="#{d.RiassegnazioneUI.formDettaglioVisible}" />
+<t:row id="ri_df2" coldistance="8" rendered="#{d.RiassegnazioneUI.formDettaglioVisible}" >
+<t:label id="ri_df2_lbl" labeltext="Aperta il:" width="130" />
+<t:label id="ri_df2_val" text="#{d.RiassegnazioneUI.dettaglioCreatedAtFormatted}" />
+</t:row>
+<t:rowdistance id="ri_df_d2" height="8" rendered="#{d.RiassegnazioneUI.formDettaglioVisible}" />
+<t:row id="ri_df3" coldistance="8" rendered="#{d.RiassegnazioneUI.formDettaglioVisible}" >
+<t:label id="ri_df3_lbl" labeltext="Motivo:" width="130" />
+</t:row>
+<t:row id="ri_df3b" rendered="#{d.RiassegnazioneUI.formDettaglioVisible}" >
+<t:textpane id="ri_df3b_val" text="#{d.RiassegnazioneUI.dettaglioTesto}" width="100%" />
+</t:row>
+<t:rowdistance id="ri_df_d3" height="8" rendered="#{d.RiassegnazioneUI.showEsitoStorico}" />
+<t:row id="ri_df4" coldistance="8" rendered="#{d.RiassegnazioneUI.showEsitoStorico}" >
+<t:label id="ri_df4_lbl" labeltext="Esito:" width="130" />
+<t:label id="ri_df4_val" font="weight:bold" text="#{d.RiassegnazioneUI.dettaglioNuovoAmusrLabel}" />
+</t:row>
+<t:rowdistance id="ri_df_d4" height="8" rendered="#{d.RiassegnazioneUI.showEsitoStorico}" />
+<t:row id="ri_df5" coldistance="8" rendered="#{d.RiassegnazioneUI.showEsitoStorico}" >
+<t:label id="ri_df5_lbl" labeltext="Conclusa il:" width="130" />
+<t:label id="ri_df5_val" text="#{d.RiassegnazioneUI.dettaglioConcludedAtFormatted}" />
+</t:row>
+<t:rowdistance id="ri_df_d5" height="20" rendered="#{d.RiassegnazioneUI.formDettaglioVisible}" />
+<t:row id="ri_df6" coldistance="8" rendered="#{d.RiassegnazioneUI.formDettaglioVisible}" >
+<t:button id="ri_df_close" actionListener="#{d.RiassegnazioneUI.onAnnullaDettaglio}" text="Chiudi" width="90" />
+<t:button id="ri_df_reject" actionListener="#{d.RiassegnazioneUI.onRifiuta}" rendered="#{d.RiassegnazioneUI.showRifiutaButton}" text="Rifiuta »" width="110" />
+</t:row>
+<t:rowdistance id="ri_df_d6" height="4" rendered="#{d.RiassegnazioneUI.showRifiutaButton}" />
+<t:row id="ri_df_hint" rendered="#{d.RiassegnazioneUI.showRifiutaButton}" >
+<t:label id="ri_df_hint_lbl" font="size:10;color:#888888" text="Il ticket resta assegnato all'AMS indicato sopra; riceverà una mail di notifica del rifiuto." />
+</t:row>
+
+</t:splitpanesplit>
+</t:splitpane>
+</t:row>
+</t:rowbodypane>
+
+</t:layoutdefinition>

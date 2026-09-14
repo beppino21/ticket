@@ -52,6 +52,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
     private EnrichmentService enrichmentService = new EnrichmentService();
     private TicketDraftService draftService     = new TicketDraftService();
     private TicketReferenteService referenteService = new TicketReferenteService();
+    private eone.ticket.service.TicketRiassegnazioneService riassegnazioneService = new eone.ticket.service.TicketRiassegnazioneService();
     private RequesterService  requesterService  = new RequesterService();
     private final eone.ticket.service.MailService mailService = new eone.ticket.service.MailService();
     private SubstitutionService substitutionService = new SubstitutionService();
@@ -735,6 +736,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
 
         enrichmentService.enrichTickets(ticketList);
         arricchisciNomeReferente(ticketList);
+        chiudiRichiesteRiassegnazioneSeCambiate(ticketList);
         ticketsEnriched = ticketList;
 
         // DRAFT in cache solo per la lista operativa, non per l'archivio né
@@ -1057,6 +1059,30 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
             }
         } catch (Exception e) {
             System.err.println("[TicketListUI] Errore arricchimento nome referente: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Auto-chiude le richieste di riattribuzione (ticket_riassegnazione)
+     * i cui ticket hanno un Amusr ormai diverso da quello del richiedente
+     * — vedi TicketRiassegnazioneService.chiudiSeCambiate(). Chiamato ad
+     * ogni caricamento della lista ticket (qualunque ruolo/vista), non
+     * solo dalle schermate dedicate: così la richiesta sparisce da sola
+     * sia per l'AMS richiedente sia per il DISPATCHER al prossimo accesso,
+     * senza dover aprire per forza la schermata "Richieste di riattribuzione".
+     * Un errore qui non deve bloccare il caricamento della lista.
+     */
+    private void chiudiRichiesteRiassegnazioneSeCambiate(List<Ticket> tickets) {
+        try {
+            java.util.Map<String, String> amusrPerTickt = new java.util.HashMap<>();
+            for (Ticket t : tickets) {
+                if (t.getTickt() != null && !t.getTickt().isEmpty() && t.getAmusr() != null) {
+                    amusrPerTickt.put(t.getTickt(), t.getAmusr());
+                }
+            }
+            riassegnazioneService.chiudiSeCambiate(amusrPerTickt);
+        } catch (Exception e) {
+            System.err.println("[TicketListUI] Errore auto-chiusura richieste riattribuzione: " + e.getMessage());
         }
     }
 

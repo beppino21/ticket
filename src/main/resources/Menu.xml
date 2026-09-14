@@ -23,7 +23,7 @@
 </t:row>
 <t:rowdistance id="m_5" height="16" />
 <t:row id="m_6" >
-<t:fixgrid id="m_7" avoidrowstretching="true" dynamicheightsizing="true" height="100%" objectbinding="#{d.MenuUI.items}" rowheight="90" sbvisibleamount="6" width="450" >
+<t:fixgrid id="m_7" avoidrowstretching="true" dynamicheightsizing="true" height="100%" objectbinding="#{d.MenuUI.items}" rowheight="106" sbvisibleamount="6" width="450" >
 <t:gridcol id="m_8" width="100%" >
 <t:pane id="m_9" actionListener=".{onSelect}" background=".{background}" border="#CCCCCC" invokeevent="leftclick" padding="14" width="100%" >
 <t:row id="m_10" >
@@ -32,6 +32,12 @@
 <t:rowdistance id="m_12" height="4" />
 <t:row id="m_13" >
 <t:label id="m_14" font="size:11;color:.{textColor}" text=".{descrizione}" width="400" />
+</t:row>
+<t:rowdistance id="m_14b_d" height="6" rendered=".{hasBadge}" />
+<t:row id="m_14b" rendered=".{hasBadge}" >
+<t:pane id="m_14b_pane" background=".{badgeColor}" padding="4" >
+<t:label id="m_14b_lbl" font="size:11;weight:bold;color:#FFFFFF" text=".{badgeLabel}" />
+</t:pane>
 </t:row>
 </t:pane>
 </t:gridcol>

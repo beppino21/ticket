@@ -328,6 +328,39 @@ public class MailService {
     }
 
     /**
+     * Notifica il richiedente AMS che il DISPATCHER ha rifiutato la sua
+     * richiesta di riattribuzione — il ticket resta assegnato a lui.
+     */
+    public void sendNotificaRiassegnazioneRifiutata(String toEmail, String tickt, String motivoOriginale) {
+        if (toEmail == null || toEmail.trim().isEmpty()) {
+            System.out.println("[MailService] Notifica rifiuto riattribuzione saltata: destinatario vuoto (tickt=" + tickt + ")");
+            return;
+        }
+
+        String subject = "Richiesta di riattribuzione rifiutata — Ticket " + nn(tickt);
+        String body = "La tua richiesta di riattribuzione per il ticket " + nn(tickt) +
+                      " è stata rifiutata dal DISPATCHER: il ticket resta assegnato a te.\n\n" +
+                      "Motivo che avevi indicato:\n" + nn(motivoOriginale) + "\n";
+
+        if (isDryRun()) {
+            System.out.println("========== [MailService] DRY-RUN — notifica rifiuto riattribuzione non inviata ==========");
+            System.out.println("To:      " + toEmail);
+            System.out.println("Subject: " + subject);
+            System.out.println("Body:\n" + body);
+            System.out.println("==================================================================");
+            return;
+        }
+
+        try {
+            send(toEmail, subject, body, null);
+            System.out.println("[MailService] Notifica rifiuto riattribuzione inviata a " + toEmail + " per ticket " + tickt);
+        } catch (Exception e) {
+            System.err.println("[MailService] Errore invio notifica rifiuto riattribuzione a " + toEmail + ": " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
      * Notifica l'eliminazione di un DRAFT prima che venga smistato in SAP —
      * stesso destinatari della creazione (tutti i DISPATCHER attivi + il
      * referente indicato, se presente), tono solo informativo.
