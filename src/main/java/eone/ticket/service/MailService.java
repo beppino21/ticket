@@ -328,6 +328,42 @@ public class MailService {
     }
 
     /**
+     * Notifica tutti i DISPATCHER attivi che un AMS ha aperto una nuova
+     * richiesta di riattribuzione — stessi destinatari della creazione di
+     * un nuovo DRAFT (getActiveDispatchers()).
+     */
+    public void sendNotificaNuovaRiassegnazione(String toEmail, String tickt, String amusrRichiedente, String testo) {
+        if (toEmail == null || toEmail.trim().isEmpty()) {
+            System.out.println("[MailService] Notifica nuova riassegnazione saltata: destinatario vuoto (tickt=" + tickt + ")");
+            return;
+        }
+
+        String subject = "Nuova richiesta di riattribuzione — Ticket " + nn(tickt);
+        String body = "L'utente AMS " + nn(amusrRichiedente) + " ha richiesto la riattribuzione del ticket " + nn(tickt) +
+                      ", ritenendo che non sia di sua competenza.\n\n" +
+                      "Motivo indicato:\n" + nn(testo) + "\n\n" +
+                      "Puoi gestire la richiesta dal backend SAP; la richiesta si chiuderà da sola in questa app " +
+                      "non appena il ticket risulterà riattribuito a un altro utente AMS.";
+
+        if (isDryRun()) {
+            System.out.println("========== [MailService] DRY-RUN — notifica nuova riassegnazione non inviata ==========");
+            System.out.println("To:      " + toEmail);
+            System.out.println("Subject: " + subject);
+            System.out.println("Body:\n" + body);
+            System.out.println("==================================================================");
+            return;
+        }
+
+        try {
+            send(toEmail, subject, body, null);
+            System.out.println("[MailService] Notifica nuova riassegnazione inviata a " + toEmail + " per ticket " + tickt);
+        } catch (Exception e) {
+            System.err.println("[MailService] Errore invio notifica nuova riassegnazione a " + toEmail + ": " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
      * Notifica il richiedente AMS che il DISPATCHER ha rifiutato la sua
      * richiesta di riattribuzione — il ticket resta assegnato a lui.
      */

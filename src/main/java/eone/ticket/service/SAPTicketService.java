@@ -98,69 +98,119 @@ public class SAPTicketService {
             } else {
                 queryString.append("$format=json");
             }
+            // $top esplicito — da quando il metodo ABAP GET_ENTITYSET legge
+            // davvero IS_PAGING-TOP (prima lo ignorava, troncando sempre a
+            // 100 sul ramo "nessun filtro Kunnr"), qui chiediamo un tetto
+            // ampio per non dipendere dal solo default lato SAP.
+            queryString.append("&$top=10000");
             
             // Costruisci URL finale
             String url = baseUrl + "?" + queryString.toString();
             System.out.println("[TICKETS] URL: " + url);
 
-            HttpGet request = new HttpGet(url);
+            // NOTA IMPORTANTE (bug scoperto in produzione, ticket "fantasma"):
+            // confermato che questo servizio Gateway SAP (CC_WEB_SRV,
+            // custom) tronca sempre a 100 risultati — anche forzando
+            // esplicitamente $top a un valore più alto, ignorato del tutto.
+            // Non è quindi un default di pagina negoziabile lato client: è
+            // quasi certamente un limite scritto a mano nell'ABAP custom
+            // (es. "SELECT ... UP TO 100 ROWS"), e va risolto lì, non qui.
+            // Il ciclo sotto segue comunque un eventuale link "__next" se
+            // mai comparisse in futuro (nessun costo se non c'è, come oggi)
+            // — ma la vera causa del troncamento attuale non è la
+            // paginazione, è il limite fisso lato ABAP.
+            List<Ticket> allTickets = new ArrayList<>();
+            String nextUrl = url;
+            int pageCount = 0;
+            final int MAX_PAGES = 50; // sicurezza anti-loop-infinito, ben oltre qualunque volume reale
 
-            // Imposta gli headers necessari
-            String authHeader = SAPODataConfig.getBasicAuthHeader();
-            request.setHeader(SAPODataConfig.HEADER_AUTHORIZATION, authHeader);
-            request.setHeader(SAPODataConfig.HEADER_ACCEPT, SAPODataConfig.CONTENT_TYPE_JSON);
-            request.setHeader(SAPODataConfig.HEADER_SAP_CLIENT, SAPODataConfig.getSapClient());
+            while (nextUrl != null && pageCount < MAX_PAGES) {
+                pageCount++;
+                HttpGet request = new HttpGet(nextUrl);
 
-            System.out.println("[TICKETS] Headers inviati:");
-            for (Header header : request.getAllHeaders()) {
-                if (header.getName().equals("Authorization")) {
-                    System.out.println("  - Authorization: [REDACTED]");
+                // Imposta gli headers necessari
+                String authHeader = SAPODataConfig.getBasicAuthHeader();
+                request.setHeader(SAPODataConfig.HEADER_AUTHORIZATION, authHeader);
+                request.setHeader(SAPODataConfig.HEADER_ACCEPT, SAPODataConfig.CONTENT_TYPE_JSON);
+                request.setHeader(SAPODataConfig.HEADER_SAP_CLIENT, SAPODataConfig.getSapClient());
+
+                if (pageCount == 1) {
+                    System.out.println("[TICKETS] Headers inviati:");
+                    for (Header header : request.getAllHeaders()) {
+                        if (header.getName().equals("Authorization")) {
+                            System.out.println("  - Authorization: [REDACTED]");
+                        } else {
+                            System.out.println("  - " + header.getName() + ": " + header.getValue());
+                        }
+                    }
                 } else {
-                    System.out.println("  - " + header.getName() + ": " + header.getValue());
+                    System.out.println("[TICKETS] Pagina " + pageCount + " — URL: " + nextUrl);
+                }
+
+                System.out.println("[TICKETS] Esecuzione chiamata HTTP GET...");
+
+                HttpResponse response = httpClient.execute(request);
+                int statusCode = response.getStatusLine().getStatusCode();
+                String responseBody = EntityUtils.toString(response.getEntity(), "UTF-8");
+
+                if (pageCount == 1) {
+                    System.out.println("[TICKETS] ==========================================");
+                    System.out.println("[TICKETS] RISPOSTA RICEVUTA");
+                    System.out.println("[TICKETS] ==========================================");
+                    System.out.println("[TICKETS] Status Code: " + statusCode);
+                    System.out.println("[TICKETS] Response Body (primi 1000 char): "
+                        + responseBody.substring(0, Math.min(1000, responseBody.length())));
+
+                    ticketResponse.setStatusCode(statusCode);
+                    ticketResponse.setSuccess(statusCode >= 200 && statusCode < 300);
+                    ticketResponse.setResponseBody(responseBody);
+
+                    if (!ticketResponse.isSuccess()) {
+                        String errorMsg = "Recupero ticket fallito. Status code: " + statusCode;
+                        ticketResponse.setErrorMessage(errorMsg);
+                        System.err.println("[TICKETS] ❌ " + errorMsg);
+                        break;
+                    }
+                } else if (statusCode < 200 || statusCode >= 300) {
+                    // Una pagina successiva alla prima fallisce: logga e ferma la
+                    // paginazione, ma mantieni come riuscita la risposta già
+                    // accumulata finora invece di buttare via tutto.
+                    System.err.println("[TICKETS] ⚠️ Pagina " + pageCount + " fallita (status " + statusCode +
+                                       ") — mi fermo qui, ritorno i " + allTickets.size() + " ticket già raccolti");
+                    break;
+                }
+
+                try {
+                    JSONObject jsonResponse = new JSONObject(responseBody);
+                    if (pageCount == 1) ticketResponse.setJsonResponse(jsonResponse);
+
+                    List<Ticket> pageTickets = parseTicketsFromResponse(jsonResponse);
+                    allTickets.addAll(pageTickets);
+
+                    JSONObject dataObject = jsonResponse.optJSONObject("d");
+                    String next = dataObject != null ? dataObject.optString("__next", null) : null;
+                    nextUrl = (next != null && !next.trim().isEmpty()) ? next.trim() : null;
+
+                    if (nextUrl != null) {
+                        System.out.println("[TICKETS] Pagina " + pageCount + ": " + pageTickets.size() +
+                                           " ticket, altra pagina disponibile (__next)");
+                    }
+                } catch (Exception e) {
+                    System.err.println("[TICKETS] ⚠️ Parsing JSON fallito (pagina " + pageCount + "): " + e.getMessage());
+                    e.printStackTrace();
+                    nextUrl = null; // non proseguire su una pagina che non si riesce a interpretare
                 }
             }
 
-            System.out.println("[TICKETS] Esecuzione chiamata HTTP GET...");
-
-            // Esegue la richiesta
-            HttpResponse response = httpClient.execute(request);
-            int statusCode = response.getStatusLine().getStatusCode();
-            String responseBody = EntityUtils.toString(response.getEntity(), "UTF-8");
-
-            System.out.println("[TICKETS] ==========================================");
-            System.out.println("[TICKETS] RISPOSTA RICEVUTA");
-            System.out.println("[TICKETS] ==========================================");
-            System.out.println("[TICKETS] Status Code: " + statusCode);
-            System.out.println("[TICKETS] Response Body (primi 1000 char): " 
-                + responseBody.substring(0, Math.min(1000, responseBody.length())));
-
-            // Elabora la risposta
-            ticketResponse.setStatusCode(statusCode);
-            ticketResponse.setSuccess(statusCode >= 200 && statusCode < 300);
-            ticketResponse.setResponseBody(responseBody);
+            if (pageCount >= MAX_PAGES && nextUrl != null) {
+                System.err.println("[TICKETS] ⚠️ Raggiunto il limite di sicurezza di " + MAX_PAGES +
+                                   " pagine — potrebbero mancare ulteriori ticket oltre questo punto.");
+            }
 
             if (ticketResponse.isSuccess()) {
-                System.out.println("[TICKETS] ✅ Recupero ticket RIUSCITO!");
-
-                // Parsing della risposta JSON OData
-                try {
-                    JSONObject jsonResponse = new JSONObject(responseBody);
-                    ticketResponse.setJsonResponse(jsonResponse);
-                    
-                    // Estrai la lista dei ticket dall'oggetto "d" -> "results"
-                    List<Ticket> tickets = parseTicketsFromResponse(jsonResponse);
-                    ticketResponse.setTickets(tickets);
-                    
-                    System.out.println("[TICKETS] ✅ Ticket trovati: " + tickets.size());
-                    
-                } catch (Exception e) {
-                    System.err.println("[TICKETS] ⚠️ Parsing JSON fallito: " + e.getMessage());
-                    e.printStackTrace();
-                }
-            } else {
-                String errorMsg = "Recupero ticket fallito. Status code: " + statusCode;
-                ticketResponse.setErrorMessage(errorMsg);
-                System.err.println("[TICKETS] ❌ " + errorMsg);
+                ticketResponse.setTickets(allTickets);
+                System.out.println("[TICKETS] ✅ Recupero ticket RIUSCITO! (" + pageCount + " pagina/e)");
+                System.out.println("[TICKETS] ✅ Ticket trovati: " + allTickets.size());
             }
 
         } catch (IOException e) {

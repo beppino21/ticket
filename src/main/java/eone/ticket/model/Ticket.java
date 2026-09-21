@@ -58,18 +58,18 @@ public class Ticket {
 
     public Ticket(JSONObject jsonData) {
         try {
-            this.tickt = jsonData.optString("Tickt", "");
+            this.tickt = trimSafe(jsonData.optString("Tickt", ""));
             this.title = jsonData.optString("Title", "");
-            this.rstat = jsonData.optString("Rstat", "");
+            this.rstat = trimSafe(jsonData.optString("Rstat", ""));
             this.rprio = jsonData.optString("Rprio", "");
             this.erdat = jsonData.optString("Erdat", "");
-            this.kunnr = jsonData.optString("Kunnr", "");
-            this.reqid = jsonData.optString("Reqid", "");
+            this.kunnr = trimSafe(jsonData.optString("Kunnr", ""));
+            this.reqid = trimSafe(jsonData.optString("Reqid", ""));
             this.categ = jsonData.optString("Categ", "");
             this.prdct = jsonData.optString("Prdct", "");
             this.modul = jsonData.optString("Modul", "");
-            this.amusr = jsonData.optString("Amusr", "");
-            this.refer = jsonData.optString("Refer", "");
+            this.amusr = trimSafe(jsonData.optString("Amusr", ""));
+            this.refer = trimSafe(jsonData.optString("Refer", ""));
             this.fathr = jsonData.optString("Fathr", "");
             this.comch = jsonData.optString("Comch", "");
             this.bukrs = jsonData.optString("Bukrs", "");
@@ -77,6 +77,18 @@ public class Ticket {
             System.err.println("[Ticket] Errore nel parsing JSON: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    /**
+     * Trim difensivo per i campi usati come identificativi nei confronti di
+     * uguaglianza in tutta l'app (Tickt, Kunnr, Reqid, Amusr, Refer). Campi
+     * SAP a lunghezza fissa (CHAR) possono arrivare con spazi finali
+     * invisibili in SAP GUI ma presenti nel dato tecnico OData — se non
+     * rimossi qui, un equalsIgnoreCase() altrove fallisce silenziosamente
+     * anche quando il valore "sembra" corretto a vista.
+     */
+    private static String trimSafe(String s) {
+        return s != null ? s.trim() : s;
     }
 
     // =========================

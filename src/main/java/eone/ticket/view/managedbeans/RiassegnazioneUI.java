@@ -300,6 +300,7 @@ public class RiassegnazioneUI extends PageBean implements Serializable {
         try {
             ViewSessionContext ctx = ViewSessionContext.instance();
             riassegnazioneService.create(m_nuovoTickt.trim(), ctx.getUsername(), m_nuovoTesto.trim());
+            notificaNuovaRichiesta(m_nuovoTickt.trim(), ctx.getUsername(), m_nuovoTesto.trim());
             Statusbar.outputSuccess("Richiesta di riattribuzione inviata al DISPATCHER per il ticket " + m_nuovoTickt);
             m_formNuovaVisible = false;
             caricaLista();
@@ -308,6 +309,27 @@ public class RiassegnazioneUI extends PageBean implements Serializable {
             Statusbar.outputError("Errore invio richiesta: " + e.getMessage());
             System.err.println("[RiassegnazioneUI] Errore onSalvaNuova: " + e.getMessage());
             e.printStackTrace();
+        }
+    }
+
+    /** Notifica via mail tutti i DISPATCHER attivi — stesso meccanismo usato per i nuovi DRAFT. */
+    private void notificaNuovaRichiesta(String tickt, String amusrRichiedente, String testo) {
+        try {
+            List<eone.ticket.model.RequesterInfo> dispatchers = requesterService.getActiveDispatchers();
+            if (dispatchers.isEmpty()) {
+                System.out.println("[RiassegnazioneUI] Notifica DISPATCHER saltata: nessun DISPATCHER attivo con email");
+                return;
+            }
+            for (eone.ticket.model.RequesterInfo dispatcher : dispatchers) {
+                if (dispatcher.getEmail() == null || dispatcher.getEmail().trim().isEmpty()) continue;
+                try {
+                    mailService.sendNotificaNuovaRiassegnazione(dispatcher.getEmail(), tickt, amusrRichiedente, testo);
+                } catch (Exception e) {
+                    System.err.println("[RiassegnazioneUI] Errore invio notifica a DISPATCHER " + dispatcher.getId_user() + ": " + e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[RiassegnazioneUI] Errore recupero DISPATCHER per notifica: " + e.getMessage());
         }
     }
 

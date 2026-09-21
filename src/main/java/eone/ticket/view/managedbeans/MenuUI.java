@@ -311,6 +311,11 @@ public class MenuUI extends PageBean implements Serializable {
                 "Ticket come Referente",
                 "Visualizza i ticket in cui risulti Referente",
                 true));
+            m_items.getItems().add(new MenuItemInfo(
+                "REFERENTE_ARCHIVIO",
+                "Ticket conclusi come Referente",
+                "Ticket chiusi/risolti/cancellati in cui risulti Referente — prima non consultabili, solo conteggiati",
+                true));
         }
 
         // Smistamento DRAFT: solo per DISPATCHER (o ADMIN)
