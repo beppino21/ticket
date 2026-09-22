@@ -370,6 +370,17 @@ public class MenuUI extends PageBean implements Serializable {
                 true));
         }
 
+        // Promemoria quotidiano AMS/DISPATCHER: solo ADMIN — stato della
+        // schedulazione automatica e invio manuale immediato (test/recupero
+        // se un giorno lo scheduler è saltato per un riavvio di Tomcat).
+        if (isAdmin) {
+            m_items.getItems().add(new MenuItemInfo(
+                "PROMEMORIA_ADMIN",
+                "Promemoria quotidiano",
+                "Stato del promemoria automatico AMS/DISPATCHER e invio manuale",
+                true));
+        }
+
         // Gestione richiedenti: solo ADMIN — unico ruolo che può creare
         // nuovi richiedenti per qualsiasi cliente abilitato (REQ_ADMIN può
         // solo manutenere quelli già esistenti del proprio kunnr).

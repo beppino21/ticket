@@ -48,6 +48,19 @@ SOLLECITO_CHIUSURA_EMAIL=helpdesk@eonegroup.it
 SOLLECITO_CHIUSURA_GIORNI=1
 SOLLECITO_CHIUSURA_ORA=8
 # SOLLECITO_CHIUSURA_ABILITATO=false  -> disattiva del tutto lo scheduler
+# NOTA: questo sollecito è attualmente MORTO CODE — nessuno lo invoca (vedi
+# PromemoriaSchedulerListener per un esempio di scheduler realmente attivo).
+
+# Promemoria quotidiano ticket pendenti — mail personalizzata a ogni AMS con
+# i propri ticket non chiusi (evidenziati a colori per ritardo), e mail
+# identica a ogni DISPATCHER con DRAFT + richieste di riattribuzione
+# pendenti. Parte da solo all'avvio della webapp (vedi
+# PromemoriaSchedulerListener), solo lun-ven, nessuna mail se l'utente non
+# ha nulla di pendente.
+PROMEMORIA_QUOTIDIANO_ABILITATO=true
+PROMEMORIA_QUOTIDIANO_ORA=8
+PROMEMORIA_QUOTIDIANO_MINUTO=30
+
 SAP_CLIENT=300
 SAP_USER=EONE
 SAP_PASS=changeme

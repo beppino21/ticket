@@ -33,7 +33,14 @@
   <listener>
     <listener-class>org.eclnt.jsfserver.util.CCServletContextListener</listener-class>
   </listener>
-  
+
+  <!-- Scheduler interno per il promemoria quotidiano AMS/DISPATCHER — vedi
+       eone.ticket.service.PromemoriaQuotidianoService per la logica e
+       eone.ticket.web.PromemoriaSchedulerListener per l'orario/schedulazione. -->
+  <listener>
+    <listener-class>eone.ticket.web.PromemoriaSchedulerListener</listener-class>
+  </listener>
+
   <!--
   PLEASE PAY ATTNETION: the registration of the CCServletContextListener in the web.xml
   is sufficient for many servlet engines (e.g. Tomcat). For other servlet engines (Glassfish,

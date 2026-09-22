@@ -148,6 +148,11 @@ public class MailService {
         return base + "/Outest.risc?ticket=" + tickt.trim();
     }
 
+    /** Esposto per PromemoriaQuotidianoService, che costruisce i link riga per riga. */
+    public String buildTicketLinkPublic(String tickt) {
+        return buildTicketLink(tickt);
+    }
+
     /**
      * Avvisa il sostituto di essere stato designato — con periodo di
      * validità ed elenco dei ticket di cui si farà carico (SAP + eventuali
@@ -476,27 +481,9 @@ public class MailService {
     private void send(String toEmail, String subject, String body,
                        List<TicketAttachment> allegati) throws MessagingException {
 
-        String host = AppConfig.get("MAIL_HOST", "");
-        String port = AppConfig.get("MAIL_PORT", "587");
-        String user = AppConfig.get("MAIL_USER", "");
-        String pass = AppConfig.get("MAIL_PASS", "");
-        String from = AppConfig.get("MAIL_FROM", user);
-
-        Properties props = new Properties();
-        props.put("mail.smtp.auth", "true");
-        props.put("mail.smtp.starttls.enable", "true");
-        props.put("mail.smtp.host", host);
-        props.put("mail.smtp.port", port);
-
-        Session session = Session.getInstance(props, new jakarta.mail.Authenticator() {
-            @Override
-            protected PasswordAuthentication getPasswordAuthentication() {
-                return new PasswordAuthentication(user, pass);
-            }
-        });
-
+        Session session = buildSession();
         MimeMessage message = new MimeMessage(session);
-        message.setFrom(new InternetAddress(from));
+        message.setFrom(new InternetAddress(AppConfig.get("MAIL_FROM", AppConfig.get("MAIL_USER", ""))));
         message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(toEmail));
         message.setSubject(subject, "UTF-8");
 
@@ -521,6 +508,185 @@ public class MailService {
 
         message.setContent(multipart);
         Transport.send(message);
+    }
+
+    /** Come send(), ma con corpo HTML — usato dai promemoria quotidiani (righe evidenziate a colori). */
+    private void sendHtml(String toEmail, String subject, String htmlBody) throws MessagingException {
+        Session session = buildSession();
+        MimeMessage message = new MimeMessage(session);
+        message.setFrom(new InternetAddress(AppConfig.get("MAIL_FROM", AppConfig.get("MAIL_USER", ""))));
+        message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(toEmail));
+        message.setSubject(subject, "UTF-8");
+        message.setContent(htmlBody, "text/html; charset=UTF-8");
+        Transport.send(message);
+    }
+
+    private Session buildSession() {
+        String host = AppConfig.get("MAIL_HOST", "");
+        String port = AppConfig.get("MAIL_PORT", "587");
+        String user = AppConfig.get("MAIL_USER", "");
+        String pass = AppConfig.get("MAIL_PASS", "");
+
+        Properties props = new Properties();
+        props.put("mail.smtp.auth", "true");
+        props.put("mail.smtp.starttls.enable", "true");
+        props.put("mail.smtp.host", host);
+        props.put("mail.smtp.port", port);
+
+        return Session.getInstance(props, new jakarta.mail.Authenticator() {
+            @Override
+            protected PasswordAuthentication getPasswordAuthentication() {
+                return new PasswordAuthentication(user, pass);
+            }
+        });
+    }
+
+    /**
+     * Promemoria quotidiano AMS — mail personalizzata con i ticket pendenti
+     * (esclusi CLO/RES/CAN) assegnati all'utente, evidenziati a colori in
+     * base al ritardo dall'ultima comunicazione AMS (o dall'apertura, se
+     * non ce n'è mai stata una). Non inviata se righe è vuoto — a monte,
+     * PromemoriaQuotidianoService non genera nemmeno la chiamata in quel caso.
+     */
+    public void sendPromemoriaAms(String toEmail, String nomeAms, List<eone.ticket.model.PromemoriaRiga> righe) {
+        if (toEmail == null || toEmail.trim().isEmpty() || righe == null || righe.isEmpty()) {
+            System.out.println("[MailService] Promemoria AMS saltato: destinatario vuoto o nessun ticket pendente.");
+            return;
+        }
+
+        String subject = "Ticket pendenti a tuo carico — " + righe.size() +
+                          (righe.size() == 1 ? " ticket" : " ticket");
+
+        StringBuilder rows = new StringBuilder();
+        for (eone.ticket.model.PromemoriaRiga r : righe) {
+            rows.append(rigaHtml(r));
+        }
+
+        String html = "<html><body style=\"font-family:Arial,sans-serif;font-size:13px;color:#222;\">"
+            + "<p>Ciao " + nn(nomeAms) + ",</p>"
+            + "<p>Hai <b>" + righe.size() + "</b> ticket pendenti a tuo carico:</p>"
+            + "<table style=\"border-collapse:collapse;width:100%;\">"
+            + "<tr style=\"background:#EEEEEE;text-align:left;\">"
+            + "<th style=\"padding:6px;border:1px solid #CCC;\">Ticket</th>"
+            + "<th style=\"padding:6px;border:1px solid #CCC;\">Titolo</th>"
+            + "<th style=\"padding:6px;border:1px solid #CCC;\">Cliente</th>"
+            + "<th style=\"padding:6px;border:1px solid #CCC;\">Giorni</th>"
+            + "</tr>"
+            + rows
+            + "</table>"
+            + "<p style=\"margin-top:14px;font-size:11px;color:#777;\">"
+            + "Giorni = tempo trascorso dall'ultima tua comunicazione sul ticket (o dall'apertura, se non ce n'è mai stata una). "
+            + "Il simbolo ⚠ indica che il cliente ha inviato un sollecito.</p>"
+            + "</body></html>";
+
+        if (isDryRun()) {
+            System.out.println("========== [MailService] DRY-RUN — promemoria AMS non inviato ==========");
+            System.out.println("To:      " + toEmail);
+            System.out.println("Subject: " + subject);
+            System.out.println("Righe:   " + righe.size());
+            System.out.println("==========================================================================");
+            return;
+        }
+
+        try {
+            sendHtml(toEmail, subject, html);
+            System.out.println("[MailService] Promemoria AMS inviato a " + toEmail + " (" + righe.size() + " ticket)");
+        } catch (Exception e) {
+            System.err.println("[MailService] Errore invio promemoria AMS a " + toEmail + ": " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Promemoria quotidiano DISPATCHER — stessa mail (identica) inviata a
+     * ciascun indirizzo DISPATCHER: DRAFT pendenti da fondere + richieste
+     * di riattribuzione pendenti, evidenziate a colori come per l'AMS.
+     */
+    public void sendPromemoriaDispatcher(String toEmail, List<eone.ticket.model.PromemoriaRiga> righeDraft,
+                                          List<eone.ticket.model.PromemoriaRiga> righeRiassegnazione) {
+        if (toEmail == null || toEmail.trim().isEmpty()) {
+            System.out.println("[MailService] Promemoria DISPATCHER saltato: destinatario vuoto.");
+            return;
+        }
+        boolean nienteDraft = righeDraft == null || righeDraft.isEmpty();
+        boolean nienteRiass = righeRiassegnazione == null || righeRiassegnazione.isEmpty();
+        if (nienteDraft && nienteRiass) {
+            System.out.println("[MailService] Promemoria DISPATCHER saltato: nessun DRAFT né richiesta pendente.");
+            return;
+        }
+
+        int totale = (nienteDraft ? 0 : righeDraft.size()) + (nienteRiass ? 0 : righeRiassegnazione.size());
+        String subject = "Attività pendenti da smistare — " + totale +
+                          (totale == 1 ? " elemento" : " elementi");
+
+        StringBuilder html = new StringBuilder();
+        html.append("<html><body style=\"font-family:Arial,sans-serif;font-size:13px;color:#222;\">");
+        html.append("<p>Riepilogo delle attività ancora da smistare:</p>");
+
+        html.append("<p><b>DRAFT pendenti da fondere in SAP</b> (").append(nienteDraft ? 0 : righeDraft.size()).append(")</p>");
+        if (nienteDraft) {
+            html.append("<p style=\"color:#777;\">Nessun DRAFT pendente.</p>");
+        } else {
+            html.append("<table style=\"border-collapse:collapse;width:100%;margin-bottom:16px;\">")
+                .append("<tr style=\"background:#EEEEEE;text-align:left;\">")
+                .append("<th style=\"padding:6px;border:1px solid #CCC;\">Draft</th>")
+                .append("<th style=\"padding:6px;border:1px solid #CCC;\">Titolo</th>")
+                .append("<th style=\"padding:6px;border:1px solid #CCC;\">Cliente</th>")
+                .append("<th style=\"padding:6px;border:1px solid #CCC;\">Giorni</th>")
+                .append("</tr>");
+            for (eone.ticket.model.PromemoriaRiga r : righeDraft) html.append(rigaHtml(r));
+            html.append("</table>");
+        }
+
+        html.append("<p><b>Richieste di riattribuzione pendenti</b> (").append(nienteRiass ? 0 : righeRiassegnazione.size()).append(")</p>");
+        if (nienteRiass) {
+            html.append("<p style=\"color:#777;\">Nessuna richiesta pendente.</p>");
+        } else {
+            html.append("<table style=\"border-collapse:collapse;width:100%;\">")
+                .append("<tr style=\"background:#EEEEEE;text-align:left;\">")
+                .append("<th style=\"padding:6px;border:1px solid #CCC;\">Ticket</th>")
+                .append("<th style=\"padding:6px;border:1px solid #CCC;\">Richiesta</th>")
+                .append("<th style=\"padding:6px;border:1px solid #CCC;\"></th>")
+                .append("<th style=\"padding:6px;border:1px solid #CCC;\">Giorni</th>")
+                .append("</tr>");
+            for (eone.ticket.model.PromemoriaRiga r : righeRiassegnazione) html.append(rigaHtml(r));
+            html.append("</table>");
+        }
+
+        html.append("<p style=\"margin-top:14px;font-size:11px;color:#777;\">")
+            .append("Giorni = tempo trascorso dalla creazione del DRAFT o dall'apertura della richiesta.</p>")
+            .append("</body></html>");
+
+        if (isDryRun()) {
+            System.out.println("========== [MailService] DRY-RUN — promemoria DISPATCHER non inviato ==========");
+            System.out.println("To:      " + toEmail);
+            System.out.println("Subject: " + subject);
+            System.out.println("Draft: " + (nienteDraft ? 0 : righeDraft.size()) + " — Riassegnazioni: " + (nienteRiass ? 0 : righeRiassegnazione.size()));
+            System.out.println("==============================================================================");
+            return;
+        }
+
+        try {
+            sendHtml(toEmail, subject, html.toString());
+            System.out.println("[MailService] Promemoria DISPATCHER inviato a " + toEmail);
+        } catch (Exception e) {
+            System.err.println("[MailService] Errore invio promemoria DISPATCHER a " + toEmail + ": " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private String rigaHtml(eone.ticket.model.PromemoriaRiga r) {
+        String link = r.getLink();
+        String chiaveCell = link != null
+            ? "<a href=\"" + link + "\" style=\"color:#1A3A6B;text-decoration:none;font-weight:bold;\">" + nn(r.getChiave()) + "</a>"
+            : "<b>" + nn(r.getChiave()) + "</b>";
+        String sollecito = r.isSollecitoCliente() ? " ⚠" : "";
+        return "<tr style=\"background:" + r.getColore() + ";\">"
+            + "<td style=\"padding:6px;border:1px solid #CCC;white-space:nowrap;\">" + chiaveCell + sollecito + "</td>"
+            + "<td style=\"padding:6px;border:1px solid #CCC;\">" + nn(r.getDescrizione()) + "</td>"
+            + "<td style=\"padding:6px;border:1px solid #CCC;white-space:nowrap;\">" + nn(r.getClienteLabel()) + "</td>"
+            + "<td style=\"padding:6px;border:1px solid #CCC;text-align:right;\">" + r.getGiorni() + "</td>"
+            + "</tr>";
     }
 
     private String nn(String s) { return s != null ? s : ""; }

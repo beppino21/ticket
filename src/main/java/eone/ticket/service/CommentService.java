@@ -56,6 +56,28 @@ public class CommentService {
         return list;
     }
 
+    /**
+     * L'ultimo commento (per data) scritto dall'ASSISTENZA (AMS) per
+     * ciascun ticket SAP — esclusi i DRAFT. Usato dal promemoria quotidiano
+     * AMS per calcolare il ritardo dall'ultima comunicazione fatta dall'AMS
+     * verso il cliente su quel ticket (non l'ultimo commento in assoluto,
+     * che potrebbe essere del cliente).
+     */
+    public List<TicketComment> getUltimaComunicazioneAmsPerTicket() throws SQLException {
+        List<TicketComment> list = new ArrayList<>();
+        String sql = "SELECT DISTINCT ON (tickt) id, tickt, kunnr, autore_tipo, autore_id, testo, " +
+                     "stato_ticket, created_at " +
+                     "FROM ticket_comment " +
+                     "WHERE tickt NOT LIKE 'DRAFT-%' AND autore_tipo = 'ASSISTENZA' " +
+                     "ORDER BY tickt, created_at DESC";
+        try (Connection con = DBConfig.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) list.add(mapComment(rs));
+        }
+        return list;
+    }
+
     public long saveComment(TicketComment comment, List<TicketAttachment> attachments) throws SQLException {
         String sqlC = "INSERT INTO ticket_comment " +
                       "(tickt, kunnr, autore_tipo, autore_id, testo, stato_ticket, created_at) " +

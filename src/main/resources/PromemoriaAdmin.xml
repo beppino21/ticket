@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<t:layoutdefinition xmlns:t="http://www.captaincasa.com/controllibrary/t" >
+
+<t:beanprocessing id="pa_0" beanbinding="#{d.PromemoriaAdminUI}" />
+<t:rowtitlebar id="pa_1" text="Promemoria quotidiano AMS / DISPATCHER" />
+<t:rowheader id="pa_h" >
+<t:button id="pa_back" actionListener="#{d.PromemoriaAdminUI.backToMenu}" text="« Menu" width="80" />
+</t:rowheader>
+<t:rowbodypane id="pa_body" >
+<t:row id="pa_intro" coldistance="8" >
+<t:label id="pa_intro_lbl" multiline="true" text="Mail personalizzata a ogni AMS con i propri ticket pendenti (colorati per ritardo) e mail identica a ogni DISPATCHER con DRAFT e richieste di riattribuzione pendenti. Nessuna mail se non c'è nulla di pendente." wordwrap="true" width="100%" />
+</t:row>
+<t:rowdistance id="pa_d1" height="16" />
+
+<t:row id="pa_r1" coldistance="8" >
+<t:label id="pa_r1_lbl" labeltext="Schedulazione automatica:" width="200" />
+<t:label id="pa_r1_val" font="weight:bold" text="#{d.PromemoriaAdminUI.statoLabel}" />
+</t:row>
+<t:rowdistance id="pa_d2" height="6" />
+
+<t:row id="pa_r2" coldistance="8" >
+<t:label id="pa_r2_lbl" labeltext="Invio mail reale:" width="200" />
+<t:label id="pa_r2_val" font="weight:bold;color:#{d.PromemoriaAdminUI.dryRunColor}" text="#{d.PromemoriaAdminUI.dryRunLabel}" />
+</t:row>
+<t:rowdistance id="pa_d3" height="24" />
+
+<t:row id="pa_r3" coldistance="8" >
+<t:button id="pa_invia_btn" actionListener="#{d.PromemoriaAdminUI.onInviaOra}" enabled="#{!d.PromemoriaAdminUI.invioInCorso}" text="Invia ora »" width="140" />
+</t:row>
+<t:rowdistance id="pa_d4" height="12" />
+
+<t:row id="pa_r4" coldistance="8" rendered="#{d.PromemoriaAdminUI.hasUltimoEsito}" >
+<t:label id="pa_r4_val" multiline="true" text="#{d.PromemoriaAdminUI.ultimoEsito}" wordwrap="true" width="100%" />
+</t:row>
+</t:rowbodypane>
+
+</t:layoutdefinition>
