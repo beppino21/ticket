@@ -218,7 +218,7 @@ public class RiassegnazioneUI extends PageBean implements Serializable {
 
     /**
      * Solo AMS, vista attiva: elenco dei propri ticket assegnati (Amusr),
-     * non ancora chiusi (CLO/RES/CAN esclusi) e senza già una richiesta
+     * non ancora chiusi (CLO/RES/CAN/REF esclusi) e senza già una richiesta
      * APERTA — per la combobox "Nuova richiesta".
      */
     private void caricaTicketDisponibili() {
@@ -237,7 +237,7 @@ public class RiassegnazioneUI extends PageBean implements Serializable {
             for (Ticket t : response.getTickets()) {
                 if (t.getTickt() == null || t.getTickt().isEmpty()) continue;
                 if (!amusr.equalsIgnoreCase(t.getAmusr())) continue;
-                if ("CLO".equals(t.getRstat()) || "RES".equals(t.getRstat()) || "CAN".equals(t.getRstat())) continue;
+                if ("CLO".equals(t.getRstat()) || "RES".equals(t.getRstat()) || "CAN".equals(t.getRstat()) || "REF".equals(t.getRstat())) continue;
                 if (riassegnazioneService.getAperta(t.getTickt()) != null) continue; // già richiesta aperta
                 String label = t.getTickt() + " — " + (t.getTitle() != null ? t.getTitle() : "");
                 m_ticketVVB.addValidValue(t.getTickt(), label);

@@ -448,7 +448,7 @@ public class MenuUI extends PageBean implements Serializable {
     public String getSummaryLabel() {
         if (m_summary == null) return "Clicca per aggiornare";
         long attivi = m_summary.getVoci().stream()
-            .filter(v -> !"CLO".equals(v.getRstat()) && !"RES".equals(v.getRstat()) && !"CAN".equals(v.getRstat()) && !"DRAFT".equals(v.getRstat()))
+            .filter(v -> !"CLO".equals(v.getRstat()) && !"RES".equals(v.getRstat()) && !"CAN".equals(v.getRstat()) && !"REF".equals(v.getRstat()) && !"DRAFT".equals(v.getRstat()))
             .mapToInt(TicketSummary.StatoCount::getCount).sum();
         return attivi > 0 ? "Ticket attivi: " + attivi : "Nessun ticket attivo";
     }

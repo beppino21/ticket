@@ -311,9 +311,9 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
             return "#FFCDD2";             // rosso pallido
         }
 
-        /** Giorni di vita del ticket: da erdat a oggi. -1 se CLO/RES o dati mancanti. */
+        /** Giorni di vita del ticket: da erdat a oggi. -1 se CLO/RES/REF o dati mancanti. */
         public int getGiorniVita() {
-            if ("CLO".equalsIgnoreCase(ticket.getRstat()) || "RES".equalsIgnoreCase(ticket.getRstat())) return -1;
+            if ("CLO".equalsIgnoreCase(ticket.getRstat()) || "RES".equalsIgnoreCase(ticket.getRstat()) || "REF".equalsIgnoreCase(ticket.getRstat())) return -1;
             String erdat = ticket.getErdat();
             if (erdat == null || erdat.isEmpty()) return -1;
             try {
@@ -723,14 +723,14 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
         // RES (Risolto) trattato esattamente come CLO (Chiuso): tolto dalla
         // lista operativa, visibile solo in archivio.
         if (m_archivio) {
-            // Archivio: tieni solo CLO, RES e CAN
+            // Archivio: tieni solo CLO, RES, CAN e REF (Refused — anch'esso concluso)
             ticketList = ticketList.stream()
-                .filter(t -> "CLO".equals(t.getRstat()) || "RES".equals(t.getRstat()) || "CAN".equals(t.getRstat()))
+                .filter(t -> "CLO".equals(t.getRstat()) || "RES".equals(t.getRstat()) || "CAN".equals(t.getRstat()) || "REF".equals(t.getRstat()))
                 .collect(java.util.stream.Collectors.toList());
         } else {
-            // Lista operativa: escludi CLO, RES e CAN
+            // Lista operativa: escludi CLO, RES, CAN e REF
             ticketList = ticketList.stream()
-                .filter(t -> !"CLO".equals(t.getRstat()) && !"RES".equals(t.getRstat()) && !"CAN".equals(t.getRstat()))
+                .filter(t -> !"CLO".equals(t.getRstat()) && !"RES".equals(t.getRstat()) && !"CAN".equals(t.getRstat()) && !"REF".equals(t.getRstat()))
                 .collect(java.util.stream.Collectors.toList());
         }
 

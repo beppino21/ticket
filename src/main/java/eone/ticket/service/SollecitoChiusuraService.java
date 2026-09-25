@@ -98,6 +98,6 @@ public class SollecitoChiusuraService {
     }
 
     private static boolean isChiusoInSap(String rstat) {
-        return "CLO".equalsIgnoreCase(rstat) || "RES".equalsIgnoreCase(rstat);
+        return "CLO".equalsIgnoreCase(rstat) || "RES".equalsIgnoreCase(rstat) || "REF".equalsIgnoreCase(rstat);
     }
 }

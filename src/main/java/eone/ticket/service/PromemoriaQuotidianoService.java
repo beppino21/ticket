@@ -20,11 +20,13 @@ import eone.ticket.model.TicketRiassegnazione;
 
 /**
  * Promemoria quotidiano dei ticket/attività pendenti — mail personalizzata
- * per ciascun utente AMS (i propri ticket non ancora chiusi) e mail
- * identica a ciascun indirizzo DISPATCHER (DRAFT pendenti + richieste di
- * riattribuzione pendenti). Invocato dallo scheduler (PromemoriaSchedulerListener)
- * tutte le mattine nei giorni feriali, ma può anche essere richiamato a mano
- * (es. per test) — è idempotente: rilegge sempre lo stato corrente.
+ * per ciascun utente AMS (i propri ticket per cui è in attesa un'azione
+ * AMS, non semplicemente "non ancora chiusi" — vedi richiedeAzioneAms) e
+ * mail identica a ciascun indirizzo DISPATCHER (DRAFT pendenti + richieste
+ * di riattribuzione pendenti). Invocato dallo scheduler
+ * (PromemoriaSchedulerListener) tutte le mattine nei giorni feriali, ma può
+ * anche essere richiamato a mano (es. per test) — è idempotente: rilegge
+ * sempre lo stato corrente.
  *
  * Scala colori fissa (vedi PromemoriaRiga.getColore()):
  *   verde 0-3 giorni, giallo 4-9 giorni, rosso 10+ giorni — calcolati:
@@ -36,7 +38,7 @@ import eone.ticket.model.TicketRiassegnazione;
  */
 public class PromemoriaQuotidianoService {
 
-    private static final Set<String> STATI_CHIUSI = new HashSet<>(java.util.Arrays.asList("CLO", "RES", "CAN"));
+    private static final Set<String> STATI_CHIUSI = new HashSet<>(java.util.Arrays.asList("CLO", "RES", "CAN", "REF"));
 
     private final SAPTicketService              sapService            = new SAPTicketService();
     private final CommentService                commentService        = new CommentService();
@@ -94,17 +96,24 @@ public class PromemoriaQuotidianoService {
                 ultimaComAms.put(c.getTickt().trim(), c.getCreatedAt().toLocalDate());
             }
         }
-        // Ultimo stato in assoluto per ticket — per rilevare il "Sollecito attività AMS" del cliente
+        // Ultimo stato in assoluto per ticket — decide sia se il ticket richiede
+        // un'azione AMS (vedi richiedeAzioneAms), sia se evidenziare il "Sollecito
+        // attività AMS" del cliente
         Map<String, String> ultimoStato = new HashMap<>();
         for (TicketComment c : commentService.getLatestStatusPerTicket()) {
             if (c.getTickt() != null) ultimoStato.put(c.getTickt().trim(), c.getStatoTicket());
         }
 
-        // Raggruppa i ticket pendenti per Amusr (case-insensitive, trim)
+        // Raggruppa per Amusr (case-insensitive, trim) solo i ticket il cui ultimo
+        // stato è "in carico" all'AMS, cioè in attesa di una sua azione — vedi
+        // richiedeAzioneAms(). Un ticket la cui palla è passata al cliente
+        // (ASS_ATTESA_CLIENTE / ASS_SOLLECITO_CLIENTE) non compare nella mail.
         Map<String, List<Ticket>> perAmusr = new HashMap<>();
         for (Ticket t : pendenti) {
             String amusr = t.getAmusr() != null ? t.getAmusr().trim() : "";
             if (amusr.isEmpty()) continue;
+            String tickt = t.getTickt() != null ? t.getTickt().trim() : "";
+            if (!richiedeAzioneAms(ultimoStato.get(tickt))) continue;
             perAmusr.computeIfAbsent(amusr.toUpperCase(), k -> new ArrayList<>()).add(t);
         }
 
@@ -199,6 +208,31 @@ public class PromemoriaQuotidianoService {
     // =========================================================
     // UTILITY
     // =========================================================
+
+    /**
+     * Un ticket "richiede un'azione AMS" quando l'ultima mossa nella
+     * conversazione è del CLIENTE (la palla è quindi passata all'AMS):
+     *  - nessun commento ancora presente (ticket appena aperto, mai preso in carico)
+     *  - CLI_ATTESA_ASSISTENZA / CLI_SOLLECITO_ASSISTENZA (il cliente aspetta l'AMS)
+     *  - CLI_RICHIESTA_CHIUSURA / CLI_RICHIESTA_CANCELLAZIONE (il cliente aspetta
+     *    che l'AMS evada la richiesta)
+     * Quando invece l'ultima mossa è dell'ASSISTENZA (ASS_ATTESA_CLIENTE,
+     * ASS_SOLLECITO_CLIENTE: l'AMS ha già risposto e aspetta il cliente) o il
+     * ticket è già concluso (ASS_CONCLUSO / CLI_RISOLTO), non richiede azione e
+     * non compare nel promemoria.
+     */
+    private boolean richiedeAzioneAms(String ultimoStato) {
+        if (ultimoStato == null) return true; // nessuna comunicazione ancora -> va preso in carico
+        switch (ultimoStato) {
+            case TicketComment.STATO_CLI_ATTESA_ASSISTENZA:
+            case TicketComment.STATO_CLI_SOLLECITO_ASSISTENZA:
+            case TicketComment.STATO_CLI_RICHIESTA_CHIUSURA:
+            case TicketComment.STATO_CLI_RICHIESTA_CANCELLAZIONE:
+                return true;
+            default:
+                return false;
+        }
+    }
 
     private List<Ticket> filtraClientiAbilitatiEPendenti(List<Ticket> tickets) {
         if (tickets == null || tickets.isEmpty()) return new ArrayList<>();

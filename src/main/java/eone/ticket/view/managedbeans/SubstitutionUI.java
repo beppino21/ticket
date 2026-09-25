@@ -207,9 +207,9 @@ public class SubstitutionUI extends PageBean implements Serializable {
         }
     }
 
-    /** CLO (Chiuso) e RES (Risolto) — non da gestire, esclusi dall'elenco inviato al sostituto. */
+    /** CLO (Chiuso), RES (Risolto) e REF (Rifiutato) — non da gestire, esclusi dall'elenco inviato al sostituto. */
     private static boolean isNonGestibile(String rstat) {
-        return "CLO".equalsIgnoreCase(rstat) || "RES".equalsIgnoreCase(rstat);
+        return "CLO".equalsIgnoreCase(rstat) || "RES".equalsIgnoreCase(rstat) || "REF".equalsIgnoreCase(rstat);
     }
 
     private static String nn(String s) { return s != null ? s : ""; }

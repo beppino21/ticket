@@ -39,7 +39,7 @@ public class TicketSummary implements Serializable {
     private final List<StatoCount> voci = new ArrayList<>();
 
     /** Stati SAP considerati "conclusi" — esclusi da "Ticket attivi" e sempre in fondo alla lista delle voci. */
-    private static final List<String> STATI_CONCLUSI = java.util.Arrays.asList("RES", "CLO", "CAN");
+    private static final List<String> STATI_CONCLUSI = java.util.Arrays.asList("RES", "CLO", "CAN", "REF");
 
     public static TicketSummary build(List<Ticket> tickets, int draftCount) {
         return build(tickets, draftCount, 0);
