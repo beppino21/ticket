@@ -199,8 +199,11 @@ CREATE TABLE IF NOT EXISTS ticket_draft (
     id_user     VARCHAR(20)     NOT NULL REFERENCES ticket_user(id_user),
     titolo      VARCHAR(255)    NOT NULL,
     stato       VARCHAR(10)     NOT NULL DEFAULT 'DRAFT'
-                                CHECK (stato IN ('DRAFT', 'MERGED')),
+                                CHECK (stato IN ('DRAFT', 'MERGED', 'SOSPESO')),
     tickt_sap   VARCHAR(20),    -- valorizzato dal DISPATCHER alla fusione
+    sospeso_da      VARCHAR(20),    -- id_user di chi ha sospeso (DISPATCHER o RICHIEDENTE)
+    sospeso_motivo  VARCHAR(500),   -- motivo libero, opzionale
+    sospeso_at      TIMESTAMP,      -- data/ora della sospensione
     created_at  TIMESTAMP       NOT NULL DEFAULT NOW(),
     updated_at  TIMESTAMP       NOT NULL DEFAULT NOW()
 );
@@ -213,6 +216,10 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ticket_draft TO ticket_app;
 GRANT USAGE, SELECT ON SEQUENCE ticket_draft_id_seq TO ticket_app;
 
 COMMENT ON TABLE ticket_draft IS 'Ticket locali creati dal cliente via WebApp, non ancora fusi in SAP dal DISPATCHER';
+COMMENT ON COLUMN ticket_draft.stato IS 'DRAFT = in attesa di smistamento; MERGED = fuso nel ticket SAP (tickt_sap); SOSPESO = parcheggiato da DISPATCHER o RICHIEDENTE, non convertito in ticket, escluso dai DRAFT attivi';
+COMMENT ON COLUMN ticket_draft.sospeso_da IS 'id_user di chi ha sospeso il draft (DISPATCHER o RICHIEDENTE)';
+COMMENT ON COLUMN ticket_draft.sospeso_motivo IS 'Motivo libero della sospensione, opzionale';
+COMMENT ON COLUMN ticket_draft.sospeso_at IS 'Data/ora della sospensione';
 
 
 -- =====================================================================

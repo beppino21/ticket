@@ -10,6 +10,10 @@
 <t:button id="g_18" actionListener="#{d.TicketListUI.refreshTickets}" text="Aggiorna" width="80" />
 <t:coldistance id="g_3cd3" rendered="#{d.TicketListUI.selectedDraftEliminabile}" width="8" />
 <t:button id="g_19d" actionListener="#{d.TicketListUI.onEliminaDraft}" rendered="#{d.TicketListUI.selectedDraftEliminabile}" text="Elimina DRAFT" width="110" />
+<t:coldistance id="g_3cd4" rendered="#{d.TicketListUI.selectedDraftSospendibile}" width="8" />
+<t:button id="g_19s" actionListener="#{d.TicketListUI.onSospendiDraft}" rendered="#{d.TicketListUI.selectedDraftSospendibile}" text="Sospendi DRAFT" width="120" />
+<t:coldistance id="g_3cd5" rendered="#{d.TicketListUI.selectedDraftRiattivabile}" width="8" />
+<t:button id="g_19r" actionListener="#{d.TicketListUI.onRiattivaDraft}" rendered="#{d.TicketListUI.selectedDraftRiattivabile}" text="Riattiva DRAFT" width="120" />
 <t:coldistance id="g_3cd2" width="8" />
 <t:button id="g_19" actionListener="#{d.TicketListUI.logout}" text="Logout" width="80" />
 </t:rowheader>

@@ -436,6 +436,87 @@ public class MailService {
     }
 
     /**
+     * Notifica la sospensione ("parcheggio") di un DRAFT — inviata alla
+     * controparte rispetto a chi ha effettuato l'operazione: se sospende il
+     * DISPATCHER, avvisato il richiedente; se sospende il RICHIEDENTE,
+     * avvisati i DISPATCHER attivi. Stesso schema di sendNotificaDraftEliminato.
+     */
+    public void sendNotificaDraftSospeso(String toEmail, String tickt, String titolo, String sospesoDaLabel, String motivo) {
+        if (toEmail == null || toEmail.trim().isEmpty()) {
+            System.out.println("[MailService] Notifica sospensione DRAFT saltata: destinatario vuoto (tickt=" + tickt + ")");
+            return;
+        }
+
+        String subject = "DRAFT " + nn(tickt) + " sospeso";
+        StringBuilder sb = new StringBuilder();
+        sb.append("Il DRAFT ").append(nn(tickt));
+        if (titolo != null && !titolo.trim().isEmpty()) sb.append(" (\"").append(titolo.trim()).append("\")");
+        sb.append(" è stato sospeso");
+        if (sospesoDaLabel != null && !sospesoDaLabel.trim().isEmpty()) sb.append(" da ").append(sospesoDaLabel.trim());
+        sb.append(".\n");
+        sb.append("Non è più tra i ticket aperti né conteggiato come DRAFT — resta consultabile tra i ticket conclusi (Archivio).\n");
+        if (motivo != null && !motivo.trim().isEmpty()) {
+            sb.append("Motivo indicato: ").append(motivo.trim()).append("\n");
+        }
+        String body = sb.toString();
+
+        if (isDryRun()) {
+            System.out.println("========== [MailService] DRY-RUN — notifica sospensione DRAFT non inviata ==========");
+            System.out.println("To:      " + toEmail);
+            System.out.println("Subject: " + subject);
+            System.out.println("Body:\n" + body);
+            System.out.println("==================================================================");
+            return;
+        }
+
+        try {
+            send(toEmail, subject, body, null);
+            System.out.println("[MailService] Notifica sospensione DRAFT inviata a " + toEmail + " per " + tickt);
+        } catch (Exception e) {
+            System.err.println("[MailService] Errore invio notifica sospensione DRAFT a " + toEmail + ": " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Notifica la riattivazione di un DRAFT precedentemente sospeso — torna
+     * DRAFT attivo, di nuovo tra i ticket aperti. Stessa logica di
+     * destinatari di sendNotificaDraftSospeso.
+     */
+    public void sendNotificaDraftRiattivato(String toEmail, String tickt, String titolo, String riattivatoDaLabel) {
+        if (toEmail == null || toEmail.trim().isEmpty()) {
+            System.out.println("[MailService] Notifica riattivazione DRAFT saltata: destinatario vuoto (tickt=" + tickt + ")");
+            return;
+        }
+
+        String subject = "DRAFT " + nn(tickt) + " riattivato";
+        StringBuilder sb = new StringBuilder();
+        sb.append("Il DRAFT ").append(nn(tickt));
+        if (titolo != null && !titolo.trim().isEmpty()) sb.append(" (\"").append(titolo.trim()).append("\")");
+        sb.append(" è stato riattivato");
+        if (riattivatoDaLabel != null && !riattivatoDaLabel.trim().isEmpty()) sb.append(" da ").append(riattivatoDaLabel.trim());
+        sb.append(" ed è di nuovo tra i ticket aperti in attesa di smistamento.\n");
+        String body = sb.toString();
+
+        if (isDryRun()) {
+            System.out.println("========== [MailService] DRY-RUN — notifica riattivazione DRAFT non inviata ==========");
+            System.out.println("To:      " + toEmail);
+            System.out.println("Subject: " + subject);
+            System.out.println("Body:\n" + body);
+            System.out.println("==================================================================");
+            return;
+        }
+
+        try {
+            send(toEmail, subject, body, null);
+            System.out.println("[MailService] Notifica riattivazione DRAFT inviata a " + toEmail + " per " + tickt);
+        } catch (Exception e) {
+            System.err.println("[MailService] Errore invio notifica riattivazione DRAFT a " + toEmail + ": " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
      * Notifica che un ticket è ora disponibile sul portale web — inviata al
      * momento della fusione DRAFT → ticket SAP. Distinta e complementare
      * alla comunicazione che parte dal backend SAP (Newton): quella non

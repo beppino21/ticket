@@ -107,9 +107,13 @@ public class TicketDraftService {
     // LISTA DRAFT PER CLIENTE
     // =========================
 
-    /** Tutti i DRAFT del richiedente (kunnr+reqid), inclusi i MERGED. */
+    /** Colonne comuni a tutte le SELECT di questo service — un solo posto da aggiornare. */
+    private static final String COLONNE = "id, kunnr, reqid, id_user, titolo, stato, tickt_sap, " +
+                                           "sospeso_da, sospeso_motivo, sospeso_at, created_at, updated_at";
+
+    /** Tutti i DRAFT del richiedente (kunnr+reqid), inclusi i MERGED e i SOSPESI. */
     public List<TicketDraft> getDraftsByRequester(String kunnr, String reqid) throws SQLException {
-        String sql = "SELECT id, kunnr, reqid, id_user, titolo, stato, tickt_sap, created_at, updated_at " +
+        String sql = "SELECT " + COLONNE + " " +
                      "FROM ticket_draft WHERE kunnr = ? AND reqid = ? " +
                      "ORDER BY created_at DESC";
 
@@ -127,7 +131,7 @@ public class TicketDraftService {
             if (i > 0) placeholders.append(",");
             placeholders.append("?");
         }
-        String sql = "SELECT id, kunnr, reqid, id_user, titolo, stato, tickt_sap, created_at, updated_at " +
+        String sql = "SELECT " + COLONNE + " " +
                      "FROM ticket_draft WHERE kunnr = ? AND reqid IN (" + placeholders + ") " +
                      "ORDER BY created_at DESC";
         List<String> params = new ArrayList<>();
@@ -148,7 +152,7 @@ public class TicketDraftService {
             if (i > 0) placeholders.append(",");
             placeholders.append("?");
         }
-        String sql = "SELECT id, kunnr, reqid, id_user, titolo, stato, tickt_sap, created_at, updated_at " +
+        String sql = "SELECT " + COLONNE + " " +
                      "FROM ticket_draft WHERE id IN (" + placeholders + ") AND stato = 'DRAFT' " +
                      "ORDER BY created_at DESC";
         try (Connection con = DBConfig.getConnection();
@@ -162,7 +166,7 @@ public class TicketDraftService {
 
     /** Solo i DRAFT in stato DRAFT — per il DISPATCHER. */
     public List<TicketDraft> getPendingDrafts() throws SQLException {
-        String sql = "SELECT id, kunnr, reqid, id_user, titolo, stato, tickt_sap, created_at, updated_at " +
+        String sql = "SELECT " + COLONNE + " " +
                      "FROM ticket_draft WHERE stato = 'DRAFT' " +
                      "ORDER BY created_at ASC"; // ordine cronologico: prima i più vecchi
 
@@ -170,6 +174,134 @@ public class TicketDraftService {
              PreparedStatement ps = con.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             return mapRows(rs);
+        }
+    }
+
+    // =========================
+    // SOSPENSIONE DRAFT ("parcheggio")
+    // =========================
+
+    /** Tutti i DRAFT SOSPESI — per il DISPATCHER (vista Archivio / storico smistamento). */
+    public List<TicketDraft> getAllSospesi() throws SQLException {
+        String sql = "SELECT " + COLONNE + " " +
+                     "FROM ticket_draft WHERE stato = 'SOSPESO' " +
+                     "ORDER BY sospeso_at DESC";
+        try (Connection con = DBConfig.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            return mapRows(rs);
+        }
+    }
+
+    /** I DRAFT SOSPESI del richiedente (kunnr+reqid) — per il CLIENTE (vista Archivio). */
+    public List<TicketDraft> getSospesiByRequester(String kunnr, String reqid) throws SQLException {
+        String sql = "SELECT " + COLONNE + " " +
+                     "FROM ticket_draft WHERE kunnr = ? AND reqid = ? AND stato = 'SOSPESO' " +
+                     "ORDER BY sospeso_at DESC";
+        return queryList(sql, kunnr, reqid);
+    }
+
+    /** Come sopra, ma per più reqid — usato quando ci sono sostituzioni attive. */
+    public List<TicketDraft> getSospesiByRequesters(String kunnr, List<String> reqids) throws SQLException {
+        if (reqids == null || reqids.isEmpty()) return new ArrayList<>();
+        StringBuilder placeholders = new StringBuilder();
+        for (int i = 0; i < reqids.size(); i++) {
+            if (i > 0) placeholders.append(",");
+            placeholders.append("?");
+        }
+        String sql = "SELECT " + COLONNE + " " +
+                     "FROM ticket_draft WHERE kunnr = ? AND reqid IN (" + placeholders + ") AND stato = 'SOSPESO' " +
+                     "ORDER BY sospeso_at DESC";
+        List<String> params = new ArrayList<>();
+        params.add(kunnr);
+        params.addAll(reqids);
+        return queryList(sql, params.toArray(new String[0]));
+    }
+
+    /**
+     * Sospende ("parcheggia") un DRAFT ancora in stato DRAFT: esce dalla
+     * lista operativa e dal conteggio DRAFT, resta visibile in Archivio.
+     * Richiamabile sia dal RICHIEDENTE (passando kunnr/reqid per il
+     * controllo di ownership, come {@link #deleteDraft}) sia dal DISPATCHER
+     * (kunnrCheck/reqidCheck = null, nessun controllo di ownership — può
+     * sospendere qualsiasi DRAFT in attesa).
+     * @return il draft aggiornato (utile per notificare l'altra parte), o
+     *         null se non trovato, non più in stato DRAFT, o non di
+     *         competenza del richiedente indicato.
+     */
+    public TicketDraft sospendi(long draftId, String actorId, String motivo,
+                                 String kunnrCheck, String reqidCheck) throws SQLException {
+        return cambiaStatoSospensione(draftId, TicketDraft.STATO_DRAFT, TicketDraft.STATO_SOSPESO,
+                                       actorId, motivo, kunnrCheck, reqidCheck, true);
+    }
+
+    /**
+     * Riattiva un DRAFT SOSPESO, riportandolo DRAFT attivo (torna nella
+     * lista operativa). Stessa logica di autorizzazione di {@link #sospendi}.
+     */
+    public TicketDraft riattiva(long draftId, String actorId,
+                                 String kunnrCheck, String reqidCheck) throws SQLException {
+        return cambiaStatoSospensione(draftId, TicketDraft.STATO_SOSPESO, TicketDraft.STATO_DRAFT,
+                                       actorId, null, kunnrCheck, reqidCheck, false);
+    }
+
+    private TicketDraft cambiaStatoSospensione(long draftId, String statoAtteso, String statoNuovo,
+                                                String actorId, String motivo,
+                                                String kunnrCheck, String reqidCheck,
+                                                boolean impostaCampiSospensione) throws SQLException {
+        try (Connection con = DBConfig.getConnection()) {
+            con.setAutoCommit(false);
+            try {
+                TicketDraft draft = null;
+                String sqlSelect = "SELECT " + COLONNE + " FROM ticket_draft WHERE id = ? FOR UPDATE";
+                try (PreparedStatement ps = con.prepareStatement(sqlSelect)) {
+                    ps.setLong(1, draftId);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) draft = mapRow(rs);
+                    }
+                }
+                if (draft == null || !statoAtteso.equals(draft.getStato())) {
+                    con.rollback();
+                    return null;
+                }
+                if (kunnrCheck != null &&
+                        (!kunnrCheck.equals(draft.getKunnr()) || !java.util.Objects.equals(reqidCheck, draft.getReqid()))) {
+                    con.rollback();
+                    return null;
+                }
+
+                String sqlUpdate = impostaCampiSospensione
+                    ? "UPDATE ticket_draft SET stato=?, sospeso_da=?, sospeso_motivo=?, sospeso_at=NOW(), updated_at=NOW() WHERE id=?"
+                    : "UPDATE ticket_draft SET stato=?, sospeso_da=NULL, sospeso_motivo=NULL, sospeso_at=NULL, updated_at=NOW() WHERE id=?";
+                try (PreparedStatement ps = con.prepareStatement(sqlUpdate)) {
+                    int idx = 1;
+                    ps.setString(idx++, statoNuovo);
+                    if (impostaCampiSospensione) {
+                        ps.setString(idx++, actorId);
+                        ps.setString(idx++, motivo);
+                    }
+                    ps.setLong(idx, draftId);
+                    ps.executeUpdate();
+                }
+                con.commit();
+
+                draft.setStato(statoNuovo);
+                if (impostaCampiSospensione) {
+                    draft.setSospesoDa(actorId);
+                    draft.setSospesoMotivo(motivo);
+                    draft.setSospesoAt(java.time.LocalDateTime.now());
+                } else {
+                    draft.setSospesoDa(null);
+                    draft.setSospesoMotivo(null);
+                    draft.setSospesoAt(null);
+                }
+                return draft;
+            } catch (SQLException e) {
+                con.rollback();
+                throw e;
+            } finally {
+                con.setAutoCommit(true);
+            }
         }
     }
 
@@ -270,22 +402,29 @@ public class TicketDraftService {
 
     private List<TicketDraft> mapRows(ResultSet rs) throws SQLException {
         List<TicketDraft> list = new ArrayList<>();
-        while (rs.next()) {
-            TicketDraft d = new TicketDraft();
-            d.setId     (rs.getLong  ("id"));
-            d.setKunnr  (rs.getString("kunnr"));
-            d.setReqid  (rs.getString("reqid"));
-            d.setIdUser (rs.getString("id_user"));
-            d.setTitolo (rs.getString("titolo"));
-            d.setStato  (rs.getString("stato"));
-            d.setTicktSap(rs.getString("tickt_sap"));
-            Timestamp cat = rs.getTimestamp("created_at");
-            if (cat != null) d.setCreatedAt(cat.toLocalDateTime());
-            Timestamp uat = rs.getTimestamp("updated_at");
-            if (uat != null) d.setUpdatedAt(uat.toLocalDateTime());
-            list.add(d);
-        }
+        while (rs.next()) list.add(mapRow(rs));
         return list;
+    }
+
+    /** Mappa la riga CORRENTE di un ResultSet posizionato su una query con le colonne di {@link #COLONNE}. */
+    private TicketDraft mapRow(ResultSet rs) throws SQLException {
+        TicketDraft d = new TicketDraft();
+        d.setId     (rs.getLong  ("id"));
+        d.setKunnr  (rs.getString("kunnr"));
+        d.setReqid  (rs.getString("reqid"));
+        d.setIdUser (rs.getString("id_user"));
+        d.setTitolo (rs.getString("titolo"));
+        d.setStato  (rs.getString("stato"));
+        d.setTicktSap(rs.getString("tickt_sap"));
+        d.setSospesoDa    (rs.getString("sospeso_da"));
+        d.setSospesoMotivo(rs.getString("sospeso_motivo"));
+        Timestamp sat = rs.getTimestamp("sospeso_at");
+        if (sat != null) d.setSospesoAt(sat.toLocalDateTime());
+        Timestamp cat = rs.getTimestamp("created_at");
+        if (cat != null) d.setCreatedAt(cat.toLocalDateTime());
+        Timestamp uat = rs.getTimestamp("updated_at");
+        if (uat != null) d.setUpdatedAt(uat.toLocalDateTime());
+        return d;
     }
 
     /**
@@ -308,8 +447,7 @@ public class TicketDraftService {
 
         // Legge il DRAFT
         TicketDraft draft = null;
-        String sqlDraft = "SELECT id, kunnr, reqid, id_user, titolo, stato, tickt_sap, " +
-                          "created_at, updated_at FROM ticket_draft WHERE id = ?";
+        String sqlDraft = "SELECT " + COLONNE + " FROM ticket_draft WHERE id = ?";
         try (Connection con = DBConfig.getConnection();
              PreparedStatement ps = con.prepareStatement(sqlDraft)) {
             ps.setLong(1, draftId);

@@ -46,6 +46,8 @@ public class DispatcherUI extends WorkpageDispatchedPageBean implements Serializ
     private String         m_ticktSapInput;
     private boolean        m_waitingConfirm = false;
     private java.util.List<String> m_mergeWarnings = new java.util.ArrayList<>();
+    /** false = elenco DRAFT in attesa di smistamento; true = elenco DRAFT sospesi (parcheggiati). */
+    private boolean        m_mostraSospesi = false;
 
     /** Wrapper per t:repeat — espone il testo del warning come proprietà */
     public class WarningItem implements Serializable {
@@ -90,6 +92,10 @@ public class DispatcherUI extends WorkpageDispatchedPageBean implements Serializ
         }
         public String getTitolo()      { return nn(draft.getTitolo()); }
         public String getCreatedAt()   { return draft.getCreatedAtFormatted(); }
+        public boolean isSospeso()     { return draft.isSospeso(); }
+        public String getSospesoDa()   { return nn(draft.getSospesoDa()); }
+        public String getSospesoMotivo() { return nn(draft.getSospesoMotivo()); }
+        public String getSospesoAt()   { return draft.getSospesoAtFormatted(); }
 
         public String getRowBackground() {
             return (m_selectedItem != null && m_selectedItem.getId() == draft.getId())
@@ -130,11 +136,15 @@ public class DispatcherUI extends WorkpageDispatchedPageBean implements Serializ
         m_waitingConfirm   = false;
         m_mergeWarnings.clear();
         try {
-            List<TicketDraft> list = draftService.getPendingDrafts();
+            List<TicketDraft> list = m_mostraSospesi
+                    ? draftService.getAllSospesi()
+                    : draftService.getPendingDrafts();
             for (TicketDraft d : list) {
                 m_gridDrafts.getItems().add(new GridDraftItem(d));
             }
-            Statusbar.outputSuccess(list.size() + " ticket DRAFT in attesa di smistamento");
+            Statusbar.outputSuccess(m_mostraSospesi
+                    ? list.size() + " ticket DRAFT sospesi"
+                    : list.size() + " ticket DRAFT in attesa di smistamento");
         } catch (Exception e) {
             Statusbar.outputError("Errore caricamento DRAFT: " + e.getMessage());
             System.err.println("[DispatcherUI] Errore loadDrafts: " + e.getMessage());
@@ -240,6 +250,145 @@ public class DispatcherUI extends WorkpageDispatchedPageBean implements Serializ
         m_waitingConfirm   = false;
         m_mergeWarnings.clear();
         Statusbar.outputSuccess("Fusione annullata.");
+    }
+
+    /** Passa dall'elenco "in attesa di smistamento" all'elenco "sospesi" e viceversa. */
+    public void toggleMostraSospesi(ActionEvent ae) {
+        m_mostraSospesi = !m_mostraSospesi;
+        loadDrafts();
+    }
+
+    /** Sospende (parcheggia) il DRAFT selezionato — il DISPATCHER può farlo su qualsiasi DRAFT in attesa. */
+    public void sospendiDraft(ActionEvent ae) {
+        // Guardia basata sullo stato REALE del draft selezionato (non sul
+        // semplice toggle di vista m_mostraSospesi), per non dipendere da
+        // eventuali refresh parziali della UI che potrebbero disallineare
+        // i due — vedi anche i getter getSelectedIsAttivo/getSelectedIsSospeso.
+        if (m_selectedItem == null || m_selectedItem.isSospeso()) {
+            Statusbar.outputWarning("Selezionare un ticket DRAFT in attesa di smistamento");
+            return;
+        }
+        long draftId    = m_selectedItem.getId();
+        String ticktKey = m_selectedItem.getTicktKey();
+        String titolo   = m_selectedItem.getTitolo();
+        String kunnr    = m_selectedItem.getKunnr();
+        String reqid    = m_selectedItem.getReqid();
+        String actorId  = eone.ticket.context.ViewSessionContext.instance().getUsername();
+        try {
+            TicketDraft aggiornato = draftService.sospendi(draftId, actorId, null, null, null);
+            if (aggiornato != null) {
+                Statusbar.outputSuccess("DRAFT " + ticktKey + " sospeso");
+                inviaNotificaDraftSospesoARichiedente(ticktKey, titolo, kunnr, reqid, actorId);
+                loadDrafts();
+            } else {
+                Statusbar.outputError("Impossibile sospendere: il DRAFT non esiste più o è già stato fuso in SAP.");
+            }
+        } catch (Exception e) {
+            Statusbar.outputError("Errore sospensione DRAFT: " + e.getMessage());
+            System.err.println("[DispatcherUI] Errore sospendiDraft: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Pulsante unico Sospendi/Riattiva: etichetta e azione dipendono dallo
+     * stato del draft selezionato. Introdotto per sostituire due righe XML
+     * a "rendered" alternata (una per "Sospendi", una per "Riattiva") che,
+     * in questo ambiente CaptainCasa, si sono dimostrate inaffidabili sotto
+     * refresh parziale — comparivano entrambe insieme invece di alternarsi.
+     * Un solo componente sempre presente, con testo/azione calcolati qui in
+     * Java, non lascia margine per quel tipo di DOM residuo.
+     */
+    public String getToggleSospendiRiattivaLabel() {
+        return (m_selectedItem != null && m_selectedItem.isSospeso()) ? "Riattiva DRAFT" : "Sospendi DRAFT";
+    }
+
+    public void toggleSospendiRiattiva(ActionEvent ae) {
+        if (m_selectedItem == null) {
+            Statusbar.outputWarning("Selezionare un ticket DRAFT dalla lista");
+            return;
+        }
+        if (m_selectedItem.isSospeso()) {
+            riattivaDraft(ae);
+        } else {
+            sospendiDraft(ae);
+        }
+    }
+
+    /** Riattiva il DRAFT sospeso selezionato — torna tra i DRAFT in attesa di smistamento. */
+    public void riattivaDraft(ActionEvent ae) {
+        if (m_selectedItem == null || !m_selectedItem.isSospeso()) {
+            Statusbar.outputWarning("Selezionare un ticket DRAFT sospeso");
+            return;
+        }
+        long draftId    = m_selectedItem.getId();
+        String ticktKey = m_selectedItem.getTicktKey();
+        String titolo   = m_selectedItem.getTitolo();
+        String kunnr    = m_selectedItem.getKunnr();
+        String reqid    = m_selectedItem.getReqid();
+        String actorId  = eone.ticket.context.ViewSessionContext.instance().getUsername();
+        try {
+            TicketDraft aggiornato = draftService.riattiva(draftId, actorId, null, null);
+            if (aggiornato != null) {
+                Statusbar.outputSuccess("DRAFT " + ticktKey + " riattivato");
+                inviaNotificaDraftRiattivatoARichiedente(ticktKey, titolo, kunnr, reqid, actorId);
+                loadDrafts();
+            } else {
+                Statusbar.outputError("Impossibile riattivare: il DRAFT non esiste più o non risulta sospeso.");
+            }
+        } catch (Exception e) {
+            Statusbar.outputError("Errore riattivazione DRAFT: " + e.getMessage());
+            System.err.println("[DispatcherUI] Errore riattivaDraft: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /** Notifica al RICHIEDENTE (o referente, se impostato) che il DISPATCHER ha sospeso il suo DRAFT. */
+    private void inviaNotificaDraftSospesoARichiedente(String ticktKey, String titolo, String kunnr, String reqid, String actorId) {
+        if (kunnr == null || kunnr.trim().isEmpty() || reqid == null || reqid.trim().isEmpty()) return;
+        try {
+            RequesterInfo richiedente = requesterService.getByKunnrReqid(kunnr, reqid);
+            if (richiedente != null && richiedente.getEmail() != null && !richiedente.getEmail().trim().isEmpty()) {
+                mailService.sendNotificaDraftSospeso(richiedente.getEmail(), ticktKey, titolo, actorId, null);
+            }
+        } catch (Exception e) {
+            System.err.println("[DispatcherUI] Errore invio notifica sospensione a richiedente: " + e.getMessage());
+        }
+        try {
+            String reqidReferente = referenteService.getReferente(ticktKey);
+            if (reqidReferente != null && !reqidReferente.trim().isEmpty()) {
+                RequesterInfo referente = requesterService.getReferenteInfo(kunnr, reqidReferente);
+                if (referente != null && referente.getEmail() != null && !referente.getEmail().trim().isEmpty()) {
+                    mailService.sendNotificaDraftSospeso(referente.getEmail(), ticktKey, titolo, actorId, null);
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[DispatcherUI] Errore invio notifica sospensione a referente: " + e.getMessage());
+        }
+    }
+
+    /** Notifica al RICHIEDENTE (o referente, se impostato) che il DISPATCHER ha riattivato il suo DRAFT. */
+    private void inviaNotificaDraftRiattivatoARichiedente(String ticktKey, String titolo, String kunnr, String reqid, String actorId) {
+        if (kunnr == null || kunnr.trim().isEmpty() || reqid == null || reqid.trim().isEmpty()) return;
+        try {
+            RequesterInfo richiedente = requesterService.getByKunnrReqid(kunnr, reqid);
+            if (richiedente != null && richiedente.getEmail() != null && !richiedente.getEmail().trim().isEmpty()) {
+                mailService.sendNotificaDraftRiattivato(richiedente.getEmail(), ticktKey, titolo, actorId);
+            }
+        } catch (Exception e) {
+            System.err.println("[DispatcherUI] Errore invio notifica riattivazione a richiedente: " + e.getMessage());
+        }
+        try {
+            String reqidReferente = referenteService.getReferente(ticktKey);
+            if (reqidReferente != null && !reqidReferente.trim().isEmpty()) {
+                RequesterInfo referente = requesterService.getReferenteInfo(kunnr, reqidReferente);
+                if (referente != null && referente.getEmail() != null && !referente.getEmail().trim().isEmpty()) {
+                    mailService.sendNotificaDraftRiattivato(referente.getEmail(), ticktKey, titolo, actorId);
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[DispatcherUI] Errore invio notifica riattivazione a referente: " + e.getMessage());
+        }
     }
 
     private void eseguiFusione(long draftId, String ticktSap) throws Exception {
@@ -374,4 +523,16 @@ public class DispatcherUI extends WorkpageDispatchedPageBean implements Serializ
     public void setTicktSapInput(String v)    { this.m_ticktSapInput = v; }
 
     public int getDraftCount() { return m_gridDrafts.getItems().size(); }
+
+    public boolean getMostraSospesi()    { return m_mostraSospesi; }
+    public String  getToggleSospesiLabel() { return m_mostraSospesi ? "Torna ai DRAFT in attesa" : "Mostra DRAFT sospesi"; }
+
+    /**
+     * Condizioni per il pannello destro, basate sullo stato REALE del draft
+     * selezionato (draft.isSospeso()) e non sul toggle di vista
+     * m_mostraSospesi, così restano coerenti anche se cambia solo la
+     * selezione in griglia senza un giro completo di pagina.
+     */
+    public boolean getShowCampoSap() { return m_selectedItem != null && !m_selectedItem.isSospeso(); }
+    public boolean getShowMerge()    { return m_selectedItem != null && !m_selectedItem.isSospeso() && !m_waitingConfirm; }
 }

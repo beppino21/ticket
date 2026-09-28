@@ -8,6 +8,8 @@
 <t:coldistance id="dp_hcd" width="100%" />
 <t:label id="dp_count" font="weight:bold" text="#{d.DispatcherUI.draftCount} ticket in attesa" />
 <t:coldistance id="dp_hcd2" width="12" />
+<t:button id="dp_toggle_sospesi" actionListener="#{d.DispatcherUI.toggleMostraSospesi}" text="#{d.DispatcherUI.toggleSospesiLabel}" width="150" />
+<t:coldistance id="dp_hcd3" width="12" />
 <t:button id="dp_ref" actionListener="#{d.DispatcherUI.refresh}" text="Aggiorna" width="80" />
 </t:rowheader>
 <t:rowbodypane id="dp_body" >
@@ -15,7 +17,7 @@
 <t:splitpane id="dp_split" dividerlocation="60%" height="100%" orientation="horizontal" width="100%" >
 <t:splitpanesplit id="dp_left" padding="8" >
 <t:row id="dp_lt" >
-<t:label id="dp_ltl" font="weight:bold;color:#1565C0" text="Ticket DRAFT in attesa" />
+<t:label id="dp_ltl" font="weight:bold;color:#1565C0" text="#{d.DispatcherUI.mostraSospesi ? 'Ticket DRAFT sospesi' : 'Ticket DRAFT in attesa'}" />
 </t:row>
 <t:rowdistance id="dp_ld" height="6" />
 <t:row id="dp_lg" >
@@ -37,6 +39,12 @@
 </t:gridcol>
 <t:gridcol id="dp_gc4" text="Titolo" width="100%" >
 <t:label id="dp_gl4" background=".{rowBackground}" text=".{titolo}" />
+</t:gridcol>
+<t:gridcol id="dp_gc5" rendered="#{d.DispatcherUI.mostraSospesi}" text="Sospeso da" width="140" >
+<t:label id="dp_gl5" background=".{rowBackground}" text=".{sospesoDa}" />
+</t:gridcol>
+<t:gridcol id="dp_gc6" rendered="#{d.DispatcherUI.mostraSospesi}" text="Il" width="120" >
+<t:label id="dp_gl6" background=".{rowBackground}" text=".{sospesoAt}" />
 </t:gridcol>
 </t:fixgrid>
 </t:row>
@@ -61,20 +69,25 @@
 <t:label id="dp_sel_usr_lbl" labeltext="Utente:" width="60" />
 <t:label id="dp_sel_usr" text="#{d.DispatcherUI.selectedIdUser}" />
 </t:row>
-<t:rowdistance id="dp_sel_d3" height="16" rendered="#{d.DispatcherUI.hasSelected}" />
-<t:row id="dp_sel_r4" coldistance="8" rendered="#{d.DispatcherUI.hasSelected}" >
+<t:rowdistance id="dp_sel_d3" height="16" rendered="#{d.DispatcherUI.showCampoSap}" />
+<t:row id="dp_sel_r4" coldistance="8" rendered="#{d.DispatcherUI.showCampoSap}" >
 <t:label id="dp_sap_lbl" font="weight:bold" labeltext="N. ticket SAP:" width="120" />
 <t:field id="dp_sap_field" flush="true" text="#{d.DispatcherUI.ticktSapInput}" width="160" />
 </t:row>
-<t:rowdistance id="dp_sel_d4" height="4" rendered="#{d.DispatcherUI.hasSelected}" />
-<t:row id="dp_sel_hint" rendered="#{d.DispatcherUI.hasSelected}" >
+<t:rowdistance id="dp_sel_d4" height="4" rendered="#{d.DispatcherUI.showCampoSap}" />
+<t:row id="dp_sel_hint" rendered="#{d.DispatcherUI.showCampoSap}" >
 <t:coldistance id="g_3" width="128" />
 <t:label id="dp_sel_hint_lbl" font="size:10;color:#888888" text="Inserire il numero ticket creato in SAP backoffice, poi confermare la fusione." />
 </t:row>
 <t:rowdistance id="dp_sel_d5" height="12" rendered="#{d.DispatcherUI.hasSelected}" />
-<t:row id="dp_sel_r5" rendered="#{d.DispatcherUI.hasSelected and d.DispatcherUI.notWaitingConfirm}" >
+<t:row id="dp_sel_r5" rendered="#{d.DispatcherUI.showMerge}" >
 <t:coldistance id="g_4" width="128" />
 <t:button id="dp_merge_btn" actionListener="#{d.DispatcherUI.mergeDraft}" text="Fondi in SAP »" width="140" />
+</t:row>
+<t:rowdistance id="dp_sel_d5b" height="8" rendered="#{d.DispatcherUI.hasSelected}" />
+<t:row id="dp_sel_r5c" rendered="#{d.DispatcherUI.hasSelected}" >
+<t:coldistance id="g_4d" width="128" />
+<t:button id="dp_sospendi_riattiva_btn" actionListener="#{d.DispatcherUI.toggleSospendiRiattiva}" text="#{d.DispatcherUI.toggleSospendiRiattivaLabel}" width="140" />
 </t:row>
 <t:row id="dp_warn_r1" rendered="#{d.DispatcherUI.waitingConfirm}" >
 <t:pane id="dp_warn_pane" border="#E53935" padding="8" width="100%" >

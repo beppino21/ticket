@@ -663,6 +663,171 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
         }
     }
 
+    /**
+     * True se il ticket attualmente selezionato è un DRAFT attivo (non
+     * ancora sospeso né fuso in SAP) e appartiene al CLIENTE loggato (o
+     * a un collega che sta attualmente sostituendo) — condizione per
+     * mostrare "Sospendi DRAFT".
+     */
+    public boolean getSelectedDraftSospendibile() {
+        if (m_selectedTicketObj == null || !"DRAFT".equals(m_selectedTicketObj.getRstat())) return false;
+        ViewSessionContext ctx = ViewSessionContext.instance();
+        if (!ctx.isCliente()) return false;
+        String reqid = m_selectedTicketObj.getReqid();
+        if (reqid == null) return false;
+        String proprioReqid = ctx.getRichiedente();
+        return reqid.equalsIgnoreCase(proprioReqid) || m_reqidSostituitiAttivi.contains(reqid.trim());
+    }
+
+    /**
+     * True se il ticket attualmente selezionato è un DRAFT SOSPESO e
+     * appartiene al CLIENTE loggato (o a un collega che sta attualmente
+     * sostituendo) — condizione per mostrare "Riattiva DRAFT" in Archivio.
+     */
+    public boolean getSelectedDraftRiattivabile() {
+        if (m_selectedTicketObj == null || !"SOSPESO".equals(m_selectedTicketObj.getRstat())) return false;
+        ViewSessionContext ctx = ViewSessionContext.instance();
+        if (!ctx.isCliente()) return false;
+        String reqid = m_selectedTicketObj.getReqid();
+        if (reqid == null) return false;
+        String proprioReqid = ctx.getRichiedente();
+        return reqid.equalsIgnoreCase(proprioReqid) || m_reqidSostituitiAttivi.contains(reqid.trim());
+    }
+
+    /** Sospende (parcheggia) il DRAFT selezionato — reversibile. */
+    public void onSospendiDraft(ActionEvent ae) {
+        if (!getSelectedDraftSospendibile()) {
+            Statusbar.outputWarning("Nessun DRAFT sospendibile selezionato");
+            return;
+        }
+        String ticktKey = m_selectedTicketObj.getTickt(); // "DRAFT-{id}"
+        String titolo   = m_selectedTicketObj.getTitle();
+        try {
+            long draftId = Long.parseLong(ticktKey.replace("DRAFT-", "").trim());
+            ViewSessionContext ctx = ViewSessionContext.instance();
+            String kunnr = ctx.getKunnr();
+            String reqid = m_selectedTicketObj.getReqid();
+            String actorId = ctx.getUsername();
+
+            String reqidReferente = null;
+            try {
+                reqidReferente = referenteService.getReferente(ticktKey);
+            } catch (Exception e) {
+                System.err.println("[TicketListUI] Errore lettura referente prima di sospendere: " + e.getMessage());
+            }
+
+            eone.ticket.model.TicketDraft aggiornato =
+                    draftService.sospendi(draftId, actorId, null, kunnr, reqid);
+            if (aggiornato != null) {
+                Statusbar.outputSuccess("DRAFT " + ticktKey + " sospeso");
+                inviaNotificaDraftSospeso(ticktKey, titolo, kunnr, reqidReferente, actorId);
+                m_selectedTicketNumber = null;
+                m_selectedTicketObj = null;
+                init(m_archivio, m_modoReferente);
+            } else {
+                Statusbar.outputError("Impossibile sospendere: il DRAFT non esiste più o è già stato fuso in SAP.");
+            }
+        } catch (Exception e) {
+            Statusbar.outputError("Errore sospensione DRAFT: " + e.getMessage());
+            System.err.println("[TicketListUI] Errore onSospendiDraft: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /** Riattiva un DRAFT precedentemente sospeso — torna tra i DRAFT attivi. */
+    public void onRiattivaDraft(ActionEvent ae) {
+        if (!getSelectedDraftRiattivabile()) {
+            Statusbar.outputWarning("Nessun DRAFT riattivabile selezionato");
+            return;
+        }
+        String ticktKey = m_selectedTicketObj.getTickt(); // "DRAFT-{id}"
+        String titolo   = m_selectedTicketObj.getTitle();
+        try {
+            long draftId = Long.parseLong(ticktKey.replace("DRAFT-", "").trim());
+            ViewSessionContext ctx = ViewSessionContext.instance();
+            String kunnr = ctx.getKunnr();
+            String reqid = m_selectedTicketObj.getReqid();
+            String actorId = ctx.getUsername();
+
+            String reqidReferente = null;
+            try {
+                reqidReferente = referenteService.getReferente(ticktKey);
+            } catch (Exception e) {
+                System.err.println("[TicketListUI] Errore lettura referente prima di riattivare: " + e.getMessage());
+            }
+
+            eone.ticket.model.TicketDraft aggiornato =
+                    draftService.riattiva(draftId, actorId, kunnr, reqid);
+            if (aggiornato != null) {
+                Statusbar.outputSuccess("DRAFT " + ticktKey + " riattivato");
+                inviaNotificaDraftRiattivato(ticktKey, titolo, kunnr, reqidReferente, actorId);
+                m_selectedTicketNumber = null;
+                m_selectedTicketObj = null;
+                init(m_archivio, m_modoReferente);
+            } else {
+                Statusbar.outputError("Impossibile riattivare: il DRAFT non esiste più o non risulta sospeso.");
+            }
+        } catch (Exception e) {
+            Statusbar.outputError("Errore riattivazione DRAFT: " + e.getMessage());
+            System.err.println("[TicketListUI] Errore onRiattivaDraft: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Notifica la sospensione di un DRAFT — ai DISPATCHER attivi e al
+     * referente indicato, se presente.
+     */
+    private void inviaNotificaDraftSospeso(String ticktKey, String titolo, String kunnr, String reqidReferente, String actorId) {
+        try {
+            List<RequesterInfo> dispatchers = requesterService.getActiveDispatchers();
+            for (RequesterInfo dispatcher : dispatchers) {
+                if (dispatcher.getEmail() == null || dispatcher.getEmail().trim().isEmpty()) continue;
+                mailService.sendNotificaDraftSospeso(dispatcher.getEmail(), ticktKey, titolo, actorId, null);
+            }
+        } catch (Exception e) {
+            System.err.println("[TicketListUI] Errore recupero DISPATCHER per notifica sospensione: " + e.getMessage());
+        }
+
+        if (reqidReferente != null && !reqidReferente.trim().isEmpty()) {
+            try {
+                RequesterInfo referente = requesterService.getReferenteInfo(kunnr, reqidReferente);
+                if (referente != null) {
+                    mailService.sendNotificaDraftSospeso(referente.getEmail(), ticktKey, titolo, actorId, null);
+                }
+            } catch (Exception e) {
+                System.err.println("[TicketListUI] Errore invio notifica sospensione a referente: " + e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Notifica la riattivazione di un DRAFT — ai DISPATCHER attivi e al
+     * referente indicato, se presente.
+     */
+    private void inviaNotificaDraftRiattivato(String ticktKey, String titolo, String kunnr, String reqidReferente, String actorId) {
+        try {
+            List<RequesterInfo> dispatchers = requesterService.getActiveDispatchers();
+            for (RequesterInfo dispatcher : dispatchers) {
+                if (dispatcher.getEmail() == null || dispatcher.getEmail().trim().isEmpty()) continue;
+                mailService.sendNotificaDraftRiattivato(dispatcher.getEmail(), ticktKey, titolo, actorId);
+            }
+        } catch (Exception e) {
+            System.err.println("[TicketListUI] Errore recupero DISPATCHER per notifica riattivazione: " + e.getMessage());
+        }
+
+        if (reqidReferente != null && !reqidReferente.trim().isEmpty()) {
+            try {
+                RequesterInfo referente = requesterService.getReferenteInfo(kunnr, reqidReferente);
+                if (referente != null) {
+                    mailService.sendNotificaDraftRiattivato(referente.getEmail(), ticktKey, titolo, actorId);
+                }
+            } catch (Exception e) {
+                System.err.println("[TicketListUI] Errore invio notifica riattivazione a referente: " + e.getMessage());
+            }
+        }
+    }
+
     public void openComments() {
         if (m_selectedTicketNumber == null || m_selectedTicketNumber.isEmpty()) {
             Statusbar.outputWarning("Selezionare un ticket dalla lista");
@@ -739,31 +904,47 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
         chiudiRichiesteRiassegnazioneSeCambiate(ticketList);
         ticketsEnriched = ticketList;
 
-        // DRAFT in cache solo per la lista operativa, non per l'archivio né
-        // per la modalità Referente (i DRAFT non hanno un Referente — sono
-        // record locali pre-fusione SAP).
+        // DRAFT in cache non per la modalità Referente (i DRAFT non hanno un
+        // Referente — sono record locali pre-fusione SAP). Nella lista
+        // operativa sono i DRAFT attivi; in Archivio sono i DRAFT SOSPESI
+        // (parcheggiati — vedi TicketDraft.STATO_SOSPESO), che qui figurano
+        // come "ticket conclusi" pur non essendo mai diventati un ticket SAP.
         draftsCache = null;
-        if (!m_archivio && !m_modoReferente) {
+        if (!m_modoReferente) {
             ViewSessionContext ctx = ViewSessionContext.instance();
-            if (ctx.isCliente() && ctx.getKunnr() != null && !ctx.getKunnr().isEmpty()) {
-                if (!m_reqidSostituitiAttivi.isEmpty()) {
-                    // Include anche i DRAFT dei colleghi attualmente sostituiti
-                    List<String> reqids = new java.util.ArrayList<>(m_reqidSostituitiAttivi);
-                    reqids.add(ctx.getRichiedente());
-                    draftsCache = buildDraftTickets(ctx.getKunnr(), reqids);
-                } else {
-                    // CLIENTE: solo i suoi DRAFT
-                    draftsCache = buildDraftTickets(ctx.getKunnr(), ctx.getRichiedente());
+            if (m_archivio) {
+                if (ctx.isCliente() && ctx.getKunnr() != null && !ctx.getKunnr().isEmpty()) {
+                    if (!m_reqidSostituitiAttivi.isEmpty()) {
+                        List<String> reqids = new java.util.ArrayList<>(m_reqidSostituitiAttivi);
+                        reqids.add(ctx.getRichiedente());
+                        draftsCache = buildSospesiDraftTickets(ctx.getKunnr(), reqids);
+                    } else {
+                        draftsCache = buildSospesiDraftTickets(ctx.getKunnr(), ctx.getRichiedente());
+                    }
+                } else if ("DISPATCHER".equalsIgnoreCase(ctx.getRuolo())) {
+                    draftsCache = buildAllSospesiDraftTickets();
                 }
-            } else if (ctx.isReferente() && ctx.getKunnr() != null && !ctx.getKunnr().isEmpty()) {
-                // REFERENTE_CLI: i DRAFT dove è stato indicato come referente
-                // (individuati via ticket_referente, non via kunnr/reqid
-                // come per un CLIENTE — un referente non "possiede" il
-                // draft, vi compare solo come referente).
-                draftsCache = buildDraftTicketsForReferente(ctx.getRichiedente());
-            } else if ("DISPATCHER".equalsIgnoreCase(ctx.getRuolo())) {
-                // DISPATCHER: tutti i DRAFT in attesa da tutti i clienti
-                draftsCache = buildAllDraftTickets();
+            } else {
+                if (ctx.isCliente() && ctx.getKunnr() != null && !ctx.getKunnr().isEmpty()) {
+                    if (!m_reqidSostituitiAttivi.isEmpty()) {
+                        // Include anche i DRAFT dei colleghi attualmente sostituiti
+                        List<String> reqids = new java.util.ArrayList<>(m_reqidSostituitiAttivi);
+                        reqids.add(ctx.getRichiedente());
+                        draftsCache = buildDraftTickets(ctx.getKunnr(), reqids);
+                    } else {
+                        // CLIENTE: solo i suoi DRAFT
+                        draftsCache = buildDraftTickets(ctx.getKunnr(), ctx.getRichiedente());
+                    }
+                } else if (ctx.isReferente() && ctx.getKunnr() != null && !ctx.getKunnr().isEmpty()) {
+                    // REFERENTE_CLI: i DRAFT dove è stato indicato come referente
+                    // (individuati via ticket_referente, non via kunnr/reqid
+                    // come per un CLIENTE — un referente non "possiede" il
+                    // draft, vi compare solo come referente).
+                    draftsCache = buildDraftTicketsForReferente(ctx.getRichiedente());
+                } else if ("DISPATCHER".equalsIgnoreCase(ctx.getRuolo())) {
+                    // DISPATCHER: tutti i DRAFT in attesa da tutti i clienti
+                    draftsCache = buildAllDraftTickets();
+                }
             }
         }
 
@@ -878,15 +1059,60 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
         return buildTicketsFromDrafts(drafts);
     }
 
+    /** I DRAFT SOSPESI del richiedente — per il CLIENTE (vista Archivio). */
+    private List<Ticket> buildSospesiDraftTickets(String kunnr, String reqid) {
+        List<TicketDraft> drafts;
+        try {
+            drafts = draftService.getSospesiByRequester(kunnr, reqid);
+        } catch (Exception e) {
+            System.err.println("[TicketListUI] Errore caricamento DRAFT sospesi: " + e.getMessage());
+            return new java.util.ArrayList<>();
+        }
+        return buildSospesiTicketsFromDrafts(drafts);
+    }
+
+    /** Come sopra, ma per più reqid — usato quando ci sono sostituzioni attive. */
+    private List<Ticket> buildSospesiDraftTickets(String kunnr, List<String> reqids) {
+        List<TicketDraft> drafts;
+        try {
+            drafts = draftService.getSospesiByRequesters(kunnr, reqids);
+        } catch (Exception e) {
+            System.err.println("[TicketListUI] Errore caricamento DRAFT sospesi (multi-reqid): " + e.getMessage());
+            return new java.util.ArrayList<>();
+        }
+        return buildSospesiTicketsFromDrafts(drafts);
+    }
+
+    /** Tutti i DRAFT SOSPESI — per il DISPATCHER (vista Archivio). */
+    private List<Ticket> buildAllSospesiDraftTickets() {
+        List<TicketDraft> drafts;
+        try {
+            drafts = draftService.getAllSospesi();
+        } catch (Exception e) {
+            System.err.println("[TicketListUI] Errore caricamento tutti i DRAFT sospesi: " + e.getMessage());
+            return new java.util.ArrayList<>();
+        }
+        return buildSospesiTicketsFromDrafts(drafts);
+    }
+
     /** Converte una lista di TicketDraft in Ticket virtuali per la grid */
     private List<Ticket> buildTicketsFromDrafts(List<TicketDraft> drafts) {
+        return buildTicketsFromDrafts(drafts, false);
+    }
+
+    /** Come sopra, ma per i DRAFT SOSPESI (rendering "DRAFT sospeso", colore dedicato). */
+    private List<Ticket> buildSospesiTicketsFromDrafts(List<TicketDraft> drafts) {
+        return buildTicketsFromDrafts(drafts, true);
+    }
+
+    private List<Ticket> buildTicketsFromDrafts(List<TicketDraft> drafts, boolean soloSospesi) {
         List<Ticket> result = new java.util.ArrayList<>();
         for (TicketDraft d : drafts) {
-            if (!d.isDraft()) continue;
+            if (soloSospesi ? !d.isSospeso() : !d.isDraft()) continue;
             Ticket t = new Ticket();
             t.setTickt (d.getTicktKey());
             t.setTitle (d.getTitolo());
-            t.setRstat ("DRAFT");
+            t.setRstat (soloSospesi ? "SOSPESO" : "DRAFT");
             t.setKunnr (stripLeadingZeros(d.getKunnr()));
             t.setReqid (d.getReqid());
             String reqidDraft = d.getReqid();
@@ -918,9 +1144,15 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
                     d.getCreatedAt().getMonthValue(),
                     d.getCreatedAt().getDayOfMonth()));
             }
-            t.setEncRstatLabel    ("DRAFT - In attesa di smistamento");
-            t.setEncRstatColor    ("#FF8F00");
-            t.setEncRstatTextColor("#FFFFFF");
+            if (soloSospesi) {
+                t.setEncRstatLabel    ("DRAFT sospeso");
+                t.setEncRstatColor    ("#7B1FA2");
+                t.setEncRstatTextColor("#FFFFFF");
+            } else {
+                t.setEncRstatLabel    ("DRAFT - In attesa di smistamento");
+                t.setEncRstatColor    ("#FF8F00");
+                t.setEncRstatTextColor("#FFFFFF");
+            }
             result.add(t);
         }
         System.out.println("[TicketListUI] DRAFT in cache: " + result.size());

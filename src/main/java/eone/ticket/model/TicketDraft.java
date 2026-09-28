@@ -15,8 +15,11 @@ public class TicketDraft implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    public static final String STATO_DRAFT  = "DRAFT";
-    public static final String STATO_MERGED = "MERGED";
+    public static final String STATO_DRAFT   = "DRAFT";
+    public static final String STATO_MERGED  = "MERGED";
+    /** Parcheggiato da DISPATCHER o RICHIEDENTE: non convertito in ticket SAP,
+     *  escluso dai DRAFT attivi, visibile tra i ticket conclusi (Archivio). */
+    public static final String STATO_SOSPESO = "SOSPESO";
 
     /** Prefisso usato come chiave in ticket_comment.tickt */
     public static String toDraftTickt(long id) { return "DRAFT-" + id; }
@@ -28,6 +31,9 @@ public class TicketDraft implements Serializable {
     private String        titolo;
     private String        stato       = STATO_DRAFT;
     private String        ticktSap;   // null finché non fuso
+    private String        sospesoDa;      // id_user di chi ha sospeso, null se non sospeso
+    private String        sospesoMotivo;  // motivo libero, opzionale
+    private LocalDateTime sospesoAt;      // null se non sospeso
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -56,14 +62,29 @@ public class TicketDraft implements Serializable {
     public String getTicktSap()                  { return ticktSap; }
     public void setTicktSap(String ticktSap)     { this.ticktSap = ticktSap; }
 
+    public String getSospesoDa()                     { return sospesoDa; }
+    public void setSospesoDa(String sospesoDa)       { this.sospesoDa = sospesoDa; }
+
+    public String getSospesoMotivo()                     { return sospesoMotivo; }
+    public void setSospesoMotivo(String sospesoMotivo)   { this.sospesoMotivo = sospesoMotivo; }
+
+    public LocalDateTime getSospesoAt()                  { return sospesoAt; }
+    public void setSospesoAt(LocalDateTime sospesoAt)    { this.sospesoAt = sospesoAt; }
+
+    public String getSospesoAtFormatted() {
+        if (sospesoAt == null) return "";
+        return sospesoAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
+    }
+
     public LocalDateTime getCreatedAt()                   { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt)     { this.createdAt = createdAt; }
 
     public LocalDateTime getUpdatedAt()                   { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt)     { this.updatedAt = updatedAt; }
 
-    public boolean isDraft()  { return STATO_DRAFT.equals(stato); }
-    public boolean isMerged() { return STATO_MERGED.equals(stato); }
+    public boolean isDraft()   { return STATO_DRAFT.equals(stato); }
+    public boolean isMerged()  { return STATO_MERGED.equals(stato); }
+    public boolean isSospeso() { return STATO_SOSPESO.equals(stato); }
 
     /** Chiave usata in ticket_comment.tickt per i commenti di questo draft */
     public String getTicktKey() { return toDraftTickt(id); }
