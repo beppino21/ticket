@@ -285,7 +285,7 @@ public class CommentUI extends PageBean implements Serializable {
 
         try {
             ViewSessionContext ctx = ViewSessionContext.instance();
-            referenteService.setReferente(m_currentTickt, reqidNuovo, ctx.getUsername(), m_notificaRichiedenteNuovo);
+            referenteService.setReferente(m_currentTickt, m_currentKunnr, reqidNuovo, ctx.getUsername(), m_notificaRichiedenteNuovo);
             m_reqidReferenteAttuale = reqidNuovo;
             Statusbar.outputSuccess("Referente aggiornato");
             m_chiusuraWaitingConfirm = false; // eventuale richiesta di conferma in corso non ha più senso

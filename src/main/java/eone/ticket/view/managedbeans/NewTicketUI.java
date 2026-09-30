@@ -182,7 +182,7 @@ public class NewTicketUI extends PageBean implements Serializable {
 
             // 1bis. Referente obbligatorio: salvato in ticket_referente,
             // riassegnabile in seguito da richiedente o referente stesso.
-            referenteService.setReferente(draft.getTicktKey(), m_reqidReferente.trim(), ctx.getUsername(), m_notificaRichiedente);
+            referenteService.setReferente(draft.getTicktKey(), ctx.getKunnr(), m_reqidReferente.trim(), ctx.getUsername(), m_notificaRichiedente);
 
             // Notifica il referente della prima attribuzione — solo
             // informativa, nessun "precedente referente" perché il ticket

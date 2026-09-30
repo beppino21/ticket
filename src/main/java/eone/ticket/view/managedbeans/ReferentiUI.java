@@ -375,7 +375,7 @@ public class ReferentiUI extends PageBean implements Serializable {
 
         if (!m_formIdUser.equals(m_eliminaWaitingConfirmIdUser)) {
             try {
-                int attivi = adminService.contaTicketAttiviReferente(m_formIdUser, referenteService);
+                int attivi = adminService.contaTicketAttiviReferente(m_kunnrAmministrato, m_formIdUser, referenteService);
                 if (attivi > 0) {
                     Statusbar.outputError("Impossibile eliminare: è ancora referente su " + attivi +
                         " ticket. Riassegnali prima di procedere.");
@@ -392,7 +392,7 @@ public class ReferentiUI extends PageBean implements Serializable {
         }
 
         try {
-            int attivi = adminService.deleteReferente(m_formIdUser, m_formIdUser, referenteService);
+            int attivi = adminService.deleteReferente(m_formIdUser, m_kunnrAmministrato, m_formIdUser, referenteService);
             if (attivi > 0) {
                 Statusbar.outputError("Eliminazione annullata: sono comparse " + attivi + " assegnazioni nel frattempo.");
             } else {

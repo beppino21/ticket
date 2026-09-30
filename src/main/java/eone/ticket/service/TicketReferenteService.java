@@ -27,14 +27,22 @@ public class TicketReferenteService {
      * assegnato come referente — usato da TicketListUI per allargare la
      * vista "i miei ticket" ai ticket dove l'utente è referente ma non
      * richiedente.
+     *
+     * Filtrato ANCHE per kunnr — reqid non è garantito univoco fra clienti
+     * diversi (due clienti possono assegnare lo stesso reqid a un proprio
+     * referente), quindi un filtro sul solo reqid_referente rischierebbe di
+     * restituire tickt di un cliente diverso da quello del chiamante
+     * (isolamento multi-tenant — bug reale riscontrato in produzione).
      */
-    public List<String> getTicktsByReferente(String reqidReferente) throws SQLException {
+    public List<String> getTicktsByReferente(String kunnr, String reqidReferente) throws SQLException {
         List<String> list = new ArrayList<>();
         if (reqidReferente == null || reqidReferente.trim().isEmpty()) return list;
-        String sql = "SELECT tickt FROM ticket_referente WHERE reqid_referente = ?";
+        if (kunnr == null || kunnr.trim().isEmpty()) return list;
+        String sql = "SELECT tickt FROM ticket_referente WHERE reqid_referente = ? AND kunnr = ?";
         try (Connection con = DBConfig.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, reqidReferente.trim());
+            ps.setString(2, kunnr.trim());
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) list.add(rs.getString("tickt"));
             }
@@ -103,21 +111,29 @@ public class TicketReferenteService {
     /**
      * Imposta/riassegna il referente di un ticket (upsert). Usato sia alla
      * creazione del DRAFT sia per una successiva riassegnazione.
+     * @param kunnr il cliente (Kunnr) del ticket — SEMPRE noto al chiamante
+     *        (dal draft appena creato o dal ticket già caricato in
+     *        CommentUI). Necessario per poter poi filtrare in modo sicuro
+     *        getTicktsByReferente() per kunnr, senza affidarsi al solo
+     *        reqid (non univoco fra clienti — vedi lì).
      * @param notificaRichiedente se FALSE e reqidReferente è diverso dal
      *        richiedente del ticket, il richiedente non verrà più
      *        notificato via email su questo ticket (vedi CommentUI.inviaNotifiche).
      *        Irrilevante (il richiedente riceve comunque le notifiche, in
      *        quanto referente) se reqidReferente coincide col richiedente.
      */
-    public void setReferente(String tickt, String reqidReferente, String updatedBy, boolean notificaRichiedente) throws SQLException {
+    public void setReferente(String tickt, String kunnr, String reqidReferente, String updatedBy, boolean notificaRichiedente) throws SQLException {
         if (tickt == null || tickt.trim().isEmpty())
             throw new IllegalArgumentException("tickt obbligatorio");
+        if (kunnr == null || kunnr.trim().isEmpty())
+            throw new IllegalArgumentException("kunnr obbligatorio");
         if (reqidReferente == null || reqidReferente.trim().isEmpty())
             throw new IllegalArgumentException("reqidReferente obbligatorio");
 
-        String sql = "INSERT INTO ticket_referente (tickt, reqid_referente, notifica_richiedente, updated_by, updated_at) " +
-                     "VALUES (?, ?, ?, ?, NOW()) " +
+        String sql = "INSERT INTO ticket_referente (tickt, kunnr, reqid_referente, notifica_richiedente, updated_by, updated_at) " +
+                     "VALUES (?, ?, ?, ?, ?, NOW()) " +
                      "ON CONFLICT (tickt) DO UPDATE SET " +
+                     "kunnr = EXCLUDED.kunnr, " +
                      "reqid_referente = EXCLUDED.reqid_referente, " +
                      "notifica_richiedente = EXCLUDED.notifica_richiedente, " +
                      "updated_by = EXCLUDED.updated_by, " +
@@ -125,18 +141,19 @@ public class TicketReferenteService {
         try (Connection con = DBConfig.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, tickt.trim());
-            ps.setString(2, reqidReferente.trim());
-            ps.setBoolean(3, notificaRichiedente);
-            ps.setString(4, updatedBy);
+            ps.setString(2, kunnr.trim());
+            ps.setString(3, reqidReferente.trim());
+            ps.setBoolean(4, notificaRichiedente);
+            ps.setString(5, updatedBy);
             ps.executeUpdate();
         }
-        System.out.println("[TicketReferenteService] Referente di " + tickt + " impostato a '" +
+        System.out.println("[TicketReferenteService] Referente di " + tickt + " (kunnr=" + kunnr + ") impostato a '" +
                             reqidReferente + "' da '" + updatedBy + "' (notificaRichiedente=" + notificaRichiedente + ")");
     }
 
     /** Sovraccarico retrocompatibile: notifica il richiedente per default (comportamento di sempre). */
-    public void setReferente(String tickt, String reqidReferente, String updatedBy) throws SQLException {
-        setReferente(tickt, reqidReferente, updatedBy, true);
+    public void setReferente(String tickt, String kunnr, String reqidReferente, String updatedBy) throws SQLException {
+        setReferente(tickt, kunnr, reqidReferente, updatedBy, true);
     }
 
     /**

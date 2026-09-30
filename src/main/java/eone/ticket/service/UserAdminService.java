@@ -251,9 +251,9 @@ public class UserAdminService {
      * resterebbe con un referente inesistente. Ritorna il numero di
      * assegnazioni attive trovate (0 = cancellazione eseguita).
      */
-    public int deleteReferente(String idUser, String reqid,
+    public int deleteReferente(String idUser, String kunnr, String reqid,
                                 TicketReferenteService referenteService) throws Exception {
-        int attivi = contaTicketAttiviReferente(reqid, referenteService);
+        int attivi = contaTicketAttiviReferente(kunnr, reqid, referenteService);
         if (attivi > 0) return attivi; // bloccato, non cancella
 
         String sql = "DELETE FROM ticket_user WHERE id_user = ?";
@@ -308,8 +308,8 @@ public class UserAdminService {
     }
 
     /** Solo il conteggio, senza cancellare — usato dalla UI per il warning prima della conferma. */
-    public int contaTicketAttiviReferente(String reqid, TicketReferenteService referenteService) throws Exception {
-        return referenteService.getTicktsByReferente(reqid).size();
+    public int contaTicketAttiviReferente(String kunnr, String reqid, TicketReferenteService referenteService) throws Exception {
+        return referenteService.getTicktsByReferente(kunnr, reqid).size();
     }
 
     // =========================

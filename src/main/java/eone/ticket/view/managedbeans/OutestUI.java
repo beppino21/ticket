@@ -332,7 +332,7 @@ public class OutestUI
                 if (reqidQuery != null && !reqidQuery.trim().isEmpty()) {
                     try {
                         eone.ticket.service.TicketReferenteService refSvc = new eone.ticket.service.TicketReferenteService();
-                        java.util.List<String> ticktReferente = refSvc.getTicktsByReferente(reqidQuery);
+                        java.util.List<String> ticktReferente = refSvc.getTicktsByReferente(kunnr, reqidQuery);
                         if (!ticktReferente.isEmpty()) {
                             tickets = new java.util.ArrayList<>(tickets); // Collectors.toList() non garantisce mutabilità
                             for (String t : ticktReferente) {
@@ -342,7 +342,20 @@ public class OutestUI
                                 if (giaPresente) continue;
                                 try {
                                     eone.ticket.model.Ticket extra = svc.getTicketById(tickt, kunnr);
-                                    if (extra != null) tickets.add(extra);
+                                    // GUARDIA DI ISOLAMENTO MULTI-TENANT — stessa ragione di
+                                    // TicketListUI.aggiungiTicketDoveReferente(): getTicketById()
+                                    // può ripiegare su una ricerca senza filtro Kunnr, quindi va
+                                    // sempre riverificato prima di aggiungerlo al summary/badge.
+                                    if (extra != null) {
+                                        String kExtra = eone.ticket.service.ClienteConfigService.normalizeKunnr(extra.getKunnr());
+                                        String kAtteso = eone.ticket.service.ClienteConfigService.normalizeKunnr(kunnr);
+                                        if (kExtra.equals(kAtteso)) {
+                                            tickets.add(extra);
+                                        } else {
+                                            System.err.println("[OutestUI] Scartato ticket " + tickt + " (Kunnr=" + extra.getKunnr() +
+                                                               ") dal summary — non appartiene al cliente atteso (Kunnr=" + kunnr + ")");
+                                        }
+                                    }
                                 } catch (Exception e) {
                                 System.err.println("[OutestUI] Errore recupero ticket " + tickt +
                                                    " (referente=" + reqidQuery + ") per summary: " + e.getMessage());

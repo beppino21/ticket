@@ -494,6 +494,20 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
                                    (m_amusrSostituitiAttivi.isEmpty() ? "" : " + sostituiti " + m_amusrSostituitiAttivi));
                 loadTicketsForAms(ctx.getUsername(), rstatFilter);
             }
+        } else if (ctx.isClienteOReferente()) {
+            // CLIENTE o REFERENTE_CLI con Kunnr NON valorizzato in
+            // ticket_user (configurazione incompleta/errata) — MAI cadere
+            // sul ramo "carico tutti i ticket" sotto: per questi ruoli
+            // significherebbe mostrare i ticket di TUTTI i clienti abilitati,
+            // violando l'isolamento multi-tenant (vedi bug segnalato:
+            // richiedente del secondo cliente che vedeva anche quelli del
+            // primo). Meglio un errore esplicito e lista vuota — fail-safe,
+            // non fail-open — così il problema di dato si nota subito invece
+            // di restare silenzioso e pericoloso.
+            System.err.println("[TicketListUI] init() — CLIENTE/REFERENTE_CLI '" + ctx.getUsername() +
+                               "' senza Kunnr valorizzato: BLOCCO il fallback a tutti i ticket (isolamento multi-tenant).");
+            tickets = new ArrayList<>();
+            setError("Configurazione utente incompleta: nessun cliente (Kunnr) associato al richiedente. Contattare l'amministratore.");
         } else {
             System.err.println("[TicketListUI] init() — kunnr mancante, carico tutti i ticket");
             loadAllTickets(rstatFilter);
@@ -940,7 +954,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
                     // (individuati via ticket_referente, non via kunnr/reqid
                     // come per un CLIENTE — un referente non "possiede" il
                     // draft, vi compare solo come referente).
-                    draftsCache = buildDraftTicketsForReferente(ctx.getRichiedente());
+                    draftsCache = buildDraftTicketsForReferente(ctx.getKunnr(), ctx.getRichiedente());
                 } else if ("DISPATCHER".equalsIgnoreCase(ctx.getRuolo())) {
                     // DISPATCHER: tutti i DRAFT in attesa da tutti i clienti
                     draftsCache = buildAllDraftTickets();
@@ -1025,10 +1039,21 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
         return buildTicketsFromDrafts(drafts);
     }
 
-    /** DRAFT dove reqidReferente è indicato come referente — per REFERENTE_CLI. */
-    private List<Ticket> buildDraftTicketsForReferente(String reqidReferente) {
+    /**
+     * DRAFT dove reqidReferente è indicato come referente — per REFERENTE_CLI.
+     *
+     * GUARDIA DI ISOLAMENTO MULTI-TENANT: ticket_referente non ha colonna
+     * Kunnr (chiave solo su tickt/reqid_referente) e reqid non è garantito
+     * univoco fra clienti diversi — se due clienti riusano lo stesso reqid
+     * per un referente, getTicktsByReferente() può restituire DRAFT-id di
+     * UN ALTRO cliente. draftService.getDraftsByIds() a sua volta non
+     * filtra per Kunnr (recupera per id puro). Il filtro qui sotto, sul
+     * Kunnr atteso, è quindi indispensabile: senza, un REFERENTE_CLI
+     * vedrebbe i DRAFT di un cliente diverso dal proprio.
+     */
+    private List<Ticket> buildDraftTicketsForReferente(String kunnrAtteso, String reqidReferente) {
         try {
-            List<String> tickts = referenteService.getTicktsByReferente(reqidReferente);
+            List<String> tickts = referenteService.getTicktsByReferente(kunnrAtteso, reqidReferente);
             List<Long> draftIds = new java.util.ArrayList<>();
             for (String t : tickts) {
                 if (t == null || !t.startsWith("DRAFT-")) continue;
@@ -1040,7 +1065,18 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
             }
             if (draftIds.isEmpty()) return new java.util.ArrayList<>();
             List<TicketDraft> drafts = draftService.getDraftsByIds(draftIds);
-            return buildTicketsFromDrafts(drafts);
+            String kAtteso = ClienteConfigService.normalizeKunnr(kunnrAtteso);
+            List<TicketDraft> filtrati = new java.util.ArrayList<>();
+            for (TicketDraft d : drafts) {
+                if (kAtteso.equals(ClienteConfigService.normalizeKunnr(d.getKunnr()))) {
+                    filtrati.add(d);
+                } else {
+                    System.err.println("[TicketListUI] Scartato DRAFT-" + d.getId() + " (Kunnr=" + d.getKunnr() +
+                                       ") — non appartiene al cliente atteso (Kunnr=" + kunnrAtteso +
+                                       "), referente=" + reqidReferente + " probabilmente riusato su più clienti.");
+                }
+            }
+            return buildTicketsFromDrafts(filtrati);
         } catch (Exception e) {
             System.err.println("[TicketListUI] Errore caricamento DRAFT per referente: " + e.getMessage());
             return new java.util.ArrayList<>();
@@ -1329,7 +1365,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
      */
     private List<Ticket> aggiungiTicketDoveReferente(List<Ticket> base, String reqid, String kunnrHint) {
         try {
-            List<String> ticktReferente = referenteService.getTicktsByReferente(reqid);
+            List<String> ticktReferente = referenteService.getTicktsByReferente(kunnrHint, reqid);
             if (ticktReferente.isEmpty()) return base;
             List<Ticket> result = new ArrayList<>(base);
             for (String t : ticktReferente) {
@@ -1338,7 +1374,27 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
                 if (giaPresente) continue;
                 try {
                     Ticket extra = ticketService.getTicketById(t, kunnrHint);
-                    if (extra != null) result.add(extra);
+                    // GUARDIA DI ISOLAMENTO MULTI-TENANT: getTicketById(), se non
+                    // trova il ticket nel Kunnr indicato, fa un fallback SENZA
+                    // filtro Kunnr (per il caso legittimo DISPATCHER di fusione
+                    // con ticket di un cliente correlato — vedi suo javadoc). Qui
+                    // però stiamo arricchendo la vista di un CLIENTE/REFERENTE_CLI:
+                    // se reqid_referente combacia per coincidenza con un reqid di
+                    // un ALTRO cliente (ticket_referente non ha colonna Kunnr,
+                    // reqid non è garantito univoco fra clienti), quel fallback
+                    // potrebbe restituire un ticket di un cliente diverso. Non va
+                    // mai aggiunto alla lista dell'utente corrente.
+                    if (extra != null) {
+                        String kExtra = ClienteConfigService.normalizeKunnr(extra.getKunnr());
+                        String kAtteso = ClienteConfigService.normalizeKunnr(kunnrHint);
+                        if (kExtra.equals(kAtteso)) {
+                            result.add(extra);
+                        } else {
+                            System.err.println("[TicketListUI] Scartato ticket " + t + " (Kunnr=" + extra.getKunnr() +
+                                               ") — non appartiene al cliente atteso (Kunnr=" + kunnrHint +
+                                               "), referente=" + reqid + " probabilmente riusato su più clienti.");
+                        }
+                    }
                 } catch (Exception e) {
                     System.err.println("[TicketListUI] Errore recupero ticket " + t +
                                        " (referente=" + reqid + "): " + e.getMessage());

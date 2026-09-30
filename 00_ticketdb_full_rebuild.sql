@@ -2,7 +2,8 @@
 -- RICOSTRUZIONE COMPLETA ticketdb — Lamplast/e-One Ticketing App
 -- Consolidato da: 01_create_tables.sql, 02_ticket_requester.sql (evoluto
 -- in ticket_user), 04_ticket_stato_transcodifica.sql, 06_rimuovi_not_
--- null_kunnr_reqid.sql, 08_ticket_draft.sql, 09_update_colori_stati.sql
+-- null_kunnr_reqid.sql, 08_ticket_draft.sql, 09_update_colori_stati.sql,
+-- 10_ticket_referente_kunnr.sql (isolamento multi-tenant su referente_cli)
 -- (versione finale pastello)
 --
 -- LEGENDA AFFIDABILITA':
@@ -233,15 +234,19 @@ COMMENT ON COLUMN ticket_draft.sospeso_at IS 'Data/ora della sospensione';
 
 CREATE TABLE IF NOT EXISTS ticket_referente (
     tickt            VARCHAR(20)  PRIMARY KEY,
+    kunnr            VARCHAR(10)  NOT NULL,  -- ridondato dal ticket/draft — indispensabile per poter filtrare getTicktsByReferente() per cliente (reqid non è univoco fra clienti)
     reqid_referente  VARCHAR(40)  NOT NULL,
     notifica_richiedente BOOLEAN  NOT NULL DEFAULT TRUE,  -- FALSE = il richiedente non vuole notifiche quando referente != richiedente
     updated_by       VARCHAR(20),
     updated_at       TIMESTAMP    NOT NULL DEFAULT NOW()
 );
 
+CREATE INDEX IF NOT EXISTS idx_referente_kunnr_reqid ON ticket_referente(kunnr, reqid_referente);
+
 GRANT SELECT, INSERT, UPDATE, DELETE ON ticket_referente TO ticket_app;
 
 COMMENT ON TABLE ticket_referente IS 'Referente_cli assegnato a un ticket (DRAFT-{id} o numero SAP), riassegnabile';
+COMMENT ON COLUMN ticket_referente.kunnr IS 'Cliente del ticket — ridondato qui apposta, per poter scopare le query su reqid_referente al cliente giusto (isolamento multi-tenant)';
 
 
 -- =====================================================================
