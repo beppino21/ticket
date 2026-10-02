@@ -44,12 +44,13 @@ public class PromemoriaQuotidianoService {
     private final CommentService                commentService        = new CommentService();
     private final TicketDraftService             draftService          = new TicketDraftService();
     private final TicketRiassegnazioneService    riassegnazioneService = new TicketRiassegnazioneService();
+    private final TicketReferenteService         referenteService      = new TicketReferenteService();
     private final ClienteConfigService           clienteConfigService  = new ClienteConfigService();
     private final RequesterService               requesterService      = new RequesterService();
     private final SubstitutionService            substitutionService   = new SubstitutionService();
     private final MailService                    mailService           = new MailService();
 
-    /** Entry point richiamato dallo scheduler. Le due mail sono indipendenti: se una fallisce, l'altra parte comunque. */
+    /** Entry point richiamato dallo scheduler. Le tre mail sono indipendenti: se una fallisce, le altre partono comunque. */
     public void eseguiPromemoriaQuotidiano() {
         if (!AppConfig.getBoolean("PROMEMORIA_QUOTIDIANO_ABILITATO", true)) {
             System.out.println("[PromemoriaQuotidianoService] Disabilitato da configurazione (PROMEMORIA_QUOTIDIANO_ABILITATO=false) — nessun invio.");
@@ -65,6 +66,12 @@ public class PromemoriaQuotidianoService {
             inviaPromemoriaDispatcher();
         } catch (Exception e) {
             System.err.println("[PromemoriaQuotidianoService] Errore promemoria DISPATCHER: " + e.getMessage());
+            e.printStackTrace();
+        }
+        try {
+            inviaPromemoriaRichiedenti();
+        } catch (Exception e) {
+            System.err.println("[PromemoriaQuotidianoService] Errore promemoria RICHIEDENTI/REFERENTE_CLI: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -156,6 +163,188 @@ public class PromemoriaQuotidianoService {
             }
         }
         System.out.println("[PromemoriaQuotidianoService] Promemoria AMS: " + mailInviate + " mail inviate.");
+    }
+
+    // =========================================================
+    // RICHIEDENTE/REFERENTE_CLI — una mail per reqid con due sezioni:
+    // "a tuo carico" (il cliente deve agire) e "in carico al servizio AMS"
+    // (informativo, il cliente aspetta una risposta/smistamento) — ordinate
+    // per anzianità decrescente. Disabilitabile per singolo cliente dalla
+    // schermata "Abilitazione clienti" (ClienteConfigService).
+    // =========================================================
+
+    private void inviaPromemoriaRichiedenti() throws Exception {
+        List<RequesterInfo> richiedenti = requesterService.getActiveRichiedenti();
+        if (richiedenti.isEmpty()) {
+            System.out.println("[PromemoriaQuotidianoService] Nessun RICHIEDENTE/REFERENTE_CLI attivo con email — nessun promemoria richiedenti.");
+            return;
+        }
+
+        Set<String> kunnrAbilitatiPromemoria;
+        try {
+            kunnrAbilitatiPromemoria = clienteConfigService.getKunnrAbilitatiPromemoriaRichiedenti();
+        } catch (Exception e) {
+            System.err.println("[PromemoriaQuotidianoService] Errore lettura toggle promemoria richiedenti, nessun invio: " + e.getMessage());
+            return;
+        }
+
+        // Stato e data dell'ULTIMO commento in assoluto per ciascun ticket SAP
+        // (qualunque autore) — un'unica query, da cui ricaviamo sia "a carico
+        // di chi" sia la data di riferimento per l'anzianità nel gruppo AMS.
+        Map<String, String>    ultimoStato   = new HashMap<>();
+        Map<String, LocalDate> ultimaComData = new HashMap<>();
+        for (TicketComment c : commentService.getLatestStatusPerTicket()) {
+            if (c.getTickt() == null) continue;
+            String key = c.getTickt().trim();
+            ultimoStato.put(key, c.getStatoTicket());
+            if (c.getCreatedAt() != null) ultimaComData.put(key, c.getCreatedAt().toLocalDate());
+        }
+        // Ultima comunicazione scritta dall'AMS — riferimento per "da quando
+        // aspetti una tua risposta" nel gruppo "a tuo carico".
+        Map<String, LocalDate> ultimaComAms = new HashMap<>();
+        for (TicketComment c : commentService.getUltimaComunicazioneAmsPerTicket()) {
+            if (c.getTickt() != null && c.getCreatedAt() != null) {
+                ultimaComAms.put(c.getTickt().trim(), c.getCreatedAt().toLocalDate());
+            }
+        }
+
+        LocalDate oggi = LocalDate.now();
+        int mailInviate = 0;
+        for (RequesterInfo r : richiedenti) {
+            String kunnr = r.getKunnr();
+            String reqid = r.getReqid();
+            if (kunnr == null || kunnr.trim().isEmpty() || reqid == null || reqid.trim().isEmpty()) continue;
+            String kunnrNorm = ClienteConfigService.normalizeKunnr(kunnr);
+            if (!kunnrAbilitatiPromemoria.contains(kunnrNorm)) continue; // cliente non abilitato o toggle spento
+
+            try {
+                List<PromemoriaRiga> aCaricoSuo = new ArrayList<>();
+                List<PromemoriaRiga> aCaricoAms = new ArrayList<>();
+                Set<String> ticktVisti = new HashSet<>();
+
+                // --- Ticket SAP propri (Kunnr+Reqid: filtro confermato lato SAP) ---
+                SAPTicketService.TicketResponse resp = sapService.getTickets(kunnr, reqid, null, null, null, null);
+                if (resp.isSuccess() && resp.getTickets() != null) {
+                    for (Ticket t : resp.getTickets()) {
+                        String rstat = t.getRstat() != null ? t.getRstat().trim().toUpperCase() : "";
+                        if (STATI_CHIUSI.contains(rstat)) continue;
+                        String tickt = t.getTickt() != null ? t.getTickt().trim() : "";
+                        if (tickt.isEmpty() || !ticktVisti.add(tickt)) continue;
+                        classificaRigaTicket(t, tickt, ultimoStato, ultimaComAms, ultimaComData, oggi, aCaricoSuo, aCaricoAms);
+                    }
+                }
+
+                // --- Ticket SAP dove è referente_cli ma non richiedente diretto ---
+                // GUARDIA DI ISOLAMENTO MULTI-TENANT (stessa ragione di
+                // TicketListUI.aggiungiTicketDoveReferente): getTicketById()
+                // può ripiegare su una ricerca senza filtro Kunnr — va sempre
+                // riverificato prima di usarlo.
+                for (String tickt : referenteService.getTicktsByReferente(kunnr, reqid)) {
+                    if (tickt == null || tickt.startsWith("DRAFT-")) continue;
+                    String key = tickt.trim();
+                    if (!ticktVisti.add(key)) continue;
+                    try {
+                        Ticket extra = sapService.getTicketById(key, kunnr);
+                        if (extra == null) continue;
+                        if (!kunnrNorm.equals(ClienteConfigService.normalizeKunnr(extra.getKunnr()))) {
+                            System.err.println("[PromemoriaQuotidianoService] Scartato ticket " + key + " (Kunnr=" + extra.getKunnr() +
+                                               ") per reqid=" + reqid + " — non appartiene al cliente atteso (Kunnr=" + kunnr + ")");
+                            continue;
+                        }
+                        String rstat = extra.getRstat() != null ? extra.getRstat().trim().toUpperCase() : "";
+                        if (STATI_CHIUSI.contains(rstat)) continue;
+                        classificaRigaTicket(extra, key, ultimoStato, ultimaComAms, ultimaComData, oggi, aCaricoSuo, aCaricoAms);
+                    } catch (Exception e) {
+                        System.err.println("[PromemoriaQuotidianoService] Errore recupero ticket referente " + key +
+                                           " (reqid=" + reqid + "): " + e.getMessage());
+                    }
+                }
+
+                // --- DRAFT pendenti: propri + quelli dove è referente_cli ---
+                // (nel gruppo "in carico al servizio": attendono lo smistamento
+                // del DISPATCHER, non un'azione del richiedente).
+                Set<Long> draftIdsVisti = new HashSet<>();
+                for (TicketDraft d : draftService.getDraftsByRequester(kunnr, reqid)) {
+                    if (!d.isDraft() || !draftIdsVisti.add(d.getId())) continue;
+                    aggiungiRigaDraftPendente(d, oggi, aCaricoAms);
+                }
+                List<Long> draftIdsReferente = new ArrayList<>();
+                for (String tickt : referenteService.getTicktsByReferente(kunnr, reqid)) {
+                    if (tickt == null || !tickt.startsWith("DRAFT-")) continue;
+                    try {
+                        long id = Long.parseLong(tickt.substring("DRAFT-".length()));
+                        if (draftIdsVisti.add(id)) draftIdsReferente.add(id);
+                    } catch (NumberFormatException ignored) {}
+                }
+                if (!draftIdsReferente.isEmpty()) {
+                    for (TicketDraft d : draftService.getDraftsByIds(draftIdsReferente)) {
+                        if (!d.isDraft()) continue;
+                        if (!kunnrNorm.equals(ClienteConfigService.normalizeKunnr(d.getKunnr()))) {
+                            System.err.println("[PromemoriaQuotidianoService] Scartato DRAFT-" + d.getId() + " (Kunnr=" + d.getKunnr() +
+                                               ") per reqid=" + reqid + " — non appartiene al cliente atteso (Kunnr=" + kunnr + ")");
+                            continue;
+                        }
+                        aggiungiRigaDraftPendente(d, oggi, aCaricoAms);
+                    }
+                }
+
+                if (aCaricoSuo.isEmpty() && aCaricoAms.isEmpty()) continue; // nulla di fermo -> nessuna mail, come per AMS
+
+                aCaricoSuo.sort((a, b) -> Long.compare(b.getGiorni(), a.getGiorni())); // più vecchi in cima
+                aCaricoAms.sort((a, b) -> Long.compare(b.getGiorni(), a.getGiorni()));
+
+                String email = r.getEmail();
+                if (email == null || email.trim().isEmpty()) continue;
+                mailService.sendPromemoriaRichiedente(email.trim(), r.getNomeOReqid(), aCaricoSuo, aCaricoAms);
+                mailInviate++;
+            } catch (Exception e) {
+                System.err.println("[PromemoriaQuotidianoService] Errore promemoria per reqid=" + reqid +
+                                   " (kunnr=" + kunnr + "): " + e.getMessage());
+            }
+        }
+        System.out.println("[PromemoriaQuotidianoService] Promemoria RICHIEDENTI/REFERENTE_CLI: " + mailInviate + " mail inviate.");
+    }
+
+    /**
+     * Classifica un ticket SAP in uno dei due gruppi della mail richiedente,
+     * in base all'ultimo stato di conversazione (ticket_comment.stato_ticket):
+     *  - ASS_ATTESA_CLIENTE/ASS_SOLLECITO_CLIENTE -> "a tuo carico" (l'AMS ha
+     *    risposto, aspetta un'azione del cliente), anzianità dall'ultima
+     *    comunicazione AMS.
+     *  - richiedeAzioneAms(stato)==true -> "in carico al servizio AMS"
+     *    (nessun commento ancora, o il cliente aspetta l'AMS), anzianità
+     *    dall'ultimo commento in assoluto (o apertura ticket se nessuno).
+     *  - qualunque altro stato (es. ASS_CONCLUSO/CLI_RISOLTO — la
+     *    conversazione è di fatto chiusa pur non essendolo ancora lato SAP):
+     *    non compare in nessuno dei due gruppi, stesso criterio già usato dal
+     *    promemoria AMS per non segnalare come "pendente" ciò che non lo è.
+     */
+    private void classificaRigaTicket(Ticket t, String tickt, Map<String, String> ultimoStato,
+                                       Map<String, LocalDate> ultimaComAms, Map<String, LocalDate> ultimaComData,
+                                       LocalDate oggi, List<PromemoriaRiga> aCaricoSuo, List<PromemoriaRiga> aCaricoAms) {
+        String stato = ultimoStato.get(tickt);
+        boolean inCaricoCliente = TicketComment.STATO_ASS_ATTESA_CLIENTE.equals(stato) ||
+                                   TicketComment.STATO_ASS_SOLLECITO_CLIENTE.equals(stato);
+        if (inCaricoCliente) {
+            LocalDate riferimento = ultimaComAms.get(tickt);
+            if (riferimento == null) riferimento = parseSapDate(t.getErdat());
+            long giorni = riferimento != null ? ChronoUnit.DAYS.between(riferimento, oggi) : 0;
+            aCaricoSuo.add(new PromemoriaRiga(tickt, t.getTitle(), t.getKunnr(), giorni, false,
+                mailService.buildTicketLinkPublic(tickt)));
+        } else if (richiedeAzioneAms(stato)) {
+            LocalDate riferimento = ultimaComData.get(tickt);
+            if (riferimento == null) riferimento = parseSapDate(t.getErdat());
+            long giorni = riferimento != null ? ChronoUnit.DAYS.between(riferimento, oggi) : 0;
+            aCaricoAms.add(new PromemoriaRiga(tickt, t.getTitle(), t.getKunnr(), giorni, false,
+                mailService.buildTicketLinkPublic(tickt)));
+        }
+        // else: conversazione già conclusa (ASS_CONCLUSO/CLI_RISOLTO) — non mostrato
+    }
+
+    private void aggiungiRigaDraftPendente(TicketDraft d, LocalDate oggi, List<PromemoriaRiga> aCaricoAms) {
+        LocalDate riferimento = d.getCreatedAt() != null ? d.getCreatedAt().toLocalDate() : oggi;
+        long giorni = ChronoUnit.DAYS.between(riferimento, oggi);
+        aCaricoAms.add(new PromemoriaRiga(d.getTicktKey(), d.getTitolo(), d.getKunnr(), giorni, false, null));
     }
 
     // =========================================================

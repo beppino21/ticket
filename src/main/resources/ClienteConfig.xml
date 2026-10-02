@@ -28,6 +28,9 @@
 <t:gridcol id="cc_gc3" text="Pref. referenti" width="100" >
 <t:label id="cc_gl3" background=".{statoColor}" text=".{prefissoReferente}" />
 </t:gridcol>
+<t:gridcol id="cc_gc4" text="Promem. richiedenti" width="110" >
+<t:label id="cc_gl4" background=".{statoColor}" text=".{promemoriaRichiedentiLabel}" />
+</t:gridcol>
 </t:fixgrid>
 </t:row>
 </t:splitpanesplit>
@@ -67,6 +70,16 @@
 <t:row id="cc_f3b_hint" rendered="#{d.ClienteConfigUI.formVisible}" >
 <t:coldistance id="cc_f3b_hint_cd" width="118" />
 <t:label id="cc_f3b_hint_lbl" font="size:10;color:#888888" text="Breve e univoco (es. BK). Obbligatorio per creare referenti self-service di questo cliente — usato per costruire lo username (prefisso_codice)." />
+</t:row>
+<t:rowdistance id="cc_fd3d" height="10" rendered="#{d.ClienteConfigUI.formVisible}" />
+<t:row id="cc_f3c" coldistance="8" rendered="#{d.ClienteConfigUI.formVisible}" >
+<t:label id="cc_f3c_lbl" labeltext="Promemoria richiedenti:" width="110" />
+<t:checkbox id="cc_f3c_check" flush="true" selected="#{d.ClienteConfigUI.formPromemoriaRichiedentiAbilitato}" />
+</t:row>
+<t:rowdistance id="cc_fd3e" height="4" rendered="#{d.ClienteConfigUI.formVisible}" />
+<t:row id="cc_f3c_hint" rendered="#{d.ClienteConfigUI.formVisible}" >
+<t:coldistance id="cc_f3c_hint_cd" width="118" />
+<t:label id="cc_f3c_hint_lbl" font="size:10;color:#888888" text="Mail giornaliera a RICHIEDENTI/REFERENTE_CLI di questo cliente con le attività ferme a loro carico e a carico AMS. Non influenza il promemoria AMS/Dispatcher." />
 </t:row>
 <t:rowdistance id="cc_fd4" height="20" rendered="#{d.ClienteConfigUI.formVisible}" />
 <t:row id="cc_f4" coldistance="8" rendered="#{d.ClienteConfigUI.formVisible}" >

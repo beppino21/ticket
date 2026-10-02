@@ -36,7 +36,7 @@ public class ClienteConfigService {
     /** Elenco completo (abilitati e non) — per la schermata di amministrazione. */
     public List<ClienteConfig> listAll() throws SQLException {
         List<ClienteConfig> list = new ArrayList<>();
-        String sql = "SELECT kunnr, nome_cliente, abilitato, prefisso_referente, created_at, updated_at " +
+        String sql = "SELECT kunnr, nome_cliente, abilitato, prefisso_referente, promemoria_richiedenti_abilitato, created_at, updated_at " +
                      "FROM ticket_cliente_config ORDER BY kunnr";
         try (Connection con = DBConfig.getConnection();
              PreparedStatement ps = con.prepareStatement(sql);
@@ -47,10 +47,29 @@ public class ClienteConfigService {
                 c.setNomeCliente(rs.getString("nome_cliente"));
                 c.setAbilitato(rs.getBoolean("abilitato"));
                 c.setPrefissoReferente(rs.getString("prefisso_referente"));
+                c.setPromemoriaRichiedentiAbilitato(rs.getBoolean("promemoria_richiedenti_abilitato"));
                 list.add(c);
             }
         }
         return list;
+    }
+
+    /**
+     * Kunnr abilitati ALLA NUOVA GESTIONE e con il promemoria "attività
+     * ferme" per RICHIEDENTI/REFERENTE_CLI attivo — usato da
+     * PromemoriaQuotidianoService per decidere a chi inviarlo senza dover
+     * fare una query per cliente. Un Kunnr disabilitato del tutto
+     * (abilitato=FALSE) è escluso a prescindere dal flag promemoria.
+     */
+    public Set<String> getKunnrAbilitatiPromemoriaRichiedenti() throws SQLException {
+        Set<String> set = new HashSet<>();
+        String sql = "SELECT kunnr FROM ticket_cliente_config WHERE abilitato = TRUE AND promemoria_richiedenti_abilitato = TRUE";
+        try (Connection con = DBConfig.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) set.add(normalizeKunnr(rs.getString("kunnr")));
+        }
+        return set;
     }
 
     /**
@@ -62,6 +81,15 @@ public class ClienteConfigService {
      * prefisso è già in uso da un altro cliente.
      */
     public void save(String kunnr, String nomeCliente, boolean abilitato, String prefissoReferente) throws SQLException {
+        save(kunnr, nomeCliente, abilitato, prefissoReferente, true);
+    }
+
+    /**
+     * Come {@link #save(String, String, boolean, String)}, con in più il
+     * toggle del promemoria giornaliero per RICHIEDENTI/REFERENTE_CLI.
+     */
+    public void save(String kunnr, String nomeCliente, boolean abilitato, String prefissoReferente,
+                      boolean promemoriaRichiedentiAbilitato) throws SQLException {
         String prefisso = (prefissoReferente == null || prefissoReferente.trim().isEmpty())
             ? null : prefissoReferente.trim().toUpperCase();
 
@@ -81,17 +109,20 @@ public class ClienteConfigService {
             }
         }
 
-        String sql = "INSERT INTO ticket_cliente_config (kunnr, nome_cliente, abilitato, prefisso_referente, updated_at) " +
-                     "VALUES (?, ?, ?, ?, NOW()) " +
+        String sql = "INSERT INTO ticket_cliente_config (kunnr, nome_cliente, abilitato, prefisso_referente, promemoria_richiedenti_abilitato, updated_at) " +
+                     "VALUES (?, ?, ?, ?, ?, NOW()) " +
                      "ON CONFLICT (kunnr) DO UPDATE SET " +
                      "nome_cliente = EXCLUDED.nome_cliente, abilitato = EXCLUDED.abilitato, " +
-                     "prefisso_referente = EXCLUDED.prefisso_referente, updated_at = NOW()";
+                     "prefisso_referente = EXCLUDED.prefisso_referente, " +
+                     "promemoria_richiedenti_abilitato = EXCLUDED.promemoria_richiedenti_abilitato, " +
+                     "updated_at = NOW()";
         try (Connection con = DBConfig.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, kunnr);
             ps.setString(2, nomeCliente);
             ps.setBoolean(3, abilitato);
             ps.setString(4, prefisso);
+            ps.setBoolean(5, promemoriaRichiedentiAbilitato);
             ps.executeUpdate();
         }
     }

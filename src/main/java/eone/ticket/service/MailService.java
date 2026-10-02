@@ -756,6 +756,90 @@ public class MailService {
         }
     }
 
+    /**
+     * Promemoria quotidiano RICHIEDENTE/REFERENTE_CLI — attività "ferme" di
+     * sua competenza, in due sezioni: prima quelle a suo carico (deve
+     * rispondere/agire lui), poi quelle in carico al servizio AMS
+     * (informativo — sa che non è stato dimenticato). Entrambe ordinate per
+     * anzianità decrescente a monte da PromemoriaQuotidianoService.
+     * Non inviata se entrambe le liste sono vuote.
+     */
+    public void sendPromemoriaRichiedente(String toEmail, String nomeRichiedente,
+                                           List<eone.ticket.model.PromemoriaRiga> aCaricoSuo,
+                                           List<eone.ticket.model.PromemoriaRiga> aCaricoAms) {
+        if (toEmail == null || toEmail.trim().isEmpty()) {
+            System.out.println("[MailService] Promemoria richiedente saltato: destinatario vuoto.");
+            return;
+        }
+        boolean nienteSuo = aCaricoSuo == null || aCaricoSuo.isEmpty();
+        boolean nienteAms = aCaricoAms == null || aCaricoAms.isEmpty();
+        if (nienteSuo && nienteAms) {
+            System.out.println("[MailService] Promemoria richiedente saltato: nessuna attività ferma.");
+            return;
+        }
+
+        int totale = (nienteSuo ? 0 : aCaricoSuo.size()) + (nienteAms ? 0 : aCaricoAms.size());
+        String subject = nienteSuo
+            ? "Attività in corso — " + totale + (totale == 1 ? " ticket" : " ticket")
+            : "Attività a tuo carico — " + aCaricoSuo.size() + (aCaricoSuo.size() == 1 ? " ticket" : " ticket");
+
+        StringBuilder html = new StringBuilder();
+        html.append("<html><body style=\"font-family:Arial,sans-serif;font-size:13px;color:#222;\">");
+        html.append("<p>Ciao ").append(nn(nomeRichiedente)).append(",</p>");
+        html.append("<p>Ecco il riepilogo delle attività ferme di tua competenza:</p>");
+
+        html.append("<p><b>A tuo carico — in attesa di una tua risposta</b> (").append(nienteSuo ? 0 : aCaricoSuo.size()).append(")</p>");
+        if (nienteSuo) {
+            html.append("<p style=\"color:#777;\">Nessuna attività in attesa di una tua azione.</p>");
+        } else {
+            html.append("<table style=\"border-collapse:collapse;width:100%;margin-bottom:16px;\">")
+                .append("<tr style=\"background:#EEEEEE;text-align:left;\">")
+                .append("<th style=\"padding:6px;border:1px solid #CCC;\">Ticket</th>")
+                .append("<th style=\"padding:6px;border:1px solid #CCC;\">Titolo</th>")
+                .append("<th style=\"padding:6px;border:1px solid #CCC;\">Cliente</th>")
+                .append("<th style=\"padding:6px;border:1px solid #CCC;\">Giorni</th>")
+                .append("</tr>");
+            for (eone.ticket.model.PromemoriaRiga r : aCaricoSuo) html.append(rigaHtml(r));
+            html.append("</table>");
+        }
+
+        html.append("<p><b>In carico al servizio AMS</b> (").append(nienteAms ? 0 : aCaricoAms.size()).append(")</p>");
+        if (nienteAms) {
+            html.append("<p style=\"color:#777;\">Nessuna attività in attesa del servizio AMS.</p>");
+        } else {
+            html.append("<table style=\"border-collapse:collapse;width:100%;\">")
+                .append("<tr style=\"background:#EEEEEE;text-align:left;\">")
+                .append("<th style=\"padding:6px;border:1px solid #CCC;\">Ticket</th>")
+                .append("<th style=\"padding:6px;border:1px solid #CCC;\">Titolo</th>")
+                .append("<th style=\"padding:6px;border:1px solid #CCC;\">Cliente</th>")
+                .append("<th style=\"padding:6px;border:1px solid #CCC;\">Giorni</th>")
+                .append("</tr>");
+            for (eone.ticket.model.PromemoriaRiga r : aCaricoAms) html.append(rigaHtml(r));
+            html.append("</table>");
+        }
+
+        html.append("<p style=\"margin-top:14px;font-size:11px;color:#777;\">")
+            .append("Giorni = tempo trascorso dall'ultima comunicazione sul ticket (o dall'apertura/creazione, se non ce n'è mai stata una).</p>")
+            .append("</body></html>");
+
+        if (isDryRun()) {
+            System.out.println("========== [MailService] DRY-RUN — promemoria richiedente non inviato ==========");
+            System.out.println("To:      " + toEmail);
+            System.out.println("Subject: " + subject);
+            System.out.println("A suo carico: " + (nienteSuo ? 0 : aCaricoSuo.size()) + " — In carico AMS: " + (nienteAms ? 0 : aCaricoAms.size()));
+            System.out.println("==================================================================================");
+            return;
+        }
+
+        try {
+            sendHtml(toEmail, subject, html.toString());
+            System.out.println("[MailService] Promemoria richiedente inviato a " + toEmail);
+        } catch (Exception e) {
+            System.err.println("[MailService] Errore invio promemoria richiedente a " + toEmail + ": " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
     private String rigaHtml(eone.ticket.model.PromemoriaRiga r) {
         String link = r.getLink();
         String chiaveCell = link != null

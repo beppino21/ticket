@@ -38,6 +38,7 @@ public class ClienteConfigUI extends PageBean implements Serializable {
     private String  m_formNomeCliente;
     private boolean m_formAbilitato = true;
     private String  m_formPrefissoReferente;
+    private boolean m_formPromemoriaRichiedentiAbilitato = true;
     private boolean m_isNuovo;
 
     public void prepare(IListener listener) {
@@ -73,6 +74,7 @@ public class ClienteConfigUI extends PageBean implements Serializable {
         m_formNomeCliente = null;
         m_formAbilitato = true;
         m_formPrefissoReferente = null;
+        m_formPromemoriaRichiedentiAbilitato = true;
     }
 
     public void onAnnullaForm(ActionEvent ae) {
@@ -90,7 +92,8 @@ public class ClienteConfigUI extends PageBean implements Serializable {
             return;
         }
         try {
-            clienteConfigService.save(m_formKunnr.trim(), m_formNomeCliente, m_formAbilitato, m_formPrefissoReferente);
+            clienteConfigService.save(m_formKunnr.trim(), m_formNomeCliente, m_formAbilitato, m_formPrefissoReferente,
+                                       m_formPromemoriaRichiedentiAbilitato);
             Statusbar.outputSuccess("Cliente " + m_formKunnr + " salvato");
             m_formVisible = false;
             caricaLista();
@@ -139,6 +142,9 @@ public class ClienteConfigUI extends PageBean implements Serializable {
     public String  getFormPrefissoReferente()         { return m_formPrefissoReferente; }
     public void    setFormPrefissoReferente(String v) { this.m_formPrefissoReferente = v; }
 
+    public boolean isFormPromemoriaRichiedentiAbilitato()         { return m_formPromemoriaRichiedentiAbilitato; }
+    public void    setFormPromemoriaRichiedentiAbilitato(boolean v) { this.m_formPromemoriaRichiedentiAbilitato = v; }
+
     public class ClienteRow extends FIXGRIDItem implements Serializable {
         private static final long serialVersionUID = 1L;
         private final ClienteConfig config;
@@ -150,6 +156,7 @@ public class ClienteConfigUI extends PageBean implements Serializable {
         public String  getPrefissoReferente() { return config.getPrefissoReferente() != null ? config.getPrefissoReferente() : ""; }
         public String  getStatoLabel()  { return config.isAbilitato() ? "Abilitato" : "Non abilitato"; }
         public String  getStatoColor()  { return config.isAbilitato() ? "#E8F5E9" : "#FFEBEE"; }
+        public String  getPromemoriaRichiedentiLabel() { return config.isPromemoriaRichiedentiAbilitato() ? "Sì" : "No"; }
 
         public void onRowSelect() {
             m_isNuovo = false;
@@ -158,6 +165,7 @@ public class ClienteConfigUI extends PageBean implements Serializable {
             m_formNomeCliente = config.getNomeCliente();
             m_formAbilitato = config.isAbilitato();
             m_formPrefissoReferente = config.getPrefissoReferente();
+            m_formPromemoriaRichiedentiAbilitato = config.isPromemoriaRichiedentiAbilitato();
         }
     }
 }

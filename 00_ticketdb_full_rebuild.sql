@@ -3,7 +3,8 @@
 -- Consolidato da: 01_create_tables.sql, 02_ticket_requester.sql (evoluto
 -- in ticket_user), 04_ticket_stato_transcodifica.sql, 06_rimuovi_not_
 -- null_kunnr_reqid.sql, 08_ticket_draft.sql, 09_update_colori_stati.sql,
--- 10_ticket_referente_kunnr.sql (isolamento multi-tenant su referente_cli)
+-- 10_ticket_referente_kunnr.sql (isolamento multi-tenant su referente_cli),
+-- 11_promemoria_richiedenti_toggle.sql (toggle per cliente promemoria richiedenti)
 -- (versione finale pastello)
 --
 -- LEGENDA AFFIDABILITA':
@@ -301,6 +302,7 @@ CREATE TABLE IF NOT EXISTS ticket_cliente_config (
     nome_cliente  VARCHAR(100),
     abilitato     BOOLEAN     NOT NULL DEFAULT TRUE,
     prefisso_referente VARCHAR(10),  -- obbligatorio per poter creare referenti self-service per questo cliente
+    promemoria_richiedenti_abilitato BOOLEAN NOT NULL DEFAULT TRUE,  -- toggle per cliente del promemoria giornaliero a RICHIEDENTE/REFERENTE_CLI
     created_at    TIMESTAMP   NOT NULL DEFAULT NOW(),
     updated_at    TIMESTAMP   NOT NULL DEFAULT NOW()
 );
@@ -313,6 +315,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ticket_cliente_config TO ticket_app;
 
 COMMENT ON TABLE ticket_cliente_config IS 'Clienti (Kunnr) abilitati alla nuova gestione ticket — un Kunnr assente è considerato non abilitato.';
 COMMENT ON COLUMN ticket_cliente_config.prefisso_referente IS 'Prefisso breve e univoco per costruire lo username dei referenti self-service (prefisso_codice)';
+COMMENT ON COLUMN ticket_cliente_config.promemoria_richiedenti_abilitato IS 'FALSE = per questo cliente non viene inviato il promemoria giornaliero ai RICHIEDENTI/REFERENTE_CLI (il promemoria AMS/DISPATCHER non è influenzato)';
 
 
 -- =====================================================================

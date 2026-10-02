@@ -71,6 +71,23 @@ public class RequesterService {
     }
 
     /**
+     * Restituisce RICHIEDENTI (CLIENTE) e REFERENTE_CLI attivi con email
+     * valorizzata — usato dal promemoria quotidiano "attività ferme".
+     */
+    public java.util.List<RequesterInfo> getActiveRichiedenti() throws SQLException {
+        java.util.List<RequesterInfo> list = new java.util.ArrayList<>();
+        String sql = "SELECT id_user, kunnr, reqid, nome, email, password_hash, ruolo, vede_tutti, attivo, gestisce_referenti, reqid_richiedente, password_impostata_il, password_scadenza_giorni, password_non_scade " +
+                     "FROM ticket_user " +
+                     "WHERE ruolo IN ('CLIENTE', 'REFERENTE_CLI') AND attivo = TRUE AND email IS NOT NULL AND email <> ''";
+        try (Connection con = DBConfig.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) list.add(mapRow(rs));
+        }
+        return list;
+    }
+
+    /**
      * Verifica credenziali di accesso contro ticket_user.
      *
      * @param reqid    username inserito dall'utente

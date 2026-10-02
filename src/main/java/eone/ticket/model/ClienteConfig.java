@@ -11,6 +11,7 @@ public class ClienteConfig implements Serializable {
     private String  nomeCliente;
     private boolean abilitato;
     private String  prefissoReferente;
+    private boolean promemoriaRichiedentiAbilitato = true;
 
     public String getKunnr()                { return kunnr; }
     public void setKunnr(String v)           { this.kunnr = v; }
@@ -23,4 +24,8 @@ public class ClienteConfig implements Serializable {
 
     public String getPrefissoReferente()     { return prefissoReferente; }
     public void setPrefissoReferente(String v) { this.prefissoReferente = v; }
+
+    /** Toggle per cliente del promemoria giornaliero "attività ferme" a RICHIEDENTE/REFERENTE_CLI. */
+    public boolean isPromemoriaRichiedentiAbilitato()         { return promemoriaRichiedentiAbilitato; }
+    public void setPromemoriaRichiedentiAbilitato(boolean v)  { this.promemoriaRichiedentiAbilitato = v; }
 }
