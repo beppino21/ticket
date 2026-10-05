@@ -4,7 +4,8 @@
 -- in ticket_user), 04_ticket_stato_transcodifica.sql, 06_rimuovi_not_
 -- null_kunnr_reqid.sql, 08_ticket_draft.sql, 09_update_colori_stati.sql,
 -- 10_ticket_referente_kunnr.sql (isolamento multi-tenant su referente_cli),
--- 11_promemoria_richiedenti_toggle.sql (toggle per cliente promemoria richiedenti)
+-- 11_promemoria_richiedenti_toggle.sql (toggle per cliente promemoria richiedenti),
+-- ticket_riassegnazione (sezione 10, ricostruita dal codice)
 -- (versione finale pastello)
 --
 -- LEGENDA AFFIDABILITA':
@@ -210,6 +211,14 @@ CREATE TABLE IF NOT EXISTS ticket_draft (
     updated_at  TIMESTAMP       NOT NULL DEFAULT NOW()
 );
 
+-- Allineamento per DB preesistente: se ticket_draft esisteva già in una versione
+-- precedente, il CREATE TABLE sopra viene saltato e mancano le colonne SOSPESO.
+ALTER TABLE ticket_draft ADD COLUMN IF NOT EXISTS sospeso_da     VARCHAR(20);
+ALTER TABLE ticket_draft ADD COLUMN IF NOT EXISTS sospeso_motivo VARCHAR(500);
+ALTER TABLE ticket_draft ADD COLUMN IF NOT EXISTS sospeso_at     TIMESTAMP;
+ALTER TABLE ticket_draft DROP CONSTRAINT IF EXISTS ticket_draft_stato_check;
+ALTER TABLE ticket_draft ADD CONSTRAINT ticket_draft_stato_check CHECK (stato IN ('DRAFT', 'MERGED', 'SOSPESO'));
+
 CREATE INDEX IF NOT EXISTS idx_draft_kunnr_reqid ON ticket_draft(kunnr, reqid);
 CREATE INDEX IF NOT EXISTS idx_draft_stato       ON ticket_draft(stato);
 CREATE INDEX IF NOT EXISTS idx_draft_id_user     ON ticket_draft(id_user);
@@ -241,6 +250,11 @@ CREATE TABLE IF NOT EXISTS ticket_referente (
     updated_by       VARCHAR(20),
     updated_at       TIMESTAMP    NOT NULL DEFAULT NOW()
 );
+
+-- Allineamento per DB preesistente (NB: la colonna kunnr, NOT NULL, su una tabella
+-- già popolata richiede il backfill di 10_ticket_referente_kunnr.sql — eseguire quello).
+ALTER TABLE ticket_referente ADD COLUMN IF NOT EXISTS notifica_richiedente BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE ticket_referente ADD COLUMN IF NOT EXISTS kunnr VARCHAR(10);
 
 CREATE INDEX IF NOT EXISTS idx_referente_kunnr_reqid ON ticket_referente(kunnr, reqid_referente);
 
@@ -307,6 +321,10 @@ CREATE TABLE IF NOT EXISTS ticket_cliente_config (
     updated_at    TIMESTAMP   NOT NULL DEFAULT NOW()
 );
 
+-- Allineamento per DB preesistente
+ALTER TABLE ticket_cliente_config ADD COLUMN IF NOT EXISTS prefisso_referente VARCHAR(10);
+ALTER TABLE ticket_cliente_config ADD COLUMN IF NOT EXISTS promemoria_richiedenti_abilitato BOOLEAN NOT NULL DEFAULT TRUE;
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_cliente_config_prefisso
     ON ticket_cliente_config (UPPER(prefisso_referente))
     WHERE prefisso_referente IS NOT NULL;
@@ -316,6 +334,38 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ticket_cliente_config TO ticket_app;
 COMMENT ON TABLE ticket_cliente_config IS 'Clienti (Kunnr) abilitati alla nuova gestione ticket — un Kunnr assente è considerato non abilitato.';
 COMMENT ON COLUMN ticket_cliente_config.prefisso_referente IS 'Prefisso breve e univoco per costruire lo username dei referenti self-service (prefisso_codice)';
 COMMENT ON COLUMN ticket_cliente_config.promemoria_richiedenti_abilitato IS 'FALSE = per questo cliente non viene inviato il promemoria giornaliero ai RICHIEDENTI/REFERENTE_CLI (il promemoria AMS/DISPATCHER non è influenzato)';
+
+
+-- =====================================================================
+-- SEZIONE 10 — ticket_riassegnazione (richieste AMS di riattribuzione) [RICOSTRUITO]
+-- =====================================================================
+-- DDL dedotto da TicketRiassegnazioneService/TicketRiassegnazione (nessun
+-- file .sql originale ritrovato). Una sola richiesta APERTA per ticket:
+-- indice unico parziale (citato nel javadoc di create()).
+-- stato: APERTA | CONCLUSA. nuovo_amusr = 'DELETED' se rifiutata dal DISPATCHER.
+
+CREATE TABLE IF NOT EXISTS ticket_riassegnazione (
+    id                BIGSERIAL    PRIMARY KEY,
+    tickt             VARCHAR(20)  NOT NULL,
+    amusr_richiedente VARCHAR(40)  NOT NULL,
+    testo             TEXT         NOT NULL,
+    stato             VARCHAR(10)  NOT NULL DEFAULT 'APERTA'
+                                   CHECK (stato IN ('APERTA', 'CONCLUSA')),
+    nuovo_amusr       VARCHAR(40),
+    created_at        TIMESTAMP    NOT NULL DEFAULT NOW(),
+    updated_at        TIMESTAMP    NOT NULL DEFAULT NOW(),
+    concluded_at      TIMESTAMP
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_riassegnazione_tickt_aperta
+    ON ticket_riassegnazione (tickt) WHERE stato = 'APERTA';
+CREATE INDEX IF NOT EXISTS idx_riassegnazione_stato ON ticket_riassegnazione (stato);
+CREATE INDEX IF NOT EXISTS idx_riassegnazione_richiedente ON ticket_riassegnazione (amusr_richiedente);
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON ticket_riassegnazione TO ticket_app;
+GRANT USAGE, SELECT ON SEQUENCE ticket_riassegnazione_id_seq TO ticket_app;
+
+COMMENT ON TABLE ticket_riassegnazione IS 'Richieste AMS di riattribuzione ticket al DISPATCHER; auto-concluse quando l''Amusr cambia su SAP';
 
 
 -- =====================================================================
