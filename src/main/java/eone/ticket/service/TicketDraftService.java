@@ -1,5 +1,7 @@
 package eone.ticket.service;
 
+import eone.ticket.util.IdNormalizer;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -492,7 +494,7 @@ public class TicketDraftService {
         if (draft != null) {
             String reqidDraft  = draft.getReqid() != null ? draft.getReqid().trim() : "";
             String reqidSap    = ticketSap.getReqid() != null ? ticketSap.getReqid().trim() : "";
-            if (!reqidDraft.isEmpty() && !reqidSap.isEmpty() && !reqidDraft.equalsIgnoreCase(reqidSap)) {
+            if (!reqidDraft.isEmpty() && !reqidSap.isEmpty() && !IdNormalizer.sameReqid(reqidDraft, reqidSap)) {
                 warnings.add("⚠ Il richiedente del DRAFT (" + reqidDraft + ") è diverso da quello " +
                              "del ticket SAP " + ticktSap + " (" + reqidSap + ").");
             }

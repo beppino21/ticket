@@ -1,5 +1,7 @@
 package eone.ticket.view.managedbeans;
 
+import eone.ticket.util.IdNormalizer;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
@@ -229,6 +231,14 @@ public class CommentUI extends PageBean implements Serializable {
             if (m_currentKunnr != null && !m_currentKunnr.trim().isEmpty()) {
                 for (RequesterInfo r : requesterService.getEligibiliReferente(m_currentKunnr, m_currentReqid)) {
                     m_referenteVVB.addValidValue(r.getReqid(), r.getNomeOReqid());
+                    // Il referente salvato in ticket_referente può avere una forma diversa dalla
+                    // chiave della combobox ("1" vs "0001"): allineo alla chiave della combobox,
+                    // altrimenti il valore non viene riconosciuto e compare il codice grezzo.
+                    if (m_reqidReferenteAttuale != null
+                            && IdNormalizer.sameReqid(m_reqidReferenteAttuale, r.getReqid())) {
+                        m_reqidReferenteAttuale = r.getReqid();
+                        m_reqidReferenteNuovo   = r.getReqid();
+                    }
                 }
             }
 
@@ -253,7 +263,7 @@ public class CommentUI extends PageBean implements Serializable {
         if (!m_puoModificareReferente) return false;
         if (m_reqidReferenteNuovo == null || m_reqidReferenteNuovo.trim().isEmpty()) return false;
         String reqidNuovo = m_reqidReferenteNuovo.trim();
-        boolean referenteCambiato = m_reqidReferenteAttuale == null || !m_reqidReferenteAttuale.equalsIgnoreCase(reqidNuovo);
+        boolean referenteCambiato = m_reqidReferenteAttuale == null || !IdNormalizer.sameReqid(m_reqidReferenteAttuale, reqidNuovo);
 
         boolean notificaPrecedente = true;
         try {
@@ -281,7 +291,7 @@ public class CommentUI extends PageBean implements Serializable {
         }
         String reqidVecchio = m_reqidReferenteAttuale;
         String reqidNuovo   = m_reqidReferenteNuovo.trim();
-        boolean referenteCambiato = reqidVecchio == null || !reqidVecchio.equalsIgnoreCase(reqidNuovo);
+        boolean referenteCambiato = reqidVecchio == null || !IdNormalizer.sameReqid(reqidVecchio, reqidNuovo);
 
         try {
             ViewSessionContext ctx = ViewSessionContext.instance();
@@ -513,7 +523,7 @@ public class CommentUI extends PageBean implements Serializable {
         // referente, e il flag non ha effetto su quel canale).
         try {
             boolean referenteDiverso = m_reqidReferenteAttuale != null &&
-                !m_reqidReferenteAttuale.equalsIgnoreCase(m_currentReqid);
+                !IdNormalizer.sameReqid(m_reqidReferenteAttuale, m_currentReqid);
             boolean notificaRichiedente = !referenteDiverso || referenteService.getNotificaRichiedente(m_currentTickt);
 
             if (!notificaRichiedente) {
@@ -557,7 +567,7 @@ public class CommentUI extends PageBean implements Serializable {
         // caso comune in cui il richiedente ha scelto se stesso come referente.
         try {
             if (m_reqidReferenteAttuale != null && !m_reqidReferenteAttuale.trim().isEmpty() &&
-                !m_reqidReferenteAttuale.equalsIgnoreCase(m_currentReqid) && m_currentKunnr != null) {
+                !IdNormalizer.sameReqid(m_reqidReferenteAttuale, m_currentReqid) && m_currentKunnr != null) {
                 RequesterInfo referenteCli = requesterService.getReferenteInfo(m_currentKunnr, m_reqidReferenteAttuale);
                 if (referenteCli != null) {
                     notificaConEventualeSostituto(referenteCli, autoreId, statoLabel, comment.getTesto(), allegati,
@@ -744,7 +754,7 @@ public class CommentUI extends PageBean implements Serializable {
     /** Il checkbox ha senso solo quando il referente scelto è diverso dal richiedente del ticket. */
 
     public boolean getShowNotificaRichiedente() {
-        return m_reqidReferenteNuovo != null && !m_reqidReferenteNuovo.equalsIgnoreCase(m_currentReqid);
+        return m_reqidReferenteNuovo != null && !IdNormalizer.sameReqid(m_reqidReferenteNuovo, m_currentReqid);
     }
     public boolean getPuoModificareReferente()    { return m_puoModificareReferente; }
     /** Visibile a CLIENTE/REFERENTE_CLI (possono modificarlo) e ad AMS (sola lettura — vede chi è il referente ma non può cambiarlo). */

@@ -1,5 +1,7 @@
 package eone.ticket.service;
 
+import eone.ticket.util.IdNormalizer;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -38,10 +40,11 @@ public class TicketReferenteService {
         List<String> list = new ArrayList<>();
         if (reqidReferente == null || reqidReferente.trim().isEmpty()) return list;
         if (kunnr == null || kunnr.trim().isEmpty()) return list;
-        String sql = "SELECT tickt FROM ticket_referente WHERE reqid_referente = ? AND kunnr = ?";
+        String sql = "SELECT tickt FROM ticket_referente WHERE " + IdNormalizer.sqlNormalize("reqid_referente") + " = ? " +
+                     "AND LPAD(kunnr, 10, '0') = LPAD(?, 10, '0')";
         try (Connection con = DBConfig.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setString(1, reqidReferente.trim());
+            ps.setString(1, IdNormalizer.reqid(reqidReferente));
             ps.setString(2, kunnr.trim());
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) list.add(rs.getString("tickt"));
@@ -164,8 +167,10 @@ public class TicketReferenteService {
      */
     public boolean canModificareReferente(String tickt, String reqidRichiedenteDelTicket, String reqidUtente) throws SQLException {
         if (reqidUtente == null || reqidUtente.trim().isEmpty()) return false;
-        if (reqidUtente.equalsIgnoreCase(reqidRichiedenteDelTicket)) return true;
+        // Confronto normalizzato: il Reqid del ticket arriva da SAP ("1"), quello
+        // dell'utente e quello salvato in ticket_referente da ticket_user ("0001").
+        if (IdNormalizer.sameReqid(reqidUtente, reqidRichiedenteDelTicket)) return true;
         String referenteAttuale = getReferente(tickt);
-        return referenteAttuale != null && referenteAttuale.equalsIgnoreCase(reqidUtente);
+        return referenteAttuale != null && IdNormalizer.sameReqid(referenteAttuale, reqidUtente);
     }
 }

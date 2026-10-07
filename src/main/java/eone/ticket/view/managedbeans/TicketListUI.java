@@ -1,5 +1,7 @@
 package eone.ticket.view.managedbeans;
 
+import eone.ticket.util.IdNormalizer;
+
 import java.io.Serializable;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -176,7 +178,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
          */
         public String getReqidCellBackground() {
             String r = ticket.getReqid();
-            return (r != null && m_reqidSostituitiAttivi.contains(r.trim())) ? "#FFF59D" : "#FFFFFF";
+            return (r != null && IdNormalizer.containsReqid(m_reqidSostituitiAttivi, r)) ? "#FFF59D" : "#FFFFFF";
         }
 
         /**
@@ -603,7 +605,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
         String reqid = m_selectedTicketObj.getReqid();
         if (reqid == null) return false;
         String proprioReqid = ctx.getRichiedente();
-        return reqid.equalsIgnoreCase(proprioReqid) || m_reqidSostituitiAttivi.contains(reqid.trim());
+        return IdNormalizer.sameReqid(reqid, proprioReqid) || IdNormalizer.containsReqid(m_reqidSostituitiAttivi, reqid);
     }
 
     /** Cancella il DRAFT selezionato — solo se non ancora fuso in SAP e di propria competenza. */
@@ -690,7 +692,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
         String reqid = m_selectedTicketObj.getReqid();
         if (reqid == null) return false;
         String proprioReqid = ctx.getRichiedente();
-        return reqid.equalsIgnoreCase(proprioReqid) || m_reqidSostituitiAttivi.contains(reqid.trim());
+        return IdNormalizer.sameReqid(reqid, proprioReqid) || IdNormalizer.containsReqid(m_reqidSostituitiAttivi, reqid);
     }
 
     /**
@@ -705,7 +707,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
         String reqid = m_selectedTicketObj.getReqid();
         if (reqid == null) return false;
         String proprioReqid = ctx.getRichiedente();
-        return reqid.equalsIgnoreCase(proprioReqid) || m_reqidSostituitiAttivi.contains(reqid.trim());
+        return IdNormalizer.sameReqid(reqid, proprioReqid) || IdNormalizer.containsReqid(m_reqidSostituitiAttivi, reqid);
     }
 
     /** Sospende (parcheggia) il DRAFT selezionato — reversibile. */
@@ -999,13 +1001,13 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
             for (Ticket t : ticketsEnriched) {
                 String r = t.getReqid() != null ? t.getReqid().trim() : "";
                 String a = t.getAmusr() != null ? t.getAmusr().trim() : "";
-                if (m_reqidSostituitiAttivi.contains(r) || m_amusrSostituitiAttivi.contains(a)) count++;
+                if (IdNormalizer.containsReqid(m_reqidSostituitiAttivi, r) || m_amusrSostituitiAttivi.contains(a)) count++;
             }
         }
         if (draftsCache != null) {
             for (Ticket t : draftsCache) {
                 String r = t.getReqid() != null ? t.getReqid().trim() : "";
-                if (m_reqidSostituitiAttivi.contains(r)) count++;
+                if (IdNormalizer.containsReqid(m_reqidSostituitiAttivi, r)) count++;
             }
         }
         return count;
@@ -1279,7 +1281,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
                     tickets = tickets.stream()
                         .filter(t -> {
                             String r = t.getReqid() != null ? t.getReqid().trim() : "";
-                            return r.equalsIgnoreCase(proprioReqid) || m_reqidSostituitiAttivi.contains(r);
+                            return IdNormalizer.sameReqid(r, proprioReqid) || IdNormalizer.containsReqid(m_reqidSostituitiAttivi, r);
                         })
                         .collect(java.util.stream.Collectors.toList());
                 }

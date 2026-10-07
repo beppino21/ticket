@@ -1,5 +1,7 @@
 package eone.ticket.view.managedbeans;
 
+import eone.ticket.util.IdNormalizer;
+
 import java.io.Serializable;
 
 import org.eclnt.editor.annotations.CCGenClass;
@@ -308,7 +310,7 @@ public class OutestUI
                     tickets = tickets.stream()
                         .filter(t -> {
                             String r = t.getReqid() != null ? t.getReqid().trim() : "";
-                            return r.equalsIgnoreCase(reqidProprio) || reqidSostituiti.contains(r);
+                            return IdNormalizer.sameReqid(r, reqidProprio) || IdNormalizer.containsReqid(reqidSostituiti, r);
                         })
                         .collect(java.util.stream.Collectors.toList());
                 } else if (amusr != null && !amusr.trim().isEmpty()) {
@@ -386,7 +388,7 @@ public class OutestUI
                         draftCount = (int) drafts.stream().filter(d -> d.isDraft()).count();
                         sostituitiCount += (int) drafts.stream()
                             .filter(d -> d.isDraft() && d.getReqid() != null
-                                      && reqidSostituiti.contains(d.getReqid().trim()))
+                                      && IdNormalizer.containsReqid(reqidSostituiti, d.getReqid()))
                             .count();
                     } else if ("DISPATCHER".equalsIgnoreCase(ctx.getRuolo())) {
                         // DISPATCHER: tutti i DRAFT in attesa
@@ -403,7 +405,7 @@ public class OutestUI
                 for (eone.ticket.model.Ticket t : tickets) {
                     String r = t.getReqid() != null ? t.getReqid().trim() : "";
                     String a = t.getAmusr() != null ? t.getAmusr().trim() : "";
-                    if (reqidSostituiti.contains(r) || amusrSostituiti.contains(a)) sostituitiCount++;
+                    if (IdNormalizer.containsReqid(reqidSostituiti, r) || amusrSostituiti.contains(a)) sostituitiCount++;
                 }
 
                 eone.ticket.model.TicketSummary summary =

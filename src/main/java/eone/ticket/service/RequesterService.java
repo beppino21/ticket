@@ -1,5 +1,7 @@
 package eone.ticket.service;
 
+import eone.ticket.util.IdNormalizer;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -199,12 +201,12 @@ public class RequesterService {
         if (kunnr == null || reqid == null) return null;
 
         String sql = "SELECT id_user, kunnr, reqid, nome, email, password_hash, ruolo, vede_tutti, attivo, gestisce_referenti, reqid_richiedente, password_impostata_il, password_scadenza_giorni, password_non_scade " +
-                     "FROM ticket_user WHERE LPAD(kunnr, 10, '0') = LPAD(?, 10, '0') AND reqid = ? AND ruolo = 'CLIENTE' LIMIT 1";
+                     "FROM ticket_user WHERE LPAD(kunnr, 10, '0') = LPAD(?, 10, '0') AND " + IdNormalizer.sqlNormalize("reqid") + " = ? AND ruolo = 'CLIENTE' LIMIT 1";
 
         try (Connection con = DBConfig.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, kunnr.trim());
-            ps.setString(2, reqid.trim());
+            ps.setString(2, IdNormalizer.reqid(reqid));
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) return null;
                 return mapRow(rs);
@@ -227,13 +229,13 @@ public class RequesterService {
         if (kunnr == null || reqid == null) return null;
 
         String sql = "SELECT id_user, kunnr, reqid, nome, email, password_hash, ruolo, vede_tutti, attivo, gestisce_referenti, reqid_richiedente, password_impostata_il, password_scadenza_giorni, password_non_scade " +
-                     "FROM ticket_user WHERE LPAD(kunnr, 10, '0') = LPAD(?, 10, '0') AND reqid = ? " +
+                     "FROM ticket_user WHERE LPAD(kunnr, 10, '0') = LPAD(?, 10, '0') AND " + IdNormalizer.sqlNormalize("reqid") + " = ? " +
                      "ORDER BY (ruolo = 'REFERENTE_CLI') DESC LIMIT 1";
 
         try (Connection con = DBConfig.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, kunnr.trim());
-            ps.setString(2, reqid.trim());
+            ps.setString(2, IdNormalizer.reqid(reqid));
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) return null;
                 return mapRow(rs);
@@ -264,15 +266,15 @@ public class RequesterService {
         String sql = "SELECT id_user, kunnr, reqid, nome, email, password_hash, ruolo, vede_tutti, attivo, gestisce_referenti, reqid_richiedente, password_impostata_il, password_scadenza_giorni, password_non_scade " +
                      "FROM ticket_user " +
                      "WHERE LPAD(kunnr, 10, '0') = LPAD(?, 10, '0') AND attivo = TRUE " +
-                     "AND ( (ruolo = 'CLIENTE' AND reqid = ?) " +
-                     "   OR (ruolo = 'REFERENTE_CLI' AND reqid_richiedente = ?) ) " +
+                     "AND ( (ruolo = 'CLIENTE' AND " + IdNormalizer.sqlNormalize("reqid") + " = ?) " +
+                     "   OR (ruolo = 'REFERENTE_CLI' AND " + IdNormalizer.sqlNormalize("reqid_richiedente") + " = ?) ) " +
                      "ORDER BY nome";
 
         try (Connection con = DBConfig.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, kunnr.trim());
-            ps.setString(2, reqidRichiedente.trim());
-            ps.setString(3, reqidRichiedente.trim());
+            ps.setString(2, IdNormalizer.reqid(reqidRichiedente));
+            ps.setString(3, IdNormalizer.reqid(reqidRichiedente));
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) list.add(mapRow(rs));
             }

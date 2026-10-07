@@ -1,5 +1,7 @@
 package eone.ticket.service;
 
+import eone.ticket.util.IdNormalizer;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -128,6 +130,7 @@ public class EnrichmentService {
         List<String> reqids = tickets.stream()
             .map(Ticket::getReqid)
             .filter(r -> r != null && !r.trim().isEmpty())
+            .map(IdNormalizer::reqid)   // Reqid SAP ("1") e ticket_user ("0001"): si confronta la forma canonica
             .distinct()
             .collect(Collectors.toList());
 
@@ -148,7 +151,7 @@ public class EnrichmentService {
         // Postgres), mostrando nella colonna "Richiedente" il nome del
         // referente invece che del vero richiedente.
         String sql = buildInClause(
-            "SELECT kunnr, reqid, nome FROM ticket_user WHERE ruolo = 'CLIENTE' AND reqid IN (",
+            "SELECT kunnr, reqid, nome FROM ticket_user WHERE ruolo = 'CLIENTE' AND " + IdNormalizer.sqlNormalize("reqid") + " IN (",
             reqids.size()
         );
 
@@ -188,7 +191,7 @@ public class EnrichmentService {
 
     /** Chiave kunnr+reqid, con kunnr normalizzato per tollerare differenze di zero-padding. */
     private static String chiaveKunnrReqid(String kunnr, String reqid) {
-        return normalizeKunnr(kunnr) + "|" + (reqid != null ? reqid.trim().toUpperCase() : "");
+        return normalizeKunnr(kunnr) + "|" + IdNormalizer.reqid(reqid);
     }
 
     private static String normalizeKunnr(String kunnr) {
