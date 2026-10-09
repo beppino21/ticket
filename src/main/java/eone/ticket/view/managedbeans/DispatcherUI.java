@@ -6,6 +6,7 @@ import java.util.List;
 import org.eclnt.editor.annotations.CCGenClass;
 import org.eclnt.jsfserver.base.faces.event.ActionEvent;
 import org.eclnt.jsfserver.defaultscreens.Statusbar;
+import org.eclnt.jsfserver.defaultscreens.YESNOPopup;
 import org.eclnt.jsfserver.elements.impl.FIXGRIDItem;
 import org.eclnt.jsfserver.elements.impl.FIXGRIDListBinding;
 import org.eclnt.workplace.IWorkpageDispatcher;
@@ -181,7 +182,53 @@ public class DispatcherUI extends WorkpageDispatchedPageBean implements Serializ
                                 "— probabilmente è già stato gestito.");
     }
 
+    /**
+     * Pulsante "Fondi in SAP": NON esegue nulla subito — dopo i controlli di
+     * base (selezione e numero SAP presenti) chiede conferma con un popup
+     * Sì/No. Solo con "Sì" parte il flusso vero (controllaEFondi), che a sua
+     * volta può ancora fermarsi su eventuali anomalie da confermare.
+     */
     public void mergeDraft(ActionEvent ae) {
+        if (m_selectedItem == null) {
+            Statusbar.outputWarning("Selezionare un ticket DRAFT dalla lista");
+            return;
+        }
+        if (m_ticktSapInput == null || m_ticktSapInput.trim().isEmpty()) {
+            Statusbar.outputWarning("Inserire il numero ticket SAP per procedere alla fusione");
+            return;
+        }
+        final long draftId = m_selectedItem.getId();
+        final String ticktKey = m_selectedItem.getTicktKey();
+        final String ticktSap = eone.ticket.service.SAPTicketService.normalizeTicktNumber(m_ticktSapInput.trim());
+
+        YESNOPopup ynp = YESNOPopup.createInstance(
+            "Conferma fusione",
+            "Fondere il ticket " + ticktKey + " (\"" + nn(m_selectedItem.getTitolo()) + "\") " +
+            "con il ticket SAP n. " + ticktSap + "?\n\n" +
+            "L'operazione sposta commenti e allegati sul ticket SAP e il DRAFT esce dalla lista.",
+            new YESNOPopup.IYesNoListener() {
+                @Override public void reactOnYes() {
+                    if (m_selectedItem == null || m_selectedItem.getId() != draftId) {
+                        Statusbar.outputWarning("La selezione è cambiata: ripetere l'operazione.");
+                        return;
+                    }
+                    controllaEFondi();
+                }
+                @Override public void reactOnNo() {
+                    Statusbar.outputMessage("Fusione annullata.");
+                }
+            });
+        ynp.setHeadline("Fusione del ticket DRAFT");
+        ynp.setTextAlign("left");
+        ynp.getModalPopup().setWidth(520);
+        ynp.getModalPopup().setHeight(280);
+        ynp.getModalPopup().hideCloseIcon(); // si esce solo premendo esplicitamente Sì o No
+    }
+
+    private static String nn(String s) { return s == null ? "" : s; }
+
+    /** Flusso di fusione vero e proprio — chiamato solo dopo il "Sì" del popup di conferma. */
+    private void controllaEFondi() {
         if (m_selectedItem == null) {
             Statusbar.outputWarning("Selezionare un ticket DRAFT dalla lista");
             return;
@@ -309,10 +356,33 @@ public class DispatcherUI extends WorkpageDispatchedPageBean implements Serializ
             return;
         }
         if (m_selectedItem.isSospeso()) {
-            riattivaDraft(ae);
-        } else {
-            sospendiDraft(ae);
+            riattivaDraft(ae);   // reversibile e innocua: nessuna conferma
+            return;
         }
+        final long draftId = m_selectedItem.getId();
+        final String ticktKey = m_selectedItem.getTicktKey();
+        YESNOPopup ynp = YESNOPopup.createInstance(
+            "Conferma sospensione",
+            "Sospendere il ticket " + ticktKey + " (\"" + nn(m_selectedItem.getTitolo()) + "\")?\n\n" +
+            "Il DRAFT esce dalla lista di smistamento e il richiedente riceve una notifica. " +
+            "Potrà essere riattivato in qualsiasi momento dai DRAFT sospesi.",
+            new YESNOPopup.IYesNoListener() {
+                @Override public void reactOnYes() {
+                    if (m_selectedItem == null || m_selectedItem.getId() != draftId) {
+                        Statusbar.outputWarning("La selezione è cambiata: ripetere l'operazione.");
+                        return;
+                    }
+                    sospendiDraft(null);
+                }
+                @Override public void reactOnNo() {
+                    Statusbar.outputMessage("Sospensione annullata.");
+                }
+            });
+        ynp.setHeadline("Sospensione del ticket DRAFT");
+        ynp.setTextAlign("left");
+        ynp.getModalPopup().setWidth(520);
+        ynp.getModalPopup().setHeight(280);
+        ynp.getModalPopup().hideCloseIcon();
     }
 
     /** Riattiva il DRAFT sospeso selezionato — torna tra i DRAFT in attesa di smistamento. */

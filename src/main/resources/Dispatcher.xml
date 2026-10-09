@@ -80,14 +80,10 @@
 <t:label id="dp_sel_hint_lbl" font="size:10;color:#888888" text="Inserire il numero ticket creato in SAP backoffice, poi confermare la fusione." />
 </t:row>
 <t:rowdistance id="dp_sel_d5" height="12" rendered="#{d.DispatcherUI.hasSelected}" />
-<t:row id="dp_sel_r5" rendered="#{d.DispatcherUI.showMerge}" >
-<t:coldistance id="g_4" width="128" />
-<t:button id="dp_merge_btn" actionListener="#{d.DispatcherUI.mergeDraft}" text="Fondi in SAP »" width="140" />
-</t:row>
-<t:rowdistance id="dp_sel_d5b" height="8" rendered="#{d.DispatcherUI.hasSelected}" />
-<t:row id="dp_sel_r5c" rendered="#{d.DispatcherUI.hasSelected}" >
-<t:coldistance id="g_4d" width="128" />
-<t:button id="dp_sospendi_riattiva_btn" actionListener="#{d.DispatcherUI.toggleSospendiRiattiva}" text="#{d.DispatcherUI.toggleSospendiRiattivaLabel}" width="140" />
+<t:row id="dp_sel_r5" rendered="#{d.DispatcherUI.hasSelected}" >
+<t:button id="dp_merge_btn" actionListener="#{d.DispatcherUI.mergeDraft}" enabled="#{d.DispatcherUI.showMerge}" text="Fondi in SAP »" width="150" />
+<t:coldistance id="dp_btn_gap" width="100%" />
+<t:button id="dp_sospendi_riattiva_btn" actionListener="#{d.DispatcherUI.toggleSospendiRiattiva}" text="#{d.DispatcherUI.toggleSospendiRiattivaLabel}" width="150" />
 </t:row>
 <t:row id="dp_warn_r1" rendered="#{d.DispatcherUI.waitingConfirm}" >
 <t:pane id="dp_warn_pane" border="#E53935" padding="8" width="100%" >
