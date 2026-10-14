@@ -75,6 +75,7 @@ public class ReferentiUI extends PageBean implements Serializable {
     private String  m_formNome;
     private String  m_formEmail;
     private boolean m_formAttivo = true;
+    private String  m_formPromemoriaGiorniStr = "1"; // frequenza promemoria in giorni (0 = mai)
     private String  m_formPassword; // solo in creazione
 
     private String  m_resetPasswordValue;
@@ -104,6 +105,7 @@ public class ReferentiUI extends PageBean implements Serializable {
             m_formNome   = referente.getNome();
             m_formEmail  = referente.getEmail();
             m_formAttivo = referente.isAttivo();
+            m_formPromemoriaGiorniStr = String.valueOf(referente.getPromemoriaOgniGiorni());
             m_formPassword = null;
             m_eliminaWaitingConfirmIdUser = null;
             m_resetPasswordVisible = false;
@@ -256,6 +258,7 @@ public class ReferentiUI extends PageBean implements Serializable {
         m_formNome = null;
         m_formEmail = null;
         m_formAttivo = true;
+        m_formPromemoriaGiorniStr = "1";
         m_formPassword = null;
         m_eliminaWaitingConfirmIdUser = null;
         m_resetPasswordVisible = false;
@@ -347,8 +350,15 @@ public class ReferentiUI extends PageBean implements Serializable {
                     m_formReqidRichiedente.trim(), m_formNome.trim(), m_formEmail, m_formPassword);
                 Statusbar.outputSuccess("Referente " + usernameCostruito + " creato — dovrà cambiare la password al primo accesso");
             } else {
+                int promemoriaGiorni = eone.ticket.service.PromemoriaFrequenzaService.parseGiorni(m_formPromemoriaGiorniStr);
+                if (promemoriaGiorni < 0) {
+                    Statusbar.outputWarning("Frequenza promemoria non valida — indicare un numero intero di giorni da 0 a " +
+                        eone.ticket.service.PromemoriaFrequenzaService.MAX_GIORNI + " (0 = nessun promemoria)");
+                    return;
+                }
                 adminService.updateAnagrafica(m_formIdUser, m_formNome.trim(), m_formEmail, m_formAttivo,
                     false, false, 90, false);
+                adminService.updatePromemoriaFrequenza(m_formIdUser, promemoriaGiorni);
                 // Il richiedente di riferimento è modificabile anche in
                 // seguito (es. il referente passa "in carico" a un altro
                 // richiedente) — persistito separatamente da updateAnagrafica
@@ -464,6 +474,9 @@ public class ReferentiUI extends PageBean implements Serializable {
 
     public String  getFormEmail()        { return m_formEmail; }
     public void    setFormEmail(String v) { this.m_formEmail = v; }
+
+    public String  getFormPromemoriaGiorniStr()         { return m_formPromemoriaGiorniStr; }
+    public void    setFormPromemoriaGiorniStr(String v) { this.m_formPromemoriaGiorniStr = v; }
 
     public boolean getFormAttivo()        { return m_formAttivo; }
     public void    setFormAttivo(boolean v) { this.m_formAttivo = v; }

@@ -629,10 +629,10 @@ public class MailService {
      * non ce n'è mai stata una). Non inviata se righe è vuoto — a monte,
      * PromemoriaQuotidianoService non genera nemmeno la chiamata in quel caso.
      */
-    public void sendPromemoriaAms(String toEmail, String nomeAms, List<eone.ticket.model.PromemoriaRiga> righe) {
+    public boolean sendPromemoriaAms(String toEmail, String nomeAms, List<eone.ticket.model.PromemoriaRiga> righe) {
         if (toEmail == null || toEmail.trim().isEmpty() || righe == null || righe.isEmpty()) {
             System.out.println("[MailService] Promemoria AMS saltato: destinatario vuoto o nessun ticket pendente.");
-            return;
+            return false;
         }
 
         String subject = "Ticket pendenti a tuo carico — " + righe.size() +
@@ -666,15 +666,17 @@ public class MailService {
             System.out.println("Subject: " + subject);
             System.out.println("Righe:   " + righe.size());
             System.out.println("==========================================================================");
-            return;
+            return false;
         }
 
         try {
             sendHtml(toEmail, subject, html);
             System.out.println("[MailService] Promemoria AMS inviato a " + toEmail + " (" + righe.size() + " ticket)");
+            return true;
         } catch (Exception e) {
             System.err.println("[MailService] Errore invio promemoria AMS a " + toEmail + ": " + e.getMessage());
             e.printStackTrace();
+            return false;
         }
     }
 
@@ -683,17 +685,17 @@ public class MailService {
      * ciascun indirizzo DISPATCHER: DRAFT pendenti da fondere + richieste
      * di riattribuzione pendenti, evidenziate a colori come per l'AMS.
      */
-    public void sendPromemoriaDispatcher(String toEmail, List<eone.ticket.model.PromemoriaRiga> righeDraft,
+    public boolean sendPromemoriaDispatcher(String toEmail, List<eone.ticket.model.PromemoriaRiga> righeDraft,
                                           List<eone.ticket.model.PromemoriaRiga> righeRiassegnazione) {
         if (toEmail == null || toEmail.trim().isEmpty()) {
             System.out.println("[MailService] Promemoria DISPATCHER saltato: destinatario vuoto.");
-            return;
+            return false;
         }
         boolean nienteDraft = righeDraft == null || righeDraft.isEmpty();
         boolean nienteRiass = righeRiassegnazione == null || righeRiassegnazione.isEmpty();
         if (nienteDraft && nienteRiass) {
             System.out.println("[MailService] Promemoria DISPATCHER saltato: nessun DRAFT né richiesta pendente.");
-            return;
+            return false;
         }
 
         int totale = (nienteDraft ? 0 : righeDraft.size()) + (nienteRiass ? 0 : righeRiassegnazione.size());
@@ -744,15 +746,17 @@ public class MailService {
             System.out.println("Subject: " + subject);
             System.out.println("Draft: " + (nienteDraft ? 0 : righeDraft.size()) + " — Riassegnazioni: " + (nienteRiass ? 0 : righeRiassegnazione.size()));
             System.out.println("==============================================================================");
-            return;
+            return false;
         }
 
         try {
             sendHtml(toEmail, subject, html.toString());
             System.out.println("[MailService] Promemoria DISPATCHER inviato a " + toEmail);
+            return true;
         } catch (Exception e) {
             System.err.println("[MailService] Errore invio promemoria DISPATCHER a " + toEmail + ": " + e.getMessage());
             e.printStackTrace();
+            return false;
         }
     }
 
@@ -764,18 +768,18 @@ public class MailService {
      * anzianità decrescente a monte da PromemoriaQuotidianoService.
      * Non inviata se entrambe le liste sono vuote.
      */
-    public void sendPromemoriaRichiedente(String toEmail, String nomeRichiedente,
+    public boolean sendPromemoriaRichiedente(String toEmail, String nomeRichiedente,
                                            List<eone.ticket.model.PromemoriaRiga> aCaricoSuo,
                                            List<eone.ticket.model.PromemoriaRiga> aCaricoAms) {
         if (toEmail == null || toEmail.trim().isEmpty()) {
             System.out.println("[MailService] Promemoria richiedente saltato: destinatario vuoto.");
-            return;
+            return false;
         }
         boolean nienteSuo = aCaricoSuo == null || aCaricoSuo.isEmpty();
         boolean nienteAms = aCaricoAms == null || aCaricoAms.isEmpty();
         if (nienteSuo && nienteAms) {
             System.out.println("[MailService] Promemoria richiedente saltato: nessuna attività ferma.");
-            return;
+            return false;
         }
 
         int totale = (nienteSuo ? 0 : aCaricoSuo.size()) + (nienteAms ? 0 : aCaricoAms.size());
@@ -828,15 +832,17 @@ public class MailService {
             System.out.println("Subject: " + subject);
             System.out.println("A suo carico: " + (nienteSuo ? 0 : aCaricoSuo.size()) + " — In carico AMS: " + (nienteAms ? 0 : aCaricoAms.size()));
             System.out.println("==================================================================================");
-            return;
+            return false;
         }
 
         try {
             sendHtml(toEmail, subject, html.toString());
             System.out.println("[MailService] Promemoria richiedente inviato a " + toEmail);
+            return true;
         } catch (Exception e) {
             System.err.println("[MailService] Errore invio promemoria richiedente a " + toEmail + ": " + e.getMessage());
             e.printStackTrace();
+            return false;
         }
     }
 

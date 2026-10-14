@@ -111,6 +111,12 @@
 <t:label id="ua_f7g_lbl" labeltext="Scadenza password (gg):" width="150" />
 <t:field id="ua_f7g_field" flush="true" text="#{d.UserAdminUI.formPasswordScadenzaGiorniStr}" width="80" />
 </t:row>
+<t:rowdistance id="ua_fd7p" height="6" rendered="#{d.UserAdminUI.showPromemoriaField}" />
+<t:row id="ua_f7p" coldistance="8" rendered="#{d.UserAdminUI.showPromemoriaField}" >
+<t:label id="ua_f7p_lbl" labeltext="Promemoria ogni (gg):" width="150" />
+<t:field id="ua_f7p_field" flush="true" text="#{d.UserAdminUI.formPromemoriaGiorniStr}" width="80" />
+<t:label id="ua_f7p_hint" font="size:10;color:#888888" text="1 = ogni giorno feriale · 7 = una volta a settimana · 0 = mai" />
+</t:row>
 <t:rowdistance id="ua_fd7" height="20" rendered="#{d.UserAdminUI.formVisible}" />
 <t:row id="ua_f8" coldistance="8" rendered="#{d.UserAdminUI.formVisible}" >
 <t:coldistance id="ua_f8_cd" width="150" />

@@ -68,6 +68,7 @@ public class UserAdminUI extends PageBean implements Serializable {
     private boolean m_formVedeTutti;
     private boolean m_formGestisceReferenti; // solo richiedenti CLIENTE
     private boolean m_formPasswordNonScade;
+    private String  m_formPromemoriaGiorniStr = "1"; // frequenza promemoria: 1 = ogni giorno feriale, N = ogni N giorni, 0 = mai
     private String  m_formPasswordScadenzaGiorniStr = "90"; // stringa per il binding col campo — convertita in int al salvataggio
     private String  m_formPassword;   // solo in creazione
     private boolean m_formVisible;
@@ -196,6 +197,7 @@ public class UserAdminUI extends PageBean implements Serializable {
         m_formVedeTutti = false;
         m_formGestisceReferenti = false;
         m_formPasswordNonScade = false;
+        m_formPromemoriaGiorniStr = "1";
         m_formPasswordScadenzaGiorniStr = "90";
         m_formPassword = null;
         m_eliminaWaitingConfirmIdUser = null;
@@ -279,8 +281,15 @@ public class UserAdminUI extends PageBean implements Serializable {
                     Statusbar.outputWarning("Giorni di scadenza password non validi — indicare un numero intero positivo");
                     return;
                 }
+                int promemoriaGiorni = eone.ticket.service.PromemoriaFrequenzaService.parseGiorni(m_formPromemoriaGiorniStr);
+                if (promemoriaGiorni < 0) {
+                    Statusbar.outputWarning("Frequenza promemoria non valida — indicare un numero intero di giorni da 0 a " +
+                        eone.ticket.service.PromemoriaFrequenzaService.MAX_GIORNI + " (0 = nessun promemoria)");
+                    return;
+                }
                 adminService.updateAnagrafica(m_formIdUser, m_formNome.trim(), m_formEmail, m_formAttivo,
                     m_formVedeTutti, m_formPasswordNonScade, scadenzaGiorni, m_formGestisceReferenti);
+                adminService.updatePromemoriaFrequenza(m_formIdUser, promemoriaGiorni);
                 Statusbar.outputSuccess("Utente " + m_formIdUser + " aggiornato — valori riletti dal DB qui sotto");
                 caricaLista();
                 ripopolaFormDaRiga(m_formIdUser); // rilettura fresca dal DB, form resta aperto per verifica immediata
@@ -447,6 +456,15 @@ public class UserAdminUI extends PageBean implements Serializable {
     /** Il flag ha senso solo per richiedenti CLIENTE, non per utenti AMS/DISPATCHER. */
     public boolean isShowGestisceReferentiField() { return m_formVisible && !m_isNuovo && !m_modeAms; }
 
+    public String  getFormPromemoriaGiorniStr()         { return m_formPromemoriaGiorniStr; }
+    public void    setFormPromemoriaGiorniStr(String v) { this.m_formPromemoriaGiorniStr = v; }
+    /** Il promemoria riguarda AMS, DISPATCHER, CLIENTE e REFERENTE_CLI; gli altri ruoli (ADMIN...) non lo ricevono. */
+    public boolean isShowPromemoriaField() {
+        if (!m_formVisible || m_isNuovo) return false;
+        String r = m_formRuolo;
+        return "AMS".equals(r) || "DISPATCHER".equals(r) || "CLIENTE".equals(r) || "REFERENTE_CLI".equals(r);
+    }
+
     public boolean isFormPasswordNonScade()         { return m_formPasswordNonScade; }
     public void    setFormPasswordNonScade(boolean v){ this.m_formPasswordNonScade = v; }
 
@@ -491,6 +509,7 @@ public class UserAdminUI extends PageBean implements Serializable {
             m_formVedeTutti = info.isVedeTutti();
             m_formGestisceReferenti = info.isGestisceReferenti();
             m_formPasswordNonScade = info.isPasswordNonScade();
+            m_formPromemoriaGiorniStr = String.valueOf(info.getPromemoriaOgniGiorni());
             m_formPasswordScadenzaGiorniStr = String.valueOf(info.getPasswordScadenzaGiorni());
             System.out.println("[UserAdminUI] onRowSelect — id_user='" + m_formIdUser +
                 "' formAttivo=" + m_formAttivo + " formVedeTutti=" + m_formVedeTutti +

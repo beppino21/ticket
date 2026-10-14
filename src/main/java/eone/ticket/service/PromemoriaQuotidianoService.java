@@ -49,9 +49,40 @@ public class PromemoriaQuotidianoService {
     private final RequesterService               requesterService      = new RequesterService();
     private final SubstitutionService            substitutionService   = new SubstitutionService();
     private final MailService                    mailService           = new MailService();
+    private final PromemoriaFrequenzaService     frequenza             = new PromemoriaFrequenzaService();
+    /** true = invio manuale ("Invia ora"): ignora l'intervallo personale (ma non lo 0 = mai). */
+    private boolean forza = false;
+    /** Contatori dell'ultima esecuzione per gruppo: {inviate, saltate per frequenza personale}. */
+    private final Map<String, int[]> conteggi = new java.util.LinkedHashMap<>();
+
+    private int[] conta(String gruppo) { return conteggi.computeIfAbsent(gruppo, k -> new int[2]); }
+
+    private String riepilogo() {
+        StringBuilder sb = new StringBuilder();
+        for (Map.Entry<String, int[]> e : conteggi.entrySet()) {
+            if (sb.length() > 0) sb.append(" · ");
+            sb.append(e.getKey()).append(": ").append(e.getValue()[0]).append(" inviate");
+            if (e.getValue()[1] > 0) sb.append(", ").append(e.getValue()[1]).append(" saltate per frequenza");
+        }
+        return sb.length() > 0 ? sb.toString() : "nessun destinatario";
+    }
 
     /** Entry point richiamato dallo scheduler. Le tre mail sono indipendenti: se una fallisce, le altre partono comunque. */
     public void eseguiPromemoriaQuotidiano() {
+        eseguiPromemoriaQuotidiano(false);
+    }
+
+    /** Riepilogo testuale dell'ultima esecuzione (per la pagina admin). */
+    public synchronized String getUltimoRiepilogo() { return riepilogo(); }
+
+    /**
+     * @param forzaInvio true per l'invio manuale: ignora la frequenza personale
+     *                   "ogni N giorni" (chi ha 0 = mai resta comunque escluso).
+     */
+    public synchronized void eseguiPromemoriaQuotidiano(boolean forzaInvio) {
+        this.forza = forzaInvio;
+        frequenza.carica();
+        conteggi.clear();
         if (!AppConfig.getBoolean("PROMEMORIA_QUOTIDIANO_ABILITATO", true)) {
             System.out.println("[PromemoriaQuotidianoService] Disabilitato da configurazione (PROMEMORIA_QUOTIDIANO_ABILITATO=false) — nessun invio.");
             return;
@@ -81,9 +112,13 @@ public class PromemoriaQuotidianoService {
     // =========================================================
 
     private void inviaPromemoriaAms() throws Exception {
-        List<RequesterInfo> amsUsers = requesterService.getActiveAmsUsers();
+        List<RequesterInfo> amsUsers = new ArrayList<>();
+        LocalDate oggiFreq = LocalDate.now();
+        for (RequesterInfo u : requesterService.getActiveAmsUsers()) {
+            if (frequenza.isDovuto(u.getId_user(), oggiFreq, forza)) amsUsers.add(u); else conta("AMS")[1]++;
+        }
         if (amsUsers.isEmpty()) {
-            System.out.println("[PromemoriaQuotidianoService] Nessun utente AMS attivo con email — nessun promemoria AMS.");
+            System.out.println("[PromemoriaQuotidianoService] Nessun utente AMS attivo con email e promemoria dovuto oggi — nessun promemoria AMS.");
             return;
         }
 
@@ -157,10 +192,15 @@ public class PromemoriaQuotidianoService {
                 System.err.println("[PromemoriaQuotidianoService] Errore lookup sostituto per " + ams.getId_user() + ": " + e.getMessage());
             }
 
+            boolean almenoUnaInviata = false;
             for (String email : destinatari) {
-                mailService.sendPromemoriaAms(email, ams.getNome() != null ? ams.getNome() : ams.getId_user(), righe);
-                mailInviate++;
+                if (mailService.sendPromemoriaAms(email, ams.getNome() != null ? ams.getNome() : ams.getId_user(), righe)) {
+                    mailInviate++;
+                    conta("AMS")[0]++;
+                    almenoUnaInviata = true;
+                }
             }
+            if (almenoUnaInviata) frequenza.registraInvio(ams.getId_user(), oggi);
         }
         System.out.println("[PromemoriaQuotidianoService] Promemoria AMS: " + mailInviate + " mail inviate.");
     }
@@ -216,6 +256,7 @@ public class PromemoriaQuotidianoService {
             if (kunnr == null || kunnr.trim().isEmpty() || reqid == null || reqid.trim().isEmpty()) continue;
             String kunnrNorm = ClienteConfigService.normalizeKunnr(kunnr);
             if (!kunnrAbilitatiPromemoria.contains(kunnrNorm)) continue; // cliente non abilitato o toggle spento
+            if (!frequenza.isDovuto(r.getId_user(), oggi, forza)) { conta("Richiedenti/referenti")[1]++; continue; } // frequenza personale: oggi non è il giorno (o 0 = mai)
 
             try {
                 List<PromemoriaRiga> aCaricoSuo = new ArrayList<>();
@@ -295,8 +336,11 @@ public class PromemoriaQuotidianoService {
 
                 String email = r.getEmail();
                 if (email == null || email.trim().isEmpty()) continue;
-                mailService.sendPromemoriaRichiedente(email.trim(), r.getNomeOReqid(), aCaricoSuo, aCaricoAms);
-                mailInviate++;
+                if (mailService.sendPromemoriaRichiedente(email.trim(), r.getNomeOReqid(), aCaricoSuo, aCaricoAms)) {
+                    mailInviate++;
+                    conta("Richiedenti/referenti")[0]++;
+                    frequenza.registraInvio(r.getId_user(), oggi);
+                }
             } catch (Exception e) {
                 System.err.println("[PromemoriaQuotidianoService] Errore promemoria per reqid=" + reqid +
                                    " (kunnr=" + kunnr + "): " + e.getMessage());
@@ -353,13 +397,15 @@ public class PromemoriaQuotidianoService {
     // =========================================================
 
     private void inviaPromemoriaDispatcher() throws Exception {
-        List<RequesterInfo> dispatchers = requesterService.getActiveDispatchers();
+        LocalDate oggi = LocalDate.now();
+        List<RequesterInfo> dispatchers = new ArrayList<>();
+        for (RequesterInfo u : requesterService.getActiveDispatchers()) {
+            if (frequenza.isDovuto(u.getId_user(), oggi, forza)) dispatchers.add(u); else conta("Dispatcher")[1]++;
+        }
         if (dispatchers.isEmpty()) {
-            System.out.println("[PromemoriaQuotidianoService] Nessun DISPATCHER attivo con email — nessun promemoria DISPATCHER.");
+            System.out.println("[PromemoriaQuotidianoService] Nessun DISPATCHER attivo con email e promemoria dovuto oggi — nessun promemoria DISPATCHER.");
             return;
         }
-
-        LocalDate oggi = LocalDate.now();
 
         List<PromemoriaRiga> righeDraft = new ArrayList<>();
         for (TicketDraft d : draftService.getPendingDrafts()) {
@@ -387,8 +433,11 @@ public class PromemoriaQuotidianoService {
 
         int mailInviate = 0;
         for (RequesterInfo dispatcher : dispatchers) {
-            mailService.sendPromemoriaDispatcher(dispatcher.getEmail(), righeDraft, righeRiassegnazione);
-            mailInviate++;
+            if (mailService.sendPromemoriaDispatcher(dispatcher.getEmail(), righeDraft, righeRiassegnazione)) {
+                mailInviate++;
+                conta("Dispatcher")[0]++;
+                frequenza.registraInvio(dispatcher.getId_user(), oggi);
+            }
         }
         System.out.println("[PromemoriaQuotidianoService] Promemoria DISPATCHER: " + mailInviate + " mail inviate ("
             + righeDraft.size() + " draft, " + righeRiassegnazione.size() + " richieste di riattribuzione).");

@@ -97,6 +97,12 @@
 <t:label id="rf_f7_lbl" labeltext="Referente attivo:" width="150" />
 <t:checkbox id="rf_f7_check" flush="true" selected="#{d.ReferentiUI.formAttivo}" />
 </t:row>
+<t:rowdistance id="rf_fd7p" height="6" rendered="#{d.ReferentiUI.showEditFlags}" />
+<t:row id="rf_f7p" coldistance="8" rendered="#{d.ReferentiUI.showEditFlags}" >
+<t:label id="rf_f7p_lbl" labeltext="Promemoria ogni (gg):" width="150" />
+<t:field id="rf_f7p_field" flush="true" text="#{d.ReferentiUI.formPromemoriaGiorniStr}" width="80" />
+<t:label id="rf_f7p_hint" font="size:10;color:#888888" text="1 = ogni giorno feriale · 7 = una volta a settimana · 0 = mai" />
+</t:row>
 <t:rowdistance id="rf_fd7b" height="10" rendered="#{d.ReferentiUI.showResetPasswordButton}" />
 <t:row id="rf_f7b" coldistance="8" rendered="#{d.ReferentiUI.showResetPasswordButton}" >
 <t:coldistance id="rf_f7b_cd" width="150" />

@@ -2,15 +2,31 @@
 <t:layoutdefinition xmlns:t="http://www.captaincasa.com/controllibrary/t" >
 
 <t:beanprocessing id="pa_0" beanbinding="#{d.PromemoriaAdminUI}" />
-<t:rowtitlebar id="pa_1" text="Promemoria quotidiano AMS / DISPATCHER" />
+<t:rowtitlebar id="pa_1" text="Promemoria — AMS, Dispatcher, richiedenti e referenti" />
 <t:rowheader id="pa_h" >
 <t:button id="pa_back" actionListener="#{d.PromemoriaAdminUI.backToMenu}" text="« Menu" width="80" />
 </t:rowheader>
 <t:rowbodypane id="pa_body" >
-<t:row id="pa_intro" coldistance="8" >
-<t:label id="pa_intro_lbl" multiline="true" text="Mail personalizzata a ogni AMS con i ticket per cui è in attesa una sua azione (colorati per ritardo) e mail identica a ogni DISPATCHER con DRAFT e richieste di riattribuzione pendenti. Nessuna mail se non c'è nulla in attesa." wordwrap="true" width="100%" />
+<t:row id="pa_intro0" >
+<t:label id="pa_intro0_lbl" text="Ogni mattina feriale il sistema invia:" />
 </t:row>
-<t:rowdistance id="pa_d1" height="16" />
+<t:row id="pa_intro1" >
+<t:label id="pa_intro1_lbl" text="•  a ogni AMS i ticket per cui è in attesa una sua azione" />
+</t:row>
+<t:row id="pa_intro2" >
+<t:label id="pa_intro2_lbl" text="•  a ogni DISPATCHER i DRAFT e le richieste di riattribuzione pendenti" />
+</t:row>
+<t:row id="pa_intro3" >
+<t:label id="pa_intro3_lbl" text="•  a ogni richiedente/referente le attività ferme di sua competenza (se il cliente è abilitato)" />
+</t:row>
+<t:rowdistance id="pa_introd" height="6" />
+<t:row id="pa_intro4" >
+<t:label id="pa_intro4_lbl" text="Ciascuno riceve la mail secondo la propria frequenza in giorni (1 = ogni giorno feriale, 7 = una volta a settimana, 0 = mai)." />
+</t:row>
+<t:row id="pa_intro5" >
+<t:label id="pa_intro5_lbl" text="Nessuna mail se non c&#39;è nulla in attesa." />
+</t:row>
+<t:rowdistance id="pa_d1" height="12" />
 
 <t:row id="pa_r1" coldistance="8" >
 <t:label id="pa_r1_lbl" labeltext="Schedulazione automatica:" width="200" />
@@ -22,15 +38,48 @@
 <t:label id="pa_r2_lbl" labeltext="Invio mail reale:" width="200" />
 <t:label id="pa_r2_val" font="weight:bold;color:#{d.PromemoriaAdminUI.dryRunColor}" text="#{d.PromemoriaAdminUI.dryRunLabel}" />
 </t:row>
-<t:rowdistance id="pa_d3" height="24" />
+<t:rowdistance id="pa_d3" height="16" />
 
 <t:row id="pa_r3" coldistance="8" >
-<t:button id="pa_invia_btn" actionListener="#{d.PromemoriaAdminUI.onInviaOra}" enabled="#{!d.PromemoriaAdminUI.invioInCorso}" text="Invia ora »" width="140" />
+<t:button id="pa_invia_btn" actionListener="#{d.PromemoriaAdminUI.onInviaDovuti}" enabled="#{!d.PromemoriaAdminUI.invioInCorso}" text="Invia ora a chi è dovuto »" width="200" />
+<t:coldistance id="pa_r3_cd" width="100%" />
+<t:button id="pa_forza_btn" actionListener="#{d.PromemoriaAdminUI.onForzaInvio}" enabled="#{!d.PromemoriaAdminUI.invioInCorso}" text="Forza invio a tutti…" width="170" />
 </t:row>
 <t:rowdistance id="pa_d4" height="12" />
 
 <t:row id="pa_r4" coldistance="8" rendered="#{d.PromemoriaAdminUI.hasUltimoEsito}" >
 <t:label id="pa_r4_val" multiline="true" text="#{d.PromemoriaAdminUI.ultimoEsito}" wordwrap="true" width="100%" />
+</t:row>
+<t:rowdistance id="pa_d5" height="16" />
+
+<t:row id="pa_r5" coldistance="8" >
+<t:label id="pa_r5_lbl" font="weight:bold;color:#1565C0" text="Destinatari e frequenza" />
+<t:coldistance id="pa_r5_cd" width="100%" />
+<t:button id="pa_agg_btn" actionListener="#{d.PromemoriaAdminUI.onAggiornaElenco}" text="Aggiorna" width="90" />
+<t:button id="pa_salva_btn" actionListener="#{d.PromemoriaAdminUI.onSalvaFrequenze}" text="Salva frequenze »" width="150" />
+</t:row>
+<t:rowdistance id="pa_d6" height="6" />
+<t:row id="pa_r6" >
+<t:fixgrid id="pa_grid" avoidrowstretching="true" dynamicheightsizing="true" height="100%" objectbinding="#{d.PromemoriaAdminUI.grid}" rowheight="28" sbvisibleamount="15" width="100%" >
+<t:gridcol id="pa_gc0" text="Username" width="130" >
+<t:label id="pa_gl0" background=".{statoColor}" font="weight:bold" text=".{idUser}" />
+</t:gridcol>
+<t:gridcol id="pa_gc1" text="Nome" width="200" >
+<t:label id="pa_gl1" background=".{statoColor}" text=".{nome}" />
+</t:gridcol>
+<t:gridcol id="pa_gc2" text="Ruolo" width="110" >
+<t:label id="pa_gl2" background=".{statoColor}" text=".{ruolo}" />
+</t:gridcol>
+<t:gridcol id="pa_gc3" text="Ogni (gg)" width="80" >
+<t:field id="pa_gl3" text=".{giorniStr}" />
+</t:gridcol>
+<t:gridcol id="pa_gc4" text="Ultimo invio" width="100" >
+<t:label id="pa_gl4" background=".{statoColor}" text=".{ultimoInvio}" />
+</t:gridcol>
+<t:gridcol id="pa_gc5" text="Prossimo invio" width="150" >
+<t:label id="pa_gl5" background=".{statoColor}" text=".{stato}" />
+</t:gridcol>
+</t:fixgrid>
 </t:row>
 </t:rowbodypane>
 

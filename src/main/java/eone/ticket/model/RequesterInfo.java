@@ -141,6 +141,11 @@ public class RequesterInfo implements Serializable {
     public LocalDateTime getPasswordImpostataIl()        { return passwordImpostataIl; }
     public void setPasswordImpostataIl(LocalDateTime v)  { this.passwordImpostataIl = v; }
 
+    /** Frequenza promemoria in giorni: 1 = ogni giorno feriale (default), N = ogni N giorni, 0 = mai. */
+    private int promemoriaOgniGiorni = 1;
+    public int  getPromemoriaOgniGiorni()                { return promemoriaOgniGiorni; }
+    public void setPromemoriaOgniGiorni(int v)           { this.promemoriaOgniGiorni = v; }
+
     public int getPasswordScadenzaGiorni()               { return passwordScadenzaGiorni; }
     public void setPasswordScadenzaGiorni(int v)         { this.passwordScadenzaGiorni = v; }
 

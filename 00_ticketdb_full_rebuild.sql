@@ -117,6 +117,17 @@ CREATE TABLE IF NOT EXISTS ticket_user (
 
 CREATE INDEX IF NOT EXISTS idx_user_kunnr_reqid ON ticket_user(kunnr, reqid);
 
+-- Frequenza personale del promemoria (in giorni): 1 = ogni giorno feriale (default), N = al massimo ogni N giorni, 0 = mai
+ALTER TABLE ticket_user ADD COLUMN IF NOT EXISTS promemoria_ogni_giorni INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE ticket_user ADD COLUMN IF NOT EXISTS promemoria_ultimo_invio DATE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_user_promemoria_giorni') THEN
+        ALTER TABLE ticket_user ADD CONSTRAINT ck_user_promemoria_giorni
+            CHECK (promemoria_ogni_giorni >= 0 AND promemoria_ogni_giorni <= 365);
+    END IF;
+END $$;
+
 GRANT SELECT, INSERT, UPDATE, DELETE ON ticket_user TO ticket_app;
 
 -- Esempio inserimento utente (da adattare — password_hash va generato con BCrypt):

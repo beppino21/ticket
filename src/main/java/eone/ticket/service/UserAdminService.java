@@ -29,7 +29,7 @@ public class UserAdminService {
 
     private static final String COLS =
         "id_user, kunnr, reqid, nome, email, ruolo, vede_tutti, attivo, gestisce_referenti, reqid_richiedente, " +
-        "password_impostata_il, password_scadenza_giorni, password_non_scade";
+        "password_impostata_il, password_scadenza_giorni, password_non_scade, promemoria_ogni_giorni";
 
     // =========================
     // LISTE
@@ -174,6 +174,18 @@ public class UserAdminService {
             ps.setInt(6, passwordScadenzaGiorni);
             ps.setBoolean(7, gestisceReferenti);
             ps.setString(8, idUser);
+            ps.executeUpdate();
+        }
+    }
+
+    /** Frequenza del promemoria in giorni (1 = ogni giorno feriale, N = ogni N giorni, 0 = mai). */
+    public void updatePromemoriaFrequenza(String idUser, int giorni) throws SQLException {
+        if (giorni < 0 || giorni > 365) throw new IllegalArgumentException("Frequenza promemoria fuori intervallo (0-365)");
+        String sql = "UPDATE ticket_user SET promemoria_ogni_giorni = ?, updated_at = NOW() WHERE id_user = ?";
+        try (Connection con = DBConfig.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, giorni);
+            ps.setString(2, idUser);
             ps.executeUpdate();
         }
     }
@@ -340,6 +352,7 @@ public class UserAdminService {
         info.setReqidRichiedente(rs.getString("reqid_richiedente"));
         info.setPasswordNonScade(rs.getBoolean("password_non_scade"));
         info.setPasswordScadenzaGiorni(rs.getInt("password_scadenza_giorni"));
+        info.setPromemoriaOgniGiorni(rs.getInt("promemoria_ogni_giorni"));
         return info;
     }
 }
