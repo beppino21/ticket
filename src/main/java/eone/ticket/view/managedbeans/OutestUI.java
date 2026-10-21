@@ -369,6 +369,13 @@ public class OutestUI
                     }
                 }
 
+                // Regola di visibilità (stessa di TicketListUI.populateGrid): badge e
+                // lista devono contare gli stessi ticket — i ticket solo-SAP aperti e
+                // senza commenti non si vedono per CLIENTE/REFERENTE_CLI/REQ_ADMIN/AMS/AMS_ADMIN.
+                eone.ticket.service.VisibilitaTicketService visibilita = new eone.ticket.service.VisibilitaTicketService();
+                tickets = visibilita.filtraPerUtenteCorrente(tickets);
+                ticketsPerReferSap = visibilita.filtraPerUtenteCorrente(ticketsPerReferSap);
+
                 // Conta DRAFT (solo per CLIENTE e DISPATCHER — vedi nota in TicketListUI)
                 int draftCount = 0;
                 int sostituitiCount = 0;

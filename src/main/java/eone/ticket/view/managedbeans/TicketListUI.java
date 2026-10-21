@@ -26,6 +26,7 @@ import eone.ticket.model.TicketDraft;
 import eone.ticket.model.TicketSummary;
 import eone.ticket.service.ClienteConfigService;
 import eone.ticket.service.EnrichmentService;
+import eone.ticket.service.VisibilitaTicketService;
 import eone.ticket.service.RequesterService;
 import eone.ticket.service.SAPTicketService;
 import eone.ticket.service.SAPTicketService.TicketResponse;
@@ -893,6 +894,13 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
     private boolean      m_archivio = false; // true = vista archivio (solo CLO)
 
     private void populateGrid(List<Ticket> ticketList, String suffix) {
+        // Regola di visibilità (CLIENTE, REFERENTE_CLI, REQ_ADMIN, AMS, AMS_ADMIN):
+        // i ticket che esistono solo su SAP — aperti e senza alcun commento —
+        // non si vedono. I chiusi restano sempre visibili. Applicata PRIMA di
+        // tutto il resto, così lista, archivio e riepilogo del menu (costruito
+        // dalla lista "raw") restano coerenti. Vedi VisibilitaTicketService.
+        ticketList = new VisibilitaTicketService().filtraPerUtenteCorrente(ticketList);
+
         // Lista grezza (tutti gli stati) — serve per il riepilogo completo
         // nel menu (Riepilogo Ticket = vero totale, comprese le voci
         // RES/CLO/CAN), separatamente dalla lista effettivamente mostrata

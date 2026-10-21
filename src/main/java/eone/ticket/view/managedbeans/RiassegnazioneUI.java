@@ -234,7 +234,8 @@ public class RiassegnazioneUI extends PageBean implements Serializable {
                 System.err.println("[RiassegnazioneUI] Errore SAP caricamento ticket disponibili: " + response.getErrorMessage());
                 return;
             }
-            for (Ticket t : response.getTickets()) {
+            // Solo i ticket visibili all'AMS (non quelli presenti soltanto su SAP, senza commenti)
+            for (Ticket t : new eone.ticket.service.VisibilitaTicketService().filtraPerUtenteCorrente(response.getTickets())) {
                 if (t.getTickt() == null || t.getTickt().isEmpty()) continue;
                 if (!amusr.equalsIgnoreCase(t.getAmusr())) continue;
                 if ("CLO".equals(t.getRstat()) || "RES".equals(t.getRstat()) || "CAN".equals(t.getRstat()) || "REF".equals(t.getRstat())) continue;

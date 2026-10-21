@@ -155,6 +155,9 @@ public class PromemoriaQuotidianoService {
             String amusr = t.getAmusr() != null ? t.getAmusr().trim() : "";
             if (amusr.isEmpty()) continue;
             String tickt = t.getTickt() != null ? t.getTickt().trim() : "";
+            // Ticket presente solo su SAP (nessun commento nell'app): per l'AMS non è visibile
+            // nell'app (vedi VisibilitaTicketService) — il sollecito arriva da SAP, non da qui.
+            if (!ultimoStato.containsKey(tickt)) continue;
             if (!richiedeAzioneAms(ultimoStato.get(tickt))) continue;
             perAmusr.computeIfAbsent(amusr.toUpperCase(), k -> new ArrayList<>()).add(t);
         }
@@ -271,6 +274,8 @@ public class PromemoriaQuotidianoService {
                         if (STATI_CHIUSI.contains(rstat)) continue;
                         String tickt = t.getTickt() != null ? t.getTickt().trim() : "";
                         if (tickt.isEmpty() || !ticktVisti.add(tickt)) continue;
+                        // Ticket presente solo su SAP (nessun commento nell'app): non visibile al cliente
+                        if (!ultimoStato.containsKey(tickt)) continue;
                         classificaRigaTicket(t, tickt, ultimoStato, ultimaComAms, ultimaComData, oggi, aCaricoSuo, aCaricoAms);
                     }
                 }
@@ -294,6 +299,7 @@ public class PromemoriaQuotidianoService {
                         }
                         String rstat = extra.getRstat() != null ? extra.getRstat().trim().toUpperCase() : "";
                         if (STATI_CHIUSI.contains(rstat)) continue;
+                        if (!ultimoStato.containsKey(key)) continue; // solo-SAP senza commenti: non visibile al cliente
                         classificaRigaTicket(extra, key, ultimoStato, ultimaComAms, ultimaComData, oggi, aCaricoSuo, aCaricoAms);
                     } catch (Exception e) {
                         System.err.println("[PromemoriaQuotidianoService] Errore recupero ticket referente " + key +

@@ -21,6 +21,7 @@ import eone.ticket.service.RequesterService;
 import eone.ticket.service.SAPTicketService;
 import eone.ticket.service.SubstitutionService;
 import eone.ticket.service.TicketDraftService;
+import eone.ticket.service.VisibilitaTicketService;
 
 /**
  * UI self-service per definire la propria sostituzione temporanea.
@@ -175,7 +176,7 @@ public class SubstitutionUI extends PageBean implements Serializable {
                 String reqid = ctx.getRichiedente();
                 SAPTicketService.TicketResponse resp = sapService.getTickets(ctx.getKunnr(), reqid, null, null, null, "ne:CLO");
                 if (resp.isSuccess() && resp.getTickets() != null) {
-                    for (Ticket t : resp.getTickets()) {
+                    for (Ticket t : new VisibilitaTicketService().filtraPerUtenteCorrente(resp.getTickets())) {
                         if (isNonGestibile(t.getRstat())) continue; // niente CLO/RES: non da gestire
                         righeTicket.add(t.getTickt() + ": " + nn(t.getTitle()));
                     }
@@ -191,7 +192,7 @@ public class SubstitutionUI extends PageBean implements Serializable {
             } else if (ctx.isAms()) {
                 SAPTicketService.TicketResponse resp = sapService.getTickets(null, null, null, null, null, "ne:CLO");
                 if (resp.isSuccess() && resp.getTickets() != null) {
-                    for (Ticket t : resp.getTickets()) {
+                    for (Ticket t : new VisibilitaTicketService().filtraPerUtenteCorrente(resp.getTickets())) {
                         if (isNonGestibile(t.getRstat())) continue; // niente CLO/RES: non da gestire
                         if (idUserSostituito.equalsIgnoreCase(t.getAmusr())) {
                             righeTicket.add(t.getTickt() + ": " + nn(t.getTitle()));
