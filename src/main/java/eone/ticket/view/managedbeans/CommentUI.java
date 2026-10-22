@@ -370,6 +370,13 @@ public class CommentUI extends PageBean implements Serializable {
         }
 
         ViewSessionContext ctx = ViewSessionContext.instance();
+        // Controllo lato server, oltre alla combobox: il DISPATCHER può
+        // impostare solo stati lato Assistenza (ASS_*).
+        if (isDispatcher(ctx) && !m_newCommentStato.startsWith("ASS_")) {
+            Statusbar.outputWarning("Stato non consentito per il ruolo DISPATCHER");
+            m_newCommentStato = null;
+            return;
+        }
         String kunnr = ctx.getKunnr();
         String autoreTipo = ctx.isClienteOReferente()
             ? TicketComment.TIPO_CLIENTE : TicketComment.TIPO_ASSISTENZA;
@@ -435,10 +442,15 @@ public class CommentUI extends PageBean implements Serializable {
         return ctx.isClienteOReferente() || isAdminOrUnknown(ctx);
     }
 
-    /** True se la combobox ASSISTENZA va mostrata: utente AMS oppure ADMIN (vede tutto) */
+    /** True se la combobox ASSISTENZA va mostrata: utente AMS o DISPATCHER, oppure ADMIN (vede tutto) */
     public boolean getIsAssistenza() {
         ViewSessionContext ctx = ViewSessionContext.instance();
-        return ctx.isAms() || isAdminOrUnknown(ctx);
+        return ctx.isAms() || isDispatcher(ctx) || isAdminOrUnknown(ctx);
+    }
+
+    /** Il DISPATCHER è un AMS smistatore: lato Assistenza, stessi stati dell'AMS. */
+    private boolean isDispatcher(ViewSessionContext ctx) {
+        return "DISPATCHER".equalsIgnoreCase(ctx.getRuolo() != null ? ctx.getRuolo().trim() : null);
     }
 
     /**
@@ -447,13 +459,16 @@ public class CommentUI extends PageBean implements Serializable {
      * combobox che lasciare l'utente senza alcuna opzione di stato
      * selezionabile). REFERENTE_CLI è escluso dal fallback: è un ruolo noto,
      * mappato sul lato CLIENTE — includerlo qui gli mostrava per errore
-     * anche la combobox degli stati lato Assistenza.
+     * anche la combobox degli stati lato Assistenza. Lo stesso vale per
+     * DISPATCHER, ruolo noto mappato sul lato ASSISTENZA: prima ricadeva
+     * qui e vedeva anche gli stati lato Cliente.
      */
     private boolean isAdminOrUnknown(ViewSessionContext ctx) {
         String ruolo = ctx.getRuolo();
         if (ruolo == null || ruolo.trim().isEmpty()) return true;
         String r = ruolo.trim().toUpperCase();
-        return "ADMIN".equals(r) || (!"CLIENTE".equals(r) && !"AMS".equals(r) && !"REFERENTE_CLI".equals(r));
+        return "ADMIN".equals(r) || (!"CLIENTE".equals(r) && !"AMS".equals(r) && !"REFERENTE_CLI".equals(r)
+                                     && !"DISPATCHER".equals(r));
     }
 
     public void onFileUpload(ActionEvent ae) {
@@ -760,7 +775,7 @@ public class CommentUI extends PageBean implements Serializable {
     /** Visibile a CLIENTE/REFERENTE_CLI (possono modificarlo) e ad AMS (sola lettura — vede chi è il referente ma non può cambiarlo). */
     public boolean getMostraSezioneReferente() {
         ViewSessionContext ctx = ViewSessionContext.instance();
-        return ctx.isClienteOReferente() || ctx.isAms() || isAdminOrUnknown(ctx);
+        return ctx.isClienteOReferente() || ctx.isAms() || isDispatcher(ctx) || isAdminOrUnknown(ctx);
     }
     public String  getDownloadUrl()     { return m_downloadUrl; }
 

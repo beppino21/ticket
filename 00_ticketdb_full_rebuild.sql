@@ -5,6 +5,7 @@
 -- null_kunnr_reqid.sql, 08_ticket_draft.sql, 09_update_colori_stati.sql,
 -- 10_ticket_referente_kunnr.sql (isolamento multi-tenant su referente_cli),
 -- 11_promemoria_richiedenti_toggle.sql (toggle per cliente promemoria richiedenti),
+-- 12_password_policy_cliente.sql (policy composizione password per cliente),
 -- ticket_riassegnazione (sezione 10, ricostruita dal codice)
 -- (versione finale pastello)
 --
@@ -328,6 +329,10 @@ CREATE TABLE IF NOT EXISTS ticket_cliente_config (
     abilitato     BOOLEAN     NOT NULL DEFAULT TRUE,
     prefisso_referente VARCHAR(10),  -- obbligatorio per poter creare referenti self-service per questo cliente
     promemoria_richiedenti_abilitato BOOLEAN NOT NULL DEFAULT TRUE,  -- toggle per cliente del promemoria giornaliero a RICHIEDENTE/REFERENTE_CLI
+    pwd_lunghezza_minima INTEGER NOT NULL DEFAULT 8,      -- policy password: lunghezza minima
+    pwd_min_speciali     INTEGER NOT NULL DEFAULT 0,      -- policy password: n. minimo caratteri speciali
+    pwd_min_numerici     INTEGER NOT NULL DEFAULT 0,      -- policy password: n. minimo caratteri numerici
+    pwd_maiusc_minusc    BOOLEAN NOT NULL DEFAULT FALSE,  -- policy password: obbligo maiuscole e minuscole
     created_at    TIMESTAMP   NOT NULL DEFAULT NOW(),
     updated_at    TIMESTAMP   NOT NULL DEFAULT NOW()
 );
@@ -335,6 +340,19 @@ CREATE TABLE IF NOT EXISTS ticket_cliente_config (
 -- Allineamento per DB preesistente
 ALTER TABLE ticket_cliente_config ADD COLUMN IF NOT EXISTS prefisso_referente VARCHAR(10);
 ALTER TABLE ticket_cliente_config ADD COLUMN IF NOT EXISTS promemoria_richiedenti_abilitato BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE ticket_cliente_config ADD COLUMN IF NOT EXISTS pwd_lunghezza_minima INTEGER NOT NULL DEFAULT 8;
+ALTER TABLE ticket_cliente_config ADD COLUMN IF NOT EXISTS pwd_min_speciali     INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE ticket_cliente_config ADD COLUMN IF NOT EXISTS pwd_min_numerici     INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE ticket_cliente_config ADD COLUMN IF NOT EXISTS pwd_maiusc_minusc    BOOLEAN NOT NULL DEFAULT FALSE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_cliente_config_pwd_policy') THEN
+        ALTER TABLE ticket_cliente_config ADD CONSTRAINT ck_cliente_config_pwd_policy
+            CHECK (pwd_lunghezza_minima BETWEEN 6 AND 64
+               AND pwd_min_speciali     BETWEEN 0 AND 20
+               AND pwd_min_numerici     BETWEEN 0 AND 20);
+    END IF;
+END $$;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_cliente_config_prefisso
     ON ticket_cliente_config (UPPER(prefisso_referente))
@@ -344,6 +362,10 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ticket_cliente_config TO ticket_app;
 
 COMMENT ON TABLE ticket_cliente_config IS 'Clienti (Kunnr) abilitati alla nuova gestione ticket — un Kunnr assente è considerato non abilitato.';
 COMMENT ON COLUMN ticket_cliente_config.prefisso_referente IS 'Prefisso breve e univoco per costruire lo username dei referenti self-service (prefisso_codice)';
+COMMENT ON COLUMN ticket_cliente_config.pwd_lunghezza_minima IS 'Policy password utenti del cliente: lunghezza minima (default 8)';
+COMMENT ON COLUMN ticket_cliente_config.pwd_min_speciali     IS 'Policy password utenti del cliente: n. minimo caratteri speciali (non lettera/cifra/spazio)';
+COMMENT ON COLUMN ticket_cliente_config.pwd_min_numerici     IS 'Policy password utenti del cliente: n. minimo cifre';
+COMMENT ON COLUMN ticket_cliente_config.pwd_maiusc_minusc    IS 'Policy password utenti del cliente: TRUE = almeno una maiuscola e una minuscola';
 COMMENT ON COLUMN ticket_cliente_config.promemoria_richiedenti_abilitato IS 'FALSE = per questo cliente non viene inviato il promemoria giornaliero ai RICHIEDENTI/REFERENTE_CLI (il promemoria AMS/DISPATCHER non è influenzato)';
 
 

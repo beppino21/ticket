@@ -31,6 +31,9 @@
 <t:gridcol id="cc_gc4" text="Promem. richiedenti" width="110" >
 <t:label id="cc_gl4" background=".{statoColor}" text=".{promemoriaRichiedentiLabel}" />
 </t:gridcol>
+<t:gridcol id="cc_gc5" text="Policy pwd (lung/spec/num)" width="150" >
+<t:label id="cc_gl5" background=".{statoColor}" text=".{passwordPolicyLabel}" />
+</t:gridcol>
 </t:fixgrid>
 </t:row>
 </t:splitpanesplit>
@@ -80,6 +83,35 @@
 <t:row id="cc_f3c_hint" rendered="#{d.ClienteConfigUI.formVisible}" >
 <t:coldistance id="cc_f3c_hint_cd" width="118" />
 <t:label id="cc_f3c_hint_lbl" font="size:10;color:#888888" text="Mail giornaliera a RICHIEDENTI/REFERENTE_CLI di questo cliente con le attività ferme a loro carico e a carico AMS. Non influenza il promemoria AMS/Dispatcher." />
+</t:row>
+<t:rowdistance id="cc_fd5" height="14" rendered="#{d.ClienteConfigUI.formVisible}" />
+<t:row id="cc_pw_title" rendered="#{d.ClienteConfigUI.formVisible}" >
+<t:label id="cc_pw_title_lbl" font="weight:bold;color:#1565C0" text="Validazione password" />
+</t:row>
+<t:rowdistance id="cc_fd5a" height="8" rendered="#{d.ClienteConfigUI.formVisible}" />
+<t:row id="cc_pw1" coldistance="8" rendered="#{d.ClienteConfigUI.formVisible}" >
+<t:label id="cc_pw1_lbl" labeltext="Lunghezza minima:" width="180" />
+<t:field id="cc_pw1_field" align="right" flush="true" text="#{d.ClienteConfigUI.formPwdLunghezzaMinimaStr}" width="50" />
+</t:row>
+<t:rowdistance id="cc_fd5b" height="8" rendered="#{d.ClienteConfigUI.formVisible}" />
+<t:row id="cc_pw2" coldistance="8" rendered="#{d.ClienteConfigUI.formVisible}" >
+<t:label id="cc_pw2_lbl" labeltext="N. minimo caratteri speciali:" width="180" />
+<t:field id="cc_pw2_field" align="right" flush="true" text="#{d.ClienteConfigUI.formPwdMinSpecialiStr}" width="50" />
+</t:row>
+<t:rowdistance id="cc_fd5c" height="8" rendered="#{d.ClienteConfigUI.formVisible}" />
+<t:row id="cc_pw3" coldistance="8" rendered="#{d.ClienteConfigUI.formVisible}" >
+<t:label id="cc_pw3_lbl" labeltext="N. minimo caratteri numerici:" width="180" />
+<t:field id="cc_pw3_field" align="right" flush="true" text="#{d.ClienteConfigUI.formPwdMinNumericiStr}" width="50" />
+</t:row>
+<t:rowdistance id="cc_fd5d" height="8" rendered="#{d.ClienteConfigUI.formVisible}" />
+<t:row id="cc_pw4" coldistance="8" rendered="#{d.ClienteConfigUI.formVisible}" >
+<t:label id="cc_pw4_lbl" labeltext="Obbligo maiuscole/minuscole:" width="180" />
+<t:checkbox id="cc_pw4_check" flush="true" selected="#{d.ClienteConfigUI.formPwdMaiuscMinusc}" />
+</t:row>
+<t:rowdistance id="cc_fd5e" height="4" rendered="#{d.ClienteConfigUI.formVisible}" />
+<t:row id="cc_pw_hint" rendered="#{d.ClienteConfigUI.formVisible}" >
+<t:coldistance id="cc_pw_hint_cd" width="188" />
+<t:label id="cc_pw_hint_lbl" font="size:10;color:#888888" text="Applicata al cambio password di RICHIEDENTI e REFERENTI_CLI di questo cliente. Speciale = qualunque carattere che non sia lettera, cifra o spazio." />
 </t:row>
 <t:rowdistance id="cc_fd4" height="20" rendered="#{d.ClienteConfigUI.formVisible}" />
 <t:row id="cc_f4" coldistance="8" rendered="#{d.ClienteConfigUI.formVisible}" >

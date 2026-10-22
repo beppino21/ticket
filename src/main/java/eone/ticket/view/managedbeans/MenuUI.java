@@ -129,8 +129,10 @@ public class MenuUI extends PageBean implements Serializable {
     private void apriPopupCambioPassword() {
         ViewSessionContext ctx = ViewSessionContext.instance();
         final ChangePasswordUI cpUI = new ChangePasswordUI();
+        RequesterInfo infoSessione = ctx.getRequesterInfo();
         cpUI.prepare(
             ctx.getUsername() != null ? ctx.getUsername() : "",
+            infoSessione != null ? infoSessione.getKunnr() : null,
             new ChangePasswordUI.IListener() {
                 @Override
                 public void reactOnPasswordChanged() {

@@ -11,6 +11,7 @@ import java.util.Set;
 
 import eone.ticket.config.DBConfig;
 import eone.ticket.model.ClienteConfig;
+import eone.ticket.model.PasswordPolicy;
 
 /**
  * Gestisce l'abilitazione dei clienti (Kunnr) alla nuova gestione ticket —
@@ -36,7 +37,8 @@ public class ClienteConfigService {
     /** Elenco completo (abilitati e non) — per la schermata di amministrazione. */
     public List<ClienteConfig> listAll() throws SQLException {
         List<ClienteConfig> list = new ArrayList<>();
-        String sql = "SELECT kunnr, nome_cliente, abilitato, prefisso_referente, promemoria_richiedenti_abilitato, created_at, updated_at " +
+        String sql = "SELECT kunnr, nome_cliente, abilitato, prefisso_referente, promemoria_richiedenti_abilitato, " +
+                     "pwd_lunghezza_minima, pwd_min_speciali, pwd_min_numerici, pwd_maiusc_minusc, created_at, updated_at " +
                      "FROM ticket_cliente_config ORDER BY kunnr";
         try (Connection con = DBConfig.getConnection();
              PreparedStatement ps = con.prepareStatement(sql);
@@ -48,6 +50,7 @@ public class ClienteConfigService {
                 c.setAbilitato(rs.getBoolean("abilitato"));
                 c.setPrefissoReferente(rs.getString("prefisso_referente"));
                 c.setPromemoriaRichiedentiAbilitato(rs.getBoolean("promemoria_richiedenti_abilitato"));
+                c.setPasswordPolicy(mapPolicy(rs));
                 list.add(c);
             }
         }
@@ -87,9 +90,20 @@ public class ClienteConfigService {
     /**
      * Come {@link #save(String, String, boolean, String)}, con in più il
      * toggle del promemoria giornaliero per RICHIEDENTI/REFERENTE_CLI.
+     * Non modifica la policy password già configurata (default su insert).
      */
     public void save(String kunnr, String nomeCliente, boolean abilitato, String prefissoReferente,
                       boolean promemoriaRichiedentiAbilitato) throws SQLException {
+        save(kunnr, nomeCliente, abilitato, prefissoReferente, promemoriaRichiedentiAbilitato, null);
+    }
+
+    /**
+     * Versione completa, con la policy password del cliente.
+     * passwordPolicy = null → su insert si applicano i default
+     * (8/0/0/false), su update si mantengono i valori già presenti.
+     */
+    public void save(String kunnr, String nomeCliente, boolean abilitato, String prefissoReferente,
+                      boolean promemoriaRichiedentiAbilitato, PasswordPolicy passwordPolicy) throws SQLException {
         String prefisso = (prefissoReferente == null || prefissoReferente.trim().isEmpty())
             ? null : prefissoReferente.trim().toUpperCase();
 
@@ -109,13 +123,28 @@ public class ClienteConfigService {
             }
         }
 
-        String sql = "INSERT INTO ticket_cliente_config (kunnr, nome_cliente, abilitato, prefisso_referente, promemoria_richiedenti_abilitato, updated_at) " +
-                     "VALUES (?, ?, ?, ?, ?, NOW()) " +
+        // Le 4 colonne policy usano COALESCE: un parametro NULL significa
+        // "default" in insert e "lascia com'è" in update.
+        String sql = "INSERT INTO ticket_cliente_config (kunnr, nome_cliente, abilitato, prefisso_referente, promemoria_richiedenti_abilitato, " +
+                     " pwd_lunghezza_minima, pwd_min_speciali, pwd_min_numerici, pwd_maiusc_minusc, updated_at) " +
+                     "VALUES (?, ?, ?, ?, ?, " +
+                     " COALESCE(?::int, " + PasswordPolicy.DEFAULT_LUNGHEZZA_MINIMA + "), " +
+                     " COALESCE(?::int, " + PasswordPolicy.DEFAULT_MIN_SPECIALI + "), " +
+                     " COALESCE(?::int, " + PasswordPolicy.DEFAULT_MIN_NUMERICI + "), " +
+                     " COALESCE(?::boolean, " + PasswordPolicy.DEFAULT_MAIUSC_MINUSC + "), NOW()) " +
                      "ON CONFLICT (kunnr) DO UPDATE SET " +
                      "nome_cliente = EXCLUDED.nome_cliente, abilitato = EXCLUDED.abilitato, " +
                      "prefisso_referente = EXCLUDED.prefisso_referente, " +
                      "promemoria_richiedenti_abilitato = EXCLUDED.promemoria_richiedenti_abilitato, " +
+                     "pwd_lunghezza_minima = COALESCE(?::int,     ticket_cliente_config.pwd_lunghezza_minima), " +
+                     "pwd_min_speciali     = COALESCE(?::int,     ticket_cliente_config.pwd_min_speciali), " +
+                     "pwd_min_numerici     = COALESCE(?::int,     ticket_cliente_config.pwd_min_numerici), " +
+                     "pwd_maiusc_minusc    = COALESCE(?::boolean, ticket_cliente_config.pwd_maiusc_minusc), " +
                      "updated_at = NOW()";
+        Integer len  = passwordPolicy != null ? passwordPolicy.getLunghezzaMinima()      : null;
+        Integer spec = passwordPolicy != null ? passwordPolicy.getMinCaratteriSpeciali() : null;
+        Integer num  = passwordPolicy != null ? passwordPolicy.getMinCaratteriNumerici() : null;
+        Boolean aA   = passwordPolicy != null ? passwordPolicy.isObbligoMaiuscMinusc()   : null;
         try (Connection con = DBConfig.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, kunnr);
@@ -123,8 +152,52 @@ public class ClienteConfigService {
             ps.setBoolean(3, abilitato);
             ps.setString(4, prefisso);
             ps.setBoolean(5, promemoriaRichiedentiAbilitato);
+            for (int base : new int[] { 6, 10 }) {
+                setIntOrNull (ps, base,     len);
+                setIntOrNull (ps, base + 1, spec);
+                setIntOrNull (ps, base + 2, num);
+                setBoolOrNull(ps, base + 3, aA);
+            }
             ps.executeUpdate();
         }
+    }
+
+    /**
+     * Policy password da applicare a un utente del Kunnr indicato. Il
+     * confronto avviene sul Kunnr normalizzato (senza zeri iniziali),
+     * perché ticket_user lo memorizza zero-paddato a 10 cifre mentre in
+     * ticket_cliente_config può essere stato inserito senza zeri.
+     * Kunnr vuoto/null (AMS, DISPATCHER, ADMIN) o non configurato →
+     * {@link PasswordPolicy#defaultPolicy()}.
+     */
+    public PasswordPolicy getPasswordPolicy(String kunnr) throws SQLException {
+        String target = normalizeKunnr(kunnr);
+        if (target.isEmpty()) return PasswordPolicy.defaultPolicy();
+        String sql = "SELECT kunnr, pwd_lunghezza_minima, pwd_min_speciali, pwd_min_numerici, pwd_maiusc_minusc " +
+                     "FROM ticket_cliente_config";
+        try (Connection con = DBConfig.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                if (target.equals(normalizeKunnr(rs.getString("kunnr")))) return mapPolicy(rs);
+            }
+        }
+        return PasswordPolicy.defaultPolicy();
+    }
+
+    private static PasswordPolicy mapPolicy(ResultSet rs) throws SQLException {
+        return new PasswordPolicy(rs.getInt("pwd_lunghezza_minima"),
+                                  rs.getInt("pwd_min_speciali"),
+                                  rs.getInt("pwd_min_numerici"),
+                                  rs.getBoolean("pwd_maiusc_minusc"));
+    }
+
+    private static void setIntOrNull(PreparedStatement ps, int idx, Integer v) throws SQLException {
+        if (v == null) ps.setNull(idx, java.sql.Types.INTEGER); else ps.setInt(idx, v);
+    }
+
+    private static void setBoolOrNull(PreparedStatement ps, int idx, Boolean v) throws SQLException {
+        if (v == null) ps.setNull(idx, java.sql.Types.BOOLEAN); else ps.setBoolean(idx, v);
     }
 
     /**
