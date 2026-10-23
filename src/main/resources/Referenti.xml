@@ -119,6 +119,19 @@
 <t:button id="rf_f7d_ok" actionListener="#{d.ReferentiUI.onResetPassword}" text="Conferma »" width="110" />
 <t:button id="rf_f7d_cancel" actionListener="#{d.ReferentiUI.onAnnullaResetPassword}" text="Annulla" width="90" />
 </t:row>
+<t:rowdistance id="rf_blk_d" height="12" rendered="#{d.ReferentiUI.showBlocco}" />
+<t:row id="rf_blk" coldistance="8" rendered="#{d.ReferentiUI.showBlocco}" >
+<t:coldistance id="rf_blk_cd" width="150" />
+<t:label id="rf_blk_val" background="#FFEBEE" font="weight:bold;color:#C62828" text="#{d.ReferentiUI.bloccoLabel}" />
+<t:button id="rf_blk_btn" actionListener="#{d.ReferentiUI.onSblocca}" text="Sblocca" width="90" />
+</t:row>
+<t:rowdistance id="rf_mfa_d" height="10" rendered="#{d.ReferentiUI.showMfaInfo}" />
+<t:row id="rf_mfa" coldistance="8" rendered="#{d.ReferentiUI.showMfaInfo}" >
+<t:label id="rf_mfa_lbl" labeltext="Verifica in due passaggi:" width="150" />
+<t:label id="rf_mfa_val" font="weight:bold" text="#{d.ReferentiUI.mfaStatoLabel}" width="220" />
+<t:button id="rf_mfa_btn" actionListener="#{d.ReferentiUI.onAzzeraMfa}" rendered="#{d.ReferentiUI.showAzzeraMfa}" text="Azzera MFA" width="110" />
+<t:button id="rf_mfa_rc_btn" actionListener="#{d.ReferentiUI.onRigeneraCodici}" rendered="#{d.ReferentiUI.showAzzeraMfa}" text="Rigenera codici" width="120" />
+</t:row>
 <t:rowdistance id="rf_fd7" height="20" rendered="#{d.ReferentiUI.formVisible}" />
 <t:row id="rf_f8" coldistance="8" rendered="#{d.ReferentiUI.formVisible}" >
 <t:coldistance id="rf_f8_cd" width="150" />

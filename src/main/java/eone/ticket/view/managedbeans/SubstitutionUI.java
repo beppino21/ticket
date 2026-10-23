@@ -62,6 +62,9 @@ public class SubstitutionUI extends PageBean implements Serializable {
     // =========================
 
     public SubstitutionUI() {
+        // Secondo livello di difesa: pagina non apribile senza utente autorizzato (vedi SessionGuard)
+        eone.ticket.context.SessionGuard.richiediUtente("Substitution");
+
     }
 
     public void prepare(IListener listener) {

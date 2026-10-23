@@ -12,6 +12,8 @@ public class ClienteConfig implements Serializable {
     private boolean abilitato;
     private String  prefissoReferente;
     private boolean promemoriaRichiedentiAbilitato = true;
+    private PasswordPolicy passwordPolicy = PasswordPolicy.defaultPolicy();
+    private boolean mfaObbligatoria;
 
     public String getKunnr()                { return kunnr; }
     public void setKunnr(String v)           { this.kunnr = v; }
@@ -28,4 +30,12 @@ public class ClienteConfig implements Serializable {
     /** Toggle per cliente del promemoria giornaliero "attività ferme" a RICHIEDENTE/REFERENTE_CLI. */
     public boolean isPromemoriaRichiedentiAbilitato()         { return promemoriaRichiedentiAbilitato; }
     public void setPromemoriaRichiedentiAbilitato(boolean v)  { this.promemoriaRichiedentiAbilitato = v; }
+
+    /** Regole di composizione password per gli utenti di questo cliente. Mai null. */
+    public PasswordPolicy getPasswordPolicy()          { return passwordPolicy; }
+    public void setPasswordPolicy(PasswordPolicy v)    { this.passwordPolicy = v != null ? v : PasswordPolicy.defaultPolicy(); }
+
+    /** TRUE = gli utenti di questo cliente devono usare il secondo fattore (TOTP) al logon. */
+    public boolean isMfaObbligatoria()                 { return mfaObbligatoria; }
+    public void setMfaObbligatoria(boolean v)          { this.mfaObbligatoria = v; }
 }

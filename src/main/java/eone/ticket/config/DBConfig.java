@@ -28,7 +28,11 @@ public class DBConfig {
             HikariConfig cfg = new HikariConfig();
             cfg.setJdbcUrl (AppConfig.get("TICKET_DB_URL",  "jdbc:postgresql://localhost:5432/ticketdb"));
             cfg.setUsername(AppConfig.get("TICKET_DB_USER", "ticket_app"));
-            cfg.setPassword(AppConfig.get("TICKET_DB_PASS", "changeme"));
+            String dbPass = AppConfig.get("TICKET_DB_PASS", null); // nessun default nel codice
+            if (dbPass == null) {
+                System.err.println("[DBConfig] ❌ TICKET_DB_PASS non configurata in config.properties: connessione al DB destinata a fallire.");
+            }
+            cfg.setPassword(dbPass);
 
             cfg.setMaximumPoolSize(10);
             cfg.setMinimumIdle(2);

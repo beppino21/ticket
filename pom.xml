@@ -172,7 +172,14 @@
 			<groupId>org.eclipse.angus</groupId>
 			<artifactId>jakarta.mail</artifactId>
 			<version>2.0.3</version>
-		</dependency>		
+		</dependency>
+
+		<!-- ZXing (solo core) — generazione QR code per l'attivazione MFA TOTP -->
+		<dependency>
+			<groupId>com.google.zxing</groupId>
+			<artifactId>core</artifactId>
+			<version>3.5.3</version>
+		</dependency>
 
 	</dependencies>
 

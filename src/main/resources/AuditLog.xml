@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<t:layoutdefinition xmlns:t="http://www.captaincasa.com/controllibrary/t" >
+
+<t:beanprocessing id="al_0" beanbinding="#{d.AuditLogUI}" />
+<t:rowtitlebar id="al_1" text="Registro attività (audit log)" />
+<t:rowheader id="al_h" >
+<t:button id="al_back" actionListener="#{d.AuditLogUI.backToMenu}" text="« Menu" width="80" />
+</t:rowheader>
+<t:rowbodypane id="al_body" >
+<t:row id="al_f1" coldistance="8" >
+<t:label id="al_f1_lbl" labeltext="Dal:" width="40" />
+<t:calendarfield id="al_f1_da" flush="true" timezone="LOCAL" value="#{d.AuditLogUI.da}" width="120" />
+<t:label id="al_f1_lbl2" labeltext="al:" width="30" />
+<t:calendarfield id="al_f1_a" flush="true" timezone="LOCAL" value="#{d.AuditLogUI.a}" width="120" />
+<t:label id="al_f1_lbl3" labeltext="Utente:" width="60" />
+<t:field id="al_f1_ut" flush="true" text="#{d.AuditLogUI.filtroUtente}" width="120" />
+<t:label id="al_f1_lbl4" labeltext="Evento:" width="60" />
+<t:combobox id="al_f1_ev" flush="true" validvaluesbinding="#{d.AuditLogUI.eventoVVB}" value="#{d.AuditLogUI.filtroEvento}" width="200" withnullitem="true" />
+<t:label id="al_f1_lbl5" labeltext="Oggetto:" width="60" />
+<t:field id="al_f1_og" flush="true" text="#{d.AuditLogUI.filtroOggetto}" width="140" />
+<t:button id="al_f1_btn" actionListener="#{d.AuditLogUI.onCerca}" hotkey="10" text="Cerca »" width="90" />
+</t:row>
+<t:rowdistance id="al_d1" height="8" />
+<t:row id="al_r2" >
+<t:fixgrid id="al_grid" avoidrowstretching="true" height="100%" objectbinding="#{d.AuditLogUI.grid}" rowheight="24" sbvisibleamount="25" width="100%" >
+<t:gridcol id="al_c0" text="Data/ora" width="140" >
+<t:label id="al_l0" background=".{rigaColor}" text=".{ts}" />
+</t:gridcol>
+<t:gridcol id="al_c1" text="Evento" width="170" >
+<t:label id="al_l1" background=".{rigaColor}" font="weight:bold" text=".{evento}" />
+</t:gridcol>
+<t:gridcol id="al_c2" text="Esito" width="50" >
+<t:label id="al_l2" background=".{rigaColor}" text=".{esito}" />
+</t:gridcol>
+<t:gridcol id="al_c3" text="Utente" width="110" >
+<t:label id="al_l3" background=".{rigaColor}" text=".{idUser}" />
+</t:gridcol>
+<t:gridcol id="al_c4" text="Ruolo" width="90" >
+<t:label id="al_l4" background=".{rigaColor}" text=".{ruolo}" />
+</t:gridcol>
+<t:gridcol id="al_c5" text="Kunnr" width="90" >
+<t:label id="al_l5" background=".{rigaColor}" text=".{kunnr}" />
+</t:gridcol>
+<t:gridcol id="al_c6" text="Oggetto" width="180" >
+<t:label id="al_l6" background=".{rigaColor}" text=".{oggetto}" />
+</t:gridcol>
+<t:gridcol id="al_c7" text="Dettaglio" width="100%" >
+<t:label id="al_l7" background=".{rigaColor}" text=".{dettaglio}" />
+</t:gridcol>
+<t:gridcol id="al_c8" text="IP" width="160" >
+<t:label id="al_l8" background=".{rigaColor}" text=".{ip}" />
+</t:gridcol>
+</t:fixgrid>
+</t:row>
+<t:rowdistance id="al_d2" height="8" />
+<t:row id="al_r3" >
+<t:textarea id="al_det" enabled="false" height="60" text="#{d.AuditLogUI.dettaglioSelezionato}" width="100%" />
+</t:row>
+</t:rowbodypane>
+
+</t:layoutdefinition>

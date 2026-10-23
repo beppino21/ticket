@@ -12,8 +12,8 @@ package eone.ticket.config;
  * Chiavi lette da config.properties:
  *   SAP_BASE_URL   - es. http://newton.domain.eonegroup.it:8001
  *   SAP_CLIENT     - mandante SAP, es. 300
- *   SAP_USER       - utente Basic Auth
- *   SAP_PASS       - password Basic Auth
+ *   SAP_USER       - utente Basic Auth   (OBBLIGATORIO, nessun default)
+ *   SAP_PASS       - password Basic Auth (OBBLIGATORIO, nessun default)
  *
  * NOTA migrazione BTP: se in futuro si passa a SAP BTP, SAP_BASE_URL
  * andrà valorizzato con il nome della Destination configurata sul BTP
@@ -44,18 +44,28 @@ public class SAPODataConfig {
     // da altre classi (es. SAPLogonService), non solo tramite getSapClient().
     public static final String SAP_CLIENT = AppConfig.get("SAP_CLIENT", "300");
 
-    // Credenziali Basic Auth — default = ultime credenziali note funzionanti.
-    // Valorizzare SAP_USER/SAP_PASS in config.properties (fuori dal WAR)
-    // per gestirle senza ricompilare; i default qui sono solo rete di
-    // sicurezza per non rompere l'app se il file manca o non è aggiornato.
-    private static final String BASIC_AUTH_USER = AppConfig.get("SAP_USER", "EONE");
-    private static final String BASIC_AUTH_PASSWORD = AppConfig.get("SAP_PASS", "thebest");
+    // Credenziali Basic Auth — SOLO da config.properties (o variabili
+    // d'ambiente). Nessun valore di default nel codice: una credenziale
+    // scritta nel sorgente finisce nel WAR e nel repository Git.
+    private static final String BASIC_AUTH_USER     = AppConfig.get("SAP_USER", null);
+    private static final String BASIC_AUTH_PASSWORD = AppConfig.get("SAP_PASS", null);
+
+    static {
+        if (BASIC_AUTH_USER == null || BASIC_AUTH_PASSWORD == null) {
+            System.err.println("[SAPODataConfig] ❌ SAP_USER e/o SAP_PASS non configurati in config.properties "
+                + "(" + AppConfig.getLoadedFromPath() + "): le chiamate OData a SAP falliranno.");
+        }
+    }
 
     /**
      * Genera l'header Authorization per Basic Auth
      * @return String con il valore dell'header Authorization
+     * @throws IllegalStateException se le credenziali non sono configurate
      */
     public static String getBasicAuthHeader() {
+        if (BASIC_AUTH_USER == null || BASIC_AUTH_PASSWORD == null) {
+            throw new IllegalStateException("Credenziali SAP non configurate: impostare SAP_USER e SAP_PASS in config.properties");
+        }
         String credentials = BASIC_AUTH_USER + ":" + BASIC_AUTH_PASSWORD;
         return "Basic " + java.util.Base64.getEncoder().encodeToString(credentials.getBytes());
     }

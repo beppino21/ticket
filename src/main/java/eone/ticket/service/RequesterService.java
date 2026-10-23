@@ -34,6 +34,8 @@ import eone.ticket.model.RequesterInfo;
  */
 public class RequesterService {
 
+    private final LoginGuardService loginGuard = new LoginGuardService();
+
     // =========================================================
     // LOGON
     // =========================================================
@@ -101,6 +103,14 @@ public class RequesterService {
         if (id_user == null || id_user.trim().isEmpty()) return null;
         if (password == null || password.isEmpty())  return null;
 
+        // Utente bloccato per troppi tentativi: si rifiuta senza nemmeno
+        // verificare la password (altrimenti il blocco non fermerebbe i
+        // tentativi). Vale per logon e cambio password.
+        if (loginGuard.isBloccato(id_user.trim())) {
+            System.out.println("[RequesterService] Utente temporaneamente bloccato: " + id_user);
+            return null;
+        }
+
         String sql = "SELECT id_user, kunnr, reqid, nome, email, password_hash, ruolo, vede_tutti, attivo, gestisce_referenti, reqid_richiedente, password_impostata_il, password_scadenza_giorni, password_non_scade " +
                      "FROM ticket_user " +
                      "WHERE id_user = ? AND attivo = TRUE";
@@ -139,6 +149,7 @@ public class RequesterService {
 
                 if (!ok) {
                     System.out.println("[RequesterService] Password errata per: " + id_user);
+                    loginGuard.registraFallimento(id_user.trim());
                     return null;
                 }
 

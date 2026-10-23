@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Configurazione logging applicazione ticket.
+
+  - Logger "AUDIT" (eone.ticket.service.AuditService): file dedicato,
+    un file al giorno, conservazione AUDIT_LOG_GIORNI (default 400 ≈ 13 mesi).
+    Gli stessi eventi sono anche nella tabella ticket_audit_log.
+  - Tutto il resto (SAP Cloud SDK, HikariCP, ...): console a livello INFO,
+    quindi in catalina.out come oggi. I System.out.println esistenti del
+    codice applicativo non passano da qui e restano invariati.
+
+  Cartella dei file: system property o variabile d'ambiente TICKET_LOG_DIR,
+  altrimenti ${catalina.base}/logs (la cartella log di Tomcat).
+-->
+<configuration scan="false">
+
+  <property name="LOG_DIR"   value="${TICKET_LOG_DIR:-${catalina.base:-.}/logs}" />
+  <property name="AUDIT_GG"  value="${AUDIT_LOG_GIORNI:-400}" />
+
+  <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <appender name="AUDIT_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${LOG_DIR}/ticket-audit.log</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <fileNamePattern>${LOG_DIR}/ticket-audit.%d{yyyy-MM-dd}.log.gz</fileNamePattern>
+      <maxHistory>${AUDIT_GG}</maxHistory>
+    </rollingPolicy>
+    <encoder>
+      <charset>UTF-8</charset>
+      <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <logger name="AUDIT" level="INFO" additivity="false">
+    <appender-ref ref="AUDIT_FILE" />
+  </logger>
+
+  <root level="INFO">
+    <appender-ref ref="CONSOLE" />
+  </root>
+
+</configuration>

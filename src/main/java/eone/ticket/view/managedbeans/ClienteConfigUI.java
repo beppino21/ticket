@@ -11,6 +11,7 @@ import org.eclnt.jsfserver.elements.impl.FIXGRIDListBinding;
 import org.eclnt.jsfserver.pagebean.PageBean;
 
 import eone.ticket.model.ClienteConfig;
+import eone.ticket.model.PasswordPolicy;
 import eone.ticket.service.ClienteConfigService;
 
 /**
@@ -23,6 +24,11 @@ import eone.ticket.service.ClienteConfigService;
 public class ClienteConfigUI extends PageBean implements Serializable {
 
     private static final long serialVersionUID = 1L;
+
+    public ClienteConfigUI() {
+        // Secondo livello di difesa: pagina non apribile senza utente autorizzato (vedi SessionGuard)
+        eone.ticket.context.SessionGuard.richiediRuolo("ClienteConfig", "ADMIN");
+    }
 
     public interface IListener extends Serializable {
         void reactOnBackToMenu();
@@ -39,6 +45,12 @@ public class ClienteConfigUI extends PageBean implements Serializable {
     private boolean m_formAbilitato = true;
     private String  m_formPrefissoReferente;
     private boolean m_formPromemoriaRichiedentiAbilitato = true;
+    // Policy password — numerici come stringa per il binding col campo (stesso schema di UserAdminUI)
+    private String  m_formPwdLunghezzaMinimaStr;
+    private String  m_formPwdMinSpecialiStr;
+    private String  m_formPwdMinNumericiStr;
+    private boolean m_formPwdMaiuscMinusc;
+    private boolean m_formMfaObbligatoria;
     private boolean m_isNuovo;
 
     public void prepare(IListener listener) {
@@ -75,6 +87,25 @@ public class ClienteConfigUI extends PageBean implements Serializable {
         m_formAbilitato = true;
         m_formPrefissoReferente = null;
         m_formPromemoriaRichiedentiAbilitato = true;
+        caricaPolicyNelForm(PasswordPolicy.defaultPolicy());
+        m_formMfaObbligatoria = false;
+    }
+
+    private void caricaPolicyNelForm(PasswordPolicy p) {
+        m_formPwdLunghezzaMinimaStr = String.valueOf(p.getLunghezzaMinima());
+        m_formPwdMinSpecialiStr     = String.valueOf(p.getMinCaratteriSpeciali());
+        m_formPwdMinNumericiStr     = String.valueOf(p.getMinCaratteriNumerici());
+        m_formPwdMaiuscMinusc       = p.isObbligoMaiuscMinusc();
+    }
+
+    /** Converte un campo numerico del form; null (+ warning in statusbar) se non valido o fuori range. */
+    private Integer leggiIntero(String valore, String nomeCampo, int min, int max) {
+        try {
+            int v = Integer.parseInt(valore == null ? "" : valore.trim());
+            if (v >= min && v <= max) return v;
+        } catch (NumberFormatException e) { /* gestito sotto */ }
+        Statusbar.outputWarning(nomeCampo + ": indicare un numero intero tra " + min + " e " + max);
+        return null;
     }
 
     public void onAnnullaForm(ActionEvent ae) {
@@ -91,9 +122,17 @@ public class ClienteConfigUI extends PageBean implements Serializable {
             Statusbar.outputWarning("Il prefisso può contenere solo lettere e cifre (max 10 caratteri)");
             return;
         }
+        Integer lunghezza = leggiIntero(m_formPwdLunghezzaMinimaStr, "Lunghezza minima password",
+                                        PasswordPolicy.LIMITE_LUNGHEZZA_MIN, PasswordPolicy.LIMITE_LUNGHEZZA_MAX);
+        if (lunghezza == null) return;
+        Integer speciali = leggiIntero(m_formPwdMinSpecialiStr, "N. minimo caratteri speciali", 0, PasswordPolicy.LIMITE_CONTEGGI_MAX);
+        if (speciali == null) return;
+        Integer numerici = leggiIntero(m_formPwdMinNumericiStr, "N. minimo caratteri numerici", 0, PasswordPolicy.LIMITE_CONTEGGI_MAX);
+        if (numerici == null) return;
+        PasswordPolicy policy = new PasswordPolicy(lunghezza, speciali, numerici, m_formPwdMaiuscMinusc);
         try {
             clienteConfigService.save(m_formKunnr.trim(), m_formNomeCliente, m_formAbilitato, m_formPrefissoReferente,
-                                       m_formPromemoriaRichiedentiAbilitato);
+                                       m_formPromemoriaRichiedentiAbilitato, policy, m_formMfaObbligatoria);
             Statusbar.outputSuccess("Cliente " + m_formKunnr + " salvato");
             m_formVisible = false;
             caricaLista();
@@ -145,6 +184,21 @@ public class ClienteConfigUI extends PageBean implements Serializable {
     public boolean isFormPromemoriaRichiedentiAbilitato()         { return m_formPromemoriaRichiedentiAbilitato; }
     public void    setFormPromemoriaRichiedentiAbilitato(boolean v) { this.m_formPromemoriaRichiedentiAbilitato = v; }
 
+    public String  getFormPwdLunghezzaMinimaStr()          { return m_formPwdLunghezzaMinimaStr; }
+    public void    setFormPwdLunghezzaMinimaStr(String v)  { this.m_formPwdLunghezzaMinimaStr = v; }
+
+    public String  getFormPwdMinSpecialiStr()              { return m_formPwdMinSpecialiStr; }
+    public void    setFormPwdMinSpecialiStr(String v)      { this.m_formPwdMinSpecialiStr = v; }
+
+    public String  getFormPwdMinNumericiStr()              { return m_formPwdMinNumericiStr; }
+    public void    setFormPwdMinNumericiStr(String v)      { this.m_formPwdMinNumericiStr = v; }
+
+    public boolean isFormMfaObbligatoria()                 { return m_formMfaObbligatoria; }
+    public void    setFormMfaObbligatoria(boolean v)       { this.m_formMfaObbligatoria = v; }
+
+    public boolean isFormPwdMaiuscMinusc()                 { return m_formPwdMaiuscMinusc; }
+    public void    setFormPwdMaiuscMinusc(boolean v)       { this.m_formPwdMaiuscMinusc = v; }
+
     public class ClienteRow extends FIXGRIDItem implements Serializable {
         private static final long serialVersionUID = 1L;
         private final ClienteConfig config;
@@ -157,6 +211,8 @@ public class ClienteConfigUI extends PageBean implements Serializable {
         public String  getStatoLabel()  { return config.isAbilitato() ? "Abilitato" : "Non abilitato"; }
         public String  getStatoColor()  { return config.isAbilitato() ? "#E8F5E9" : "#FFEBEE"; }
         public String  getPromemoriaRichiedentiLabel() { return config.isPromemoriaRichiedentiAbilitato() ? "Sì" : "No"; }
+        public String  getPasswordPolicyLabel() { return config.getPasswordPolicy().getDescrizioneBreve(); }
+        public String  getMfaLabel()            { return config.isMfaObbligatoria() ? "Obbligatoria" : "No"; }
 
         public void onRowSelect() {
             m_isNuovo = false;
@@ -166,6 +222,8 @@ public class ClienteConfigUI extends PageBean implements Serializable {
             m_formAbilitato = config.isAbilitato();
             m_formPrefissoReferente = config.getPrefissoReferente();
             m_formPromemoriaRichiedentiAbilitato = config.isPromemoriaRichiedentiAbilitato();
+            caricaPolicyNelForm(config.getPasswordPolicy());
+            m_formMfaObbligatoria = config.isMfaObbligatoria();
         }
     }
 }

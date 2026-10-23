@@ -64,3 +64,47 @@ PROMEMORIA_QUOTIDIANO_MINUTO=30
 SAP_CLIENT=300
 SAP_USER=EONE
 SAP_PASS=changeme
+
+
+# ============================================================
+# SICUREZZA (v13) — MFA, blocco tentativi, log, allegati, header
+# ============================================================
+
+# --- Verifica in due passaggi (TOTP, app Authenticator) ---
+# Obbligo per gli utenti dei CLIENTI: flag "MFA obbligatoria" nella schermata
+# "Clienti abilitati". Obbligo per gli utenti INTERNI (senza kunnr: AMS,
+# DISPATCHER, ADMIN, AMS_ADMIN):
+MFA_INTERNI_OBBLIGATORIA=false
+# Nome mostrato nell'app Authenticator accanto allo username
+MFA_ISSUER=Ticketing e-One
+# Chiave AES-256 per cifrare i segreti MFA nel DB (32 byte in Base64).
+# Generarla UNA volta con:   openssl rand -base64 32
+# Conservarla con cura: se cambia o si perde, tutti gli utenti devono
+# riattivare l'MFA (azzeramento da "Gestione utenti").
+# Se assente i segreti vengono salvati NON cifrati (solo per test).
+MFA_ENC_KEY=
+
+# --- Blocco temporaneo dopo tentativi falliti (password o codice MFA) ---
+LOGIN_MAX_TENTATIVI=5
+LOGIN_BLOCCO_MINUTI=15
+
+# --- Log applicativi ---
+# Cartella del file ticket-audit.log (default: cartella logs di Tomcat).
+# NB: logback legge TICKET_LOG_DIR e AUDIT_LOG_GIORNI come system property
+# (-DTICKET_LOG_DIR=...) o variabile d'ambiente, NON da questo file.
+# TICKET_LOG_DIR=/opt/eone/ticket/logs
+# AUDIT_LOG_GIORNI=400
+
+# --- Allegati ---
+# Estensioni ammesse (separate da virgola). Default:
+# ALLEGATI_ESTENSIONI=pdf,png,jpg,jpeg,gif,bmp,tif,tiff,webp,docx,xlsx,pptx,doc,xls,ppt,odt,ods,csv,txt,log,xml,json,zip,7z,msg,eml
+# Antivirus ClamAV (demone clamd). Se CLAMAV_HOST è vuoto la scansione non avviene.
+# CLAMAV_HOST=localhost
+# CLAMAV_PORT=3310
+# CLAMAV_TIMEOUT_MS=15000
+# true = se clamd non risponde il file viene rifiutato; false = accettato con avviso nel log
+# ALLEGATI_AV_FAIL_CLOSED=true
+
+# --- Intestazioni HTTP di sicurezza ---
+# SECURITY_HEADERS_ABILITATI=true
+# SECURITY_HSTS=true

@@ -36,6 +36,11 @@ public class PromemoriaAdminUI extends PageBean implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
+    public PromemoriaAdminUI() {
+        // Secondo livello di difesa: pagina non apribile senza utente autorizzato (vedi SessionGuard)
+        eone.ticket.context.SessionGuard.richiediRuolo("PromemoriaAdmin", "ADMIN");
+    }
+
     public interface IListener extends Serializable {
         void reactOnBackToMenu();
     }

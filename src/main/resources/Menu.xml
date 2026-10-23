@@ -17,6 +17,14 @@
 </t:pane>
 </t:row>
 <t:rowdistance id="m_pwd_warn_d" height="10" rendered="#{d.MenuUI.passwordWarningVisible}" />
+<t:row id="m_rc_warn_row" rendered="#{d.MenuUI.codiciWarningVisible}" >
+<t:pane id="m_rc_warn" background="#FFF3CD" border="#FFECB5" padding="10" width="100%" >
+<t:row id="m_rc_warn_r" >
+<t:label id="m_rc_warn_lbl" font="size:12;color:#856404" multiline="true" text="#{d.MenuUI.codiciWarningMessage}" width="100%" wordwrap="true" />
+</t:row>
+</t:pane>
+</t:row>
+<t:rowdistance id="m_rc_warn_d" height="10" rendered="#{d.MenuUI.codiciWarningVisible}" />
 <t:rowbodypane id="m_2" padding="20" >
 <t:row id="m_3" >
 <t:label id="m_4" font="size:14;weight:bold;color:#555555" text="Cosa vuoi fare?" />

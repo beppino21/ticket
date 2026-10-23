@@ -21,6 +21,8 @@ import eone.ticket.model.TicketAttachment;
 import eone.ticket.model.TicketComment;
 import eone.ticket.model.TicketDraft;
 import eone.ticket.service.AttachmentLimits;
+import eone.ticket.service.AttachmentValidator;
+import eone.ticket.service.AuditService;
 import eone.ticket.service.CommentService;
 import eone.ticket.service.MailService;
 import eone.ticket.service.RequesterService;
@@ -90,6 +92,9 @@ public class NewTicketUI extends PageBean implements Serializable {
     // =========================
 
     public NewTicketUI() {
+        // Secondo livello di difesa: pagina non apribile senza utente autorizzato (vedi SessionGuard)
+        eone.ticket.context.SessionGuard.richiediUtente("NewTicket");
+
         caricaEligibiliReferente();
     }
 
@@ -210,6 +215,12 @@ public class NewTicketUI extends PageBean implements Serializable {
             comment.setStatoTicket(TicketComment.STATO_CLI_ATTESA_ASSISTENZA);
 
             commentService.saveComment(comment, m_pendingAttachments);
+            AuditService.log(AuditService.TICKET_APERTO, AuditService.ESITO_OK, "DRAFT-" + draftId,
+                             "allegati=" + m_pendingAttachments.size());
+            for (TicketAttachment pa : m_pendingAttachments) {
+                AuditService.log(AuditService.ALLEGATO_CARICATO, AuditService.ESITO_OK, "DRAFT-" + draftId,
+                                 pa.getFilename() + " (" + pa.getFileSize() + " byte)");
+            }
 
             Statusbar.outputSuccess("Ticket aperto correttamente (DRAFT-" + draftId + ")");
             System.out.println("[NewTicketUI] Draft creato: DRAFT-" + draftId +
@@ -284,6 +295,15 @@ public class NewTicketUI extends PageBean implements Serializable {
                     + AttachmentLimits.formatMB(AttachmentLimits.MAX_TOTAL_BYTES) + " per questo ticket.");
                 continue;
             }
+
+            AttachmentValidator.Esito esito = AttachmentValidator.valida(filename, data);
+            if (!esito.isOk()) {
+                Statusbar.outputError("File \"" + filename + "\" non accettato: " + esito.errore + ".");
+                AuditService.log(AuditService.ALLEGATO_RIFIUTATO, AuditService.ESITO_FAIL, "nuovo ticket",
+                                 esito.nomePulito + " (" + data.length + " byte): " + esito.errore);
+                continue;
+            }
+            filename = esito.nomePulito;
 
             TicketAttachment a = new TicketAttachment();
             a.setFilename(filename);

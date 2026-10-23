@@ -5,6 +5,9 @@
 -- null_kunnr_reqid.sql, 08_ticket_draft.sql, 09_update_colori_stati.sql,
 -- 10_ticket_referente_kunnr.sql (isolamento multi-tenant su referente_cli),
 -- 11_promemoria_richiedenti_toggle.sql (toggle per cliente promemoria richiedenti),
+-- 12_password_policy_cliente.sql (policy composizione password per cliente),
+-- 13_sicurezza_mfa_audit.sql (MFA TOTP, blocco tentativi, audit log append-only),
+-- 14_mfa_codici_recupero.sql (codici di recupero MFA monouso),
 -- ticket_riassegnazione (sezione 10, ricostruita dal codice)
 -- (versione finale pastello)
 --
@@ -328,6 +331,10 @@ CREATE TABLE IF NOT EXISTS ticket_cliente_config (
     abilitato     BOOLEAN     NOT NULL DEFAULT TRUE,
     prefisso_referente VARCHAR(10),  -- obbligatorio per poter creare referenti self-service per questo cliente
     promemoria_richiedenti_abilitato BOOLEAN NOT NULL DEFAULT TRUE,  -- toggle per cliente del promemoria giornaliero a RICHIEDENTE/REFERENTE_CLI
+    pwd_lunghezza_minima INTEGER NOT NULL DEFAULT 8,      -- policy password: lunghezza minima
+    pwd_min_speciali     INTEGER NOT NULL DEFAULT 0,      -- policy password: n. minimo caratteri speciali
+    pwd_min_numerici     INTEGER NOT NULL DEFAULT 0,      -- policy password: n. minimo caratteri numerici
+    pwd_maiusc_minusc    BOOLEAN NOT NULL DEFAULT FALSE,  -- policy password: obbligo maiuscole e minuscole
     created_at    TIMESTAMP   NOT NULL DEFAULT NOW(),
     updated_at    TIMESTAMP   NOT NULL DEFAULT NOW()
 );
@@ -335,6 +342,19 @@ CREATE TABLE IF NOT EXISTS ticket_cliente_config (
 -- Allineamento per DB preesistente
 ALTER TABLE ticket_cliente_config ADD COLUMN IF NOT EXISTS prefisso_referente VARCHAR(10);
 ALTER TABLE ticket_cliente_config ADD COLUMN IF NOT EXISTS promemoria_richiedenti_abilitato BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE ticket_cliente_config ADD COLUMN IF NOT EXISTS pwd_lunghezza_minima INTEGER NOT NULL DEFAULT 8;
+ALTER TABLE ticket_cliente_config ADD COLUMN IF NOT EXISTS pwd_min_speciali     INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE ticket_cliente_config ADD COLUMN IF NOT EXISTS pwd_min_numerici     INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE ticket_cliente_config ADD COLUMN IF NOT EXISTS pwd_maiusc_minusc    BOOLEAN NOT NULL DEFAULT FALSE;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_cliente_config_pwd_policy') THEN
+        ALTER TABLE ticket_cliente_config ADD CONSTRAINT ck_cliente_config_pwd_policy
+            CHECK (pwd_lunghezza_minima BETWEEN 6 AND 64
+               AND pwd_min_speciali     BETWEEN 0 AND 20
+               AND pwd_min_numerici     BETWEEN 0 AND 20);
+    END IF;
+END $$;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_cliente_config_prefisso
     ON ticket_cliente_config (UPPER(prefisso_referente))
@@ -344,6 +364,10 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ticket_cliente_config TO ticket_app;
 
 COMMENT ON TABLE ticket_cliente_config IS 'Clienti (Kunnr) abilitati alla nuova gestione ticket — un Kunnr assente è considerato non abilitato.';
 COMMENT ON COLUMN ticket_cliente_config.prefisso_referente IS 'Prefisso breve e univoco per costruire lo username dei referenti self-service (prefisso_codice)';
+COMMENT ON COLUMN ticket_cliente_config.pwd_lunghezza_minima IS 'Policy password utenti del cliente: lunghezza minima (default 8)';
+COMMENT ON COLUMN ticket_cliente_config.pwd_min_speciali     IS 'Policy password utenti del cliente: n. minimo caratteri speciali (non lettera/cifra/spazio)';
+COMMENT ON COLUMN ticket_cliente_config.pwd_min_numerici     IS 'Policy password utenti del cliente: n. minimo cifre';
+COMMENT ON COLUMN ticket_cliente_config.pwd_maiusc_minusc    IS 'Policy password utenti del cliente: TRUE = almeno una maiuscola e una minuscola';
 COMMENT ON COLUMN ticket_cliente_config.promemoria_richiedenti_abilitato IS 'FALSE = per questo cliente non viene inviato il promemoria giornaliero ai RICHIEDENTI/REFERENTE_CLI (il promemoria AMS/DISPATCHER non è influenzato)';
 
 
@@ -385,3 +409,109 @@ COMMENT ON TABLE ticket_riassegnazione IS 'Richieste AMS di riattribuzione ticke
 
 SELECT rstat, descrizione_corta, colore, colore_testo FROM ticket_stato_rstat ORDER BY ordine;
 SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;
+
+
+-- =====================================================================
+-- SEZIONE 11 — Sicurezza: MFA, blocco tentativi, audit log        [v13]
+-- =====================================================================
+-- Stesso contenuto di 13_sicurezza_mfa_audit.sql.
+
+-- ---------------------------------------------------------------------
+-- 1. ticket_user — MFA e blocco tentativi
+-- ---------------------------------------------------------------------
+ALTER TABLE ticket_user ADD COLUMN IF NOT EXISTS mfa_secret      VARCHAR(200);  -- segreto TOTP cifrato AES-GCM ("E1:...")
+ALTER TABLE ticket_user ADD COLUMN IF NOT EXISTS mfa_attivata_il TIMESTAMP;
+ALTER TABLE ticket_user ADD COLUMN IF NOT EXISTS mfa_ultimo_step BIGINT;        -- anti-riuso dello stesso codice
+ALTER TABLE ticket_user ADD COLUMN IF NOT EXISTS login_falliti   INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE ticket_user ADD COLUMN IF NOT EXISTS bloccato_fino   TIMESTAMP;
+
+COMMENT ON COLUMN ticket_user.mfa_secret      IS 'Segreto TOTP cifrato (chiave MFA_ENC_KEY fuori dal DB). NULL = MFA non attivata';
+COMMENT ON COLUMN ticket_user.mfa_ultimo_step IS 'Ultimo periodo TOTP (30 s) accettato: impedisce il riuso dello stesso codice';
+COMMENT ON COLUMN ticket_user.login_falliti   IS 'Tentativi falliti consecutivi (password o codice MFA)';
+COMMENT ON COLUMN ticket_user.bloccato_fino   IS 'Se nel futuro, utente temporaneamente bloccato';
+
+-- ---------------------------------------------------------------------
+-- 2. ticket_cliente_config — obbligo MFA per cliente
+-- ---------------------------------------------------------------------
+ALTER TABLE ticket_cliente_config ADD COLUMN IF NOT EXISTS mfa_obbligatoria BOOLEAN NOT NULL DEFAULT FALSE;
+COMMENT ON COLUMN ticket_cliente_config.mfa_obbligatoria IS 'TRUE = gli utenti del cliente devono usare il secondo fattore (TOTP) al logon';
+
+-- ---------------------------------------------------------------------
+-- 3. ticket_audit_log — registro attività append-only
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS ticket_audit_log (
+    id          BIGSERIAL    PRIMARY KEY,
+    ts          TIMESTAMP    NOT NULL DEFAULT NOW(),
+    id_user     VARCHAR(40),             -- autore (o username tentato, per i logon falliti)
+    kunnr       VARCHAR(10),
+    ruolo       VARCHAR(15),
+    evento      VARCHAR(40)  NOT NULL,   -- LOGIN_OK, LOGIN_FAIL, MFA_FAIL, PASSWORD_RESET, ALLEGATO_SCARICATO, ...
+    esito       VARCHAR(10)  NOT NULL DEFAULT 'OK',
+    oggetto     VARCHAR(200),            -- ticket, utente o cliente interessato
+    dettaglio   VARCHAR(2000),
+    ip_address  VARCHAR(100)
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_ts      ON ticket_audit_log (ts);
+CREATE INDEX IF NOT EXISTS idx_audit_user_ts ON ticket_audit_log (id_user, ts);
+CREATE INDEX IF NOT EXISTS idx_audit_evento  ON ticket_audit_log (evento, ts);
+
+-- L'utente applicativo può solo scrivere nuove righe e leggerle.
+REVOKE ALL ON ticket_audit_log FROM ticket_app;
+GRANT SELECT, INSERT ON ticket_audit_log TO ticket_app;
+GRANT USAGE, SELECT ON SEQUENCE ticket_audit_log_id_seq TO ticket_app;
+
+-- Protezione aggiuntiva: nessuna modifica/cancellazione, nemmeno dal
+-- proprietario, salvo la pulizia per conservazione (funzione sotto).
+CREATE OR REPLACE FUNCTION ticket_audit_log_append_only() RETURNS trigger AS $$
+BEGIN
+    IF TG_OP = 'DELETE' AND current_setting('ticket.audit_purge', true) = 'on' THEN
+        RETURN OLD;
+    END IF;
+    RAISE EXCEPTION 'ticket_audit_log è append-only: % non consentito', TG_OP;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_audit_append_only ON ticket_audit_log;
+CREATE TRIGGER trg_audit_append_only
+    BEFORE UPDATE OR DELETE ON ticket_audit_log
+    FOR EACH ROW EXECUTE FUNCTION ticket_audit_log_append_only();
+
+-- Pulizia per conservazione: elimina le righe più vecchie di N mesi.
+-- Da lanciare SOLO come postgres (es. cron mensile):
+--   SELECT ticket_audit_log_purge(13);
+CREATE OR REPLACE FUNCTION ticket_audit_log_purge(mesi INTEGER) RETURNS BIGINT AS $$
+DECLARE n BIGINT;
+BEGIN
+    IF mesi < 6 THEN RAISE EXCEPTION 'Conservazione minima 6 mesi'; END IF;
+    PERFORM set_config('ticket.audit_purge', 'on', true);
+    DELETE FROM ticket_audit_log WHERE ts < NOW() - (mesi * INTERVAL '1 month');
+    GET DIAGNOSTICS n = ROW_COUNT;
+    PERFORM set_config('ticket.audit_purge', 'off', true);
+    RETURN n;
+END;
+$$ LANGUAGE plpgsql;
+REVOKE ALL ON FUNCTION ticket_audit_log_purge(INTEGER) FROM PUBLIC;
+
+COMMENT ON TABLE ticket_audit_log IS 'Registro attività applicativo (append-only). Scritto da eone.ticket.service.AuditService';
+
+
+-- =====================================================================
+-- SEZIONE 12 — Codici di recupero MFA                              [v14]
+-- =====================================================================
+-- Stesso contenuto di 14_mfa_codici_recupero.sql.
+
+CREATE TABLE IF NOT EXISTS ticket_mfa_recovery (
+    id         BIGSERIAL    PRIMARY KEY,
+    id_user    VARCHAR(20)  NOT NULL REFERENCES ticket_user(id_user) ON DELETE CASCADE,
+    code_hash  VARCHAR(100) NOT NULL,          -- BCrypt del codice normalizzato (8 caratteri, senza trattino)
+    creato_il  TIMESTAMP    NOT NULL DEFAULT NOW(),
+    usato_il   TIMESTAMP                        -- NULL = ancora utilizzabile
+);
+
+CREATE INDEX IF NOT EXISTS idx_mfa_recovery_user ON ticket_mfa_recovery (id_user) WHERE usato_il IS NULL;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON ticket_mfa_recovery TO ticket_app;
+GRANT USAGE, SELECT ON SEQUENCE ticket_mfa_recovery_id_seq TO ticket_app;
+
+COMMENT ON TABLE ticket_mfa_recovery IS 'Codici di recupero MFA monouso (solo hash). Gestiti da eone.ticket.service.MfaService';

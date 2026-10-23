@@ -3,6 +3,7 @@
 
 <t:beanprocessing id="g_1" beanbinding="#{d.LogonUI}" >
 <t:filedownload id="g_doc_dl" trigger="#{d.LogonUI.docTrigger}" url="#{d.LogonUI.docUrl}" />
+<t:filedownload id="g_rc_dl" trigger="#{d.LogonUI.codiciTrigger}" url="#{d.LogonUI.codiciUrl}" />
 </t:beanprocessing>
 <t:row id="g_2" >
 <t:pane id="g_7" height="100%" width="50%" >
@@ -15,23 +16,80 @@
 <t:row id="g_8" >
 <t:coldistance id="g_10" width="100%" />
 <t:foldablepane id="g_9" enabled="false" rowdistance="5" text="Logon" width="100%" >
-<t:row id="g_18" >
+<t:row id="g_18" rendered="#{d.LogonUI.stepPassword}" >
 <t:field id="g_19" labeltext="User name" requestfocus="creation" text="#{d.LogonUI.userName}" width="200" />
 </t:row>
-<t:row id="g_21" >
+<t:row id="g_21" rendered="#{d.LogonUI.stepPassword}" >
 <t:password id="g_22" labeltext="Password" text="#{d.LogonUI.password}" width="200" />
 </t:row>
-<t:rowdistance id="g_16" height="20" />
-<t:row id="g_14" >
+<t:rowdistance id="g_16" height="20" rendered="#{d.LogonUI.stepPassword}" />
+<t:row id="g_14" rendered="#{d.LogonUI.stepPassword}" >
 <t:button id="g_15" actionListener="#{d.LogonUI.onLogonAction}" hotkey="10" text="Logon" width="100+" />
 </t:row>
-<t:rowdistance id="g_28" height="20" />
-<t:row id="g_29" >
+<t:rowdistance id="g_28" height="20" rendered="#{d.LogonUI.stepPassword}" />
+<t:row id="g_29" rendered="#{d.LogonUI.stepPassword}" >
 <t:link id="g_30" actionListener="#{d.LogonUI.onRequestNewPasswordAction}" font="size:10" text="Cambia password..." />
 </t:row>
-<t:rowdistance id="g_31d" height="8" />
-<t:row id="g_31l" >
+<t:rowdistance id="g_31d" height="8" rendered="#{d.LogonUI.stepPassword}" />
+<t:row id="g_31l" rendered="#{d.LogonUI.stepPassword}" >
 <t:link id="g_31" actionListener="#{d.LogonUI.onOpenDocumentazione}" font="size:10" text="Documentazione..." />
+</t:row>
+
+<!-- ===== Secondo fattore: inserimento codice ===== -->
+<t:row id="g_m1" rendered="#{d.LogonUI.stepMfaCodice}" >
+<t:label id="g_m1_lbl" font="weight:bold" text="Verifica in due passaggi" />
+</t:row>
+<t:row id="g_m2" rendered="#{d.LogonUI.stepMfaCodice}" >
+<t:label id="g_m2_lbl" multiline="true" text="#{d.LogonUI.mfaTestoCodice}" width="300" wordwrap="true" />
+</t:row>
+<t:row id="g_m3" rendered="#{d.LogonUI.stepMfaCodice}" >
+<t:field id="g_m3_field" labeltext="Codice" requestfocus="creation" text="#{d.LogonUI.mfaCodice}" width="140" />
+</t:row>
+<t:rowdistance id="g_m4" height="12" rendered="#{d.LogonUI.stepMfaCodice}" />
+<t:row id="g_m5" coldistance="8" rendered="#{d.LogonUI.stepMfaCodice}" >
+<t:button id="g_m5_ok" actionListener="#{d.LogonUI.onVerificaMfa}" hotkey="10" text="Verifica" width="100+" />
+<t:button id="g_m5_ann" actionListener="#{d.LogonUI.onAnnullaMfa}" text="Annulla" width="80" />
+</t:row>
+<t:row id="g_m6" rendered="#{d.LogonUI.stepMfaCodice}" >
+<t:label id="g_m6_lbl" font="size:10;color:#888888" multiline="true" text="Telefono non disponibile? Usa uno dei codici di recupero. Se li hai finiti o persi, contatta l&#39;amministratore per azzerare la verifica in due passaggi." width="300" wordwrap="true" />
+</t:row>
+
+<!-- ===== Secondo fattore: prima attivazione ===== -->
+<t:row id="g_a1" rendered="#{d.LogonUI.stepMfaAttivazione}" >
+<t:label id="g_a1_lbl" font="weight:bold" text="Attiva la verifica in due passaggi" />
+</t:row>
+<t:row id="g_a2" rendered="#{d.LogonUI.stepMfaAttivazione}" >
+<t:label id="g_a2_lbl" multiline="true" text="#{d.LogonUI.mfaTestoAttivazione}" width="300" wordwrap="true" />
+</t:row>
+<t:row id="g_a3" rendered="#{d.LogonUI.stepMfaAttivazione}" >
+<t:image id="g_a3_qr" height="220" image="#{d.LogonUI.mfaQrUrl}" width="220" />
+</t:row>
+<t:row id="g_a4" rendered="#{d.LogonUI.stepMfaAttivazione}" >
+<t:label id="g_a4_lbl" font="size:10;color:#555555" multiline="true" text="#{d.LogonUI.mfaTestoChiaveManuale}" width="300" wordwrap="true" />
+</t:row>
+<t:row id="g_a5" rendered="#{d.LogonUI.stepMfaAttivazione}" >
+<t:field id="g_a5_field" labeltext="Codice" requestfocus="creation" text="#{d.LogonUI.mfaCodice}" width="120" />
+</t:row>
+<t:rowdistance id="g_a6" height="12" rendered="#{d.LogonUI.stepMfaAttivazione}" />
+<t:row id="g_a7" coldistance="8" rendered="#{d.LogonUI.stepMfaAttivazione}" >
+<t:button id="g_a7_ok" actionListener="#{d.LogonUI.onAttivaMfa}" hotkey="10" text="Attiva e accedi" width="130+" />
+<t:button id="g_a7_ann" actionListener="#{d.LogonUI.onAnnullaMfa}" text="Annulla" width="80" />
+</t:row>
+
+<!-- ===== Secondo fattore: codici di recupero (mostrati una sola volta) ===== -->
+<t:row id="g_r1" rendered="#{d.LogonUI.stepMfaCodiciRecupero}" >
+<t:label id="g_r1_lbl" font="weight:bold" text="Codici di recupero" />
+</t:row>
+<t:row id="g_r2" rendered="#{d.LogonUI.stepMfaCodiciRecupero}" >
+<t:label id="g_r2_lbl" multiline="true" text="#{d.LogonUI.mfaTestoCodiciRecupero}" width="300" wordwrap="true" />
+</t:row>
+<t:row id="g_r3" rendered="#{d.LogonUI.stepMfaCodiciRecupero}" >
+<t:textarea id="g_r3_txt" enabled="false" font="size:14;weight:bold" height="120" text="#{d.LogonUI.codiciRecuperoTesto}" width="300" />
+</t:row>
+<t:rowdistance id="g_r4" height="12" rendered="#{d.LogonUI.stepMfaCodiciRecupero}" />
+<t:row id="g_r5" coldistance="8" rendered="#{d.LogonUI.stepMfaCodiciRecupero}" >
+<t:button id="g_r5_dl" actionListener="#{d.LogonUI.onScaricaCodici}" text="Scarica (.txt)" width="110" />
+<t:button id="g_r5_ok" actionListener="#{d.LogonUI.onConfermaCodici}" hotkey="10" text="Li ho salvati, continua" width="170+" />
 </t:row>
 </t:foldablepane>
 <t:coldistance id="g_26" width="100%" />

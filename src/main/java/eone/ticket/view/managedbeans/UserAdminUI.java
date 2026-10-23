@@ -38,6 +38,11 @@ public class UserAdminUI extends PageBean implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
+    public UserAdminUI() {
+        // Secondo livello di difesa: pagina non apribile senza utente autorizzato (vedi SessionGuard)
+        eone.ticket.context.SessionGuard.richiediRuolo("UserAdmin", "ADMIN", "AMS_ADMIN", "REQ_ADMIN");
+    }
+
     public interface IListener extends Serializable {
         void reactOnBackToMenu();
     }
@@ -45,6 +50,11 @@ public class UserAdminUI extends PageBean implements Serializable {
     private IListener m_listener;
 
     private final UserAdminService     adminService        = new UserAdminService();
+    private final eone.ticket.service.MfaService mfaService = new eone.ticket.service.MfaService();
+    private boolean m_formMfaAttiva;
+    private int     m_formCodiciRecupero;
+    private final eone.ticket.service.LoginGuardService loginGuard = new eone.ticket.service.LoginGuardService();
+    private java.time.LocalDateTime m_formBloccatoFino;
     private final SAPTicketService     sapService          = new SAPTicketService();
     private final TicketDraftService   draftService        = new TicketDraftService();
     private final ClienteConfigService clienteConfigService = new ClienteConfigService();
@@ -229,6 +239,7 @@ public class UserAdminUI extends PageBean implements Serializable {
         }
         try {
             adminService.resetPassword(m_formIdUser, m_resetPasswordValue.trim());
+            m_formBloccatoFino = null; // il reset sblocca anche l'utente (lato DB)
             m_formPasswordNonScade = false; // il reset lo azzera sempre lato DB — allinea anche il checkbox a video
             Statusbar.outputSuccess("Password di " + m_formIdUser +
                 " reimpostata — dovrà sceglierne una propria al prossimo accesso.");
@@ -419,6 +430,61 @@ public class UserAdminUI extends PageBean implements Serializable {
     public boolean isShowResetPasswordButton() { return m_formVisible && !m_isNuovo && !m_resetPasswordVisible; }
     public boolean isShowResetPasswordPanel()  { return m_formVisible && !m_isNuovo && m_resetPasswordVisible; }
 
+    // --- Verifica in due passaggi (MFA) ---
+    public void onAzzeraMfa(ActionEvent ae) {
+        if (m_formIdUser == null) return;
+        try {
+            mfaService.azzera(m_formIdUser);
+            m_formMfaAttiva = false;
+            m_formCodiciRecupero = 0;
+            Statusbar.outputSuccess("Verifica in due passaggi di " + m_formIdUser +
+                " azzerata: al prossimo accesso, se richiesta, l'utente la riattiverà con un nuovo QR code.");
+        } catch (Exception e) {
+            Statusbar.outputError("Errore azzeramento MFA: " + e.getMessage());
+            System.err.println("[UserAdminUI] Errore onAzzeraMfa: " + e.getMessage());
+        }
+    }
+    public boolean isShowMfaInfo()      { return m_formVisible && !m_isNuovo; }
+    public boolean isShowAzzeraMfa()    { return m_formVisible && !m_isNuovo && m_formMfaAttiva; }
+
+    public void onRigeneraCodici(ActionEvent ae) {
+        if (m_formIdUser == null) return;
+        try {
+            mfaService.revocaCodiciRecupero(m_formIdUser);
+            m_formCodiciRecupero = 0;
+            Statusbar.outputSuccess("Codici di recupero di " + m_formIdUser + " revocati: al prossimo accesso, "
+                + "dopo il codice dell'app, l'utente riceverà una nuova serie.");
+        } catch (Exception e) {
+            Statusbar.outputError("Errore revoca codici di recupero: " + e.getMessage());
+            System.err.println("[UserAdminUI] Errore onRigeneraCodici: " + e.getMessage());
+        }
+    }
+    public String  getMfaStatoLabel()   {
+        if (!m_formMfaAttiva) return "non attiva";
+        return "attiva — " + m_formCodiciRecupero + " codic" + (m_formCodiciRecupero == 1 ? "e" : "i") + " di recupero";
+    }
+
+    // --- Blocco per tentativi falliti ---
+    public void onSblocca(ActionEvent ae) {
+        if (m_formIdUser == null) return;
+        try {
+            loginGuard.sblocca(m_formIdUser);
+            m_formBloccatoFino = null;
+            Statusbar.outputSuccess("Utente " + m_formIdUser + " sbloccato: può accedere di nuovo con la sua password.");
+        } catch (Exception e) {
+            Statusbar.outputError("Errore sblocco utente: " + e.getMessage());
+            System.err.println("[UserAdminUI] Errore onSblocca: " + e.getMessage());
+        }
+    }
+    public boolean isShowBlocco()     { return m_formVisible && !m_isNuovo && m_formBloccatoFino != null; }
+    public String  getBloccoLabel() {
+        if (m_formBloccatoFino == null) return "";
+        return "Bloccato per troppi tentativi falliti, fino alle "
+             + m_formBloccatoFino.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm 'del' dd/MM/yyyy"));
+    }
+
+
+
     // Condizioni composte precalcolate in Java invece che nell'XML: le
     // espressioni EL con più "and"/"!" concatenati nell'attributo rendered
     // si sono dimostrate inaffidabili in CC (vedi caso reset-password) — un
@@ -518,6 +584,9 @@ public class UserAdminUI extends PageBean implements Serializable {
             m_eliminaWaitingConfirmIdUser = null;
             m_resetPasswordVisible = false;
             m_resetPasswordValue = null;
+            m_formMfaAttiva = mfaService.isAttiva(m_formIdUser);
+            m_formCodiciRecupero = m_formMfaAttiva ? mfaService.codiciRecuperoRimasti(m_formIdUser) : 0;
+            m_formBloccatoFino = loginGuard.getBloccatoFino(m_formIdUser);
         }
     }
 }

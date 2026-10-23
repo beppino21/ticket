@@ -102,6 +102,7 @@ public class UserAdminService {
             ps.setString(5, ruolo);
             ps.executeUpdate();
         }
+        AuditService.log(AuditService.UTENTE_CREATO, AuditService.ESITO_OK, idUser, "ruolo=" + ruolo);
     }
 
     /**
@@ -125,6 +126,8 @@ public class UserAdminService {
             ps.setString(6, hash);
             ps.executeUpdate();
         }
+        AuditService.log(AuditService.UTENTE_CREATO, AuditService.ESITO_OK, idUser,
+                         "ruolo=CLIENTE kunnr=" + kunnr + " reqid=" + reqid);
     }
 
     /**
@@ -151,6 +154,8 @@ public class UserAdminService {
             ps.setString(7, hash);
             ps.executeUpdate();
         }
+        AuditService.log(AuditService.UTENTE_CREATO, AuditService.ESITO_OK, idUser,
+                         "ruolo=REFERENTE_CLI kunnr=" + kunnr + " richiedente=" + reqidRichiedente);
     }
     /**
      * Aggiorna nome/email e i flag di stato/policy password — non tocca
@@ -176,6 +181,9 @@ public class UserAdminService {
             ps.setString(8, idUser);
             ps.executeUpdate();
         }
+        AuditService.log(AuditService.UTENTE_MODIFICATO, AuditService.ESITO_OK, idUser,
+                         "attivo=" + attivo + " vedeTutti=" + vedeTutti + " pwdNonScade=" + passwordNonScade +
+                         " pwdScadenzaGg=" + passwordScadenzaGiorni + " gestisceReferenti=" + gestisceReferenti);
     }
 
     /** Frequenza del promemoria in giorni (1 = ogni giorno feriale, N = ogni N giorni, 0 = mai). */
@@ -206,7 +214,8 @@ public class UserAdminService {
     public void resetPassword(String idUser, String nuovaPasswordTemporanea) throws SQLException {
         String hash = BCrypt.hashpw(nuovaPasswordTemporanea, BCrypt.gensalt(12));
         String sql = "UPDATE ticket_user SET password_hash = ?, " +
-                     "password_impostata_il = NOW() - INTERVAL '3650 days', password_non_scade = FALSE, updated_at = NOW() " +
+                     "password_impostata_il = NOW() - INTERVAL '3650 days', password_non_scade = FALSE, " +
+                     "login_falliti = 0, bloccato_fino = NULL, updated_at = NOW() " +   // il reset sblocca anche l'utente
                      "WHERE id_user = ?";
         try (Connection con = DBConfig.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
@@ -214,6 +223,7 @@ public class UserAdminService {
             ps.setString(2, idUser);
             ps.executeUpdate();
         }
+        AuditService.log(AuditService.PASSWORD_RESET, AuditService.ESITO_OK, idUser, "password temporanea, cambio forzato al prossimo accesso");
     }
 
     // =========================
@@ -235,6 +245,7 @@ public class UserAdminService {
             ps.setString(1, idUser);
             ps.executeUpdate();
         }
+        AuditService.log(AuditService.UTENTE_ELIMINATO, AuditService.ESITO_OK, idUser, null);
         return 0;
     }
 
@@ -254,6 +265,7 @@ public class UserAdminService {
             ps.setString(1, idUser);
             ps.executeUpdate();
         }
+        AuditService.log(AuditService.UTENTE_ELIMINATO, AuditService.ESITO_OK, idUser, null);
         return 0;
     }
 
@@ -274,6 +286,7 @@ public class UserAdminService {
             ps.setString(1, idUser);
             ps.executeUpdate();
         }
+        AuditService.log(AuditService.UTENTE_ELIMINATO, AuditService.ESITO_OK, idUser, null);
         return 0;
     }
 

@@ -106,8 +106,13 @@ public class OutestUI
      */
     private void logout() {
         System.out.println("[OutestUI] logout() — ripresento LogonUI");
+        eone.ticket.service.AuditService.log(eone.ticket.service.AuditService.LOGOUT,
+            eone.ticket.service.AuditService.ESITO_OK, null, null);
         m_userData = null;
         m_menuUI   = null;
+        // L'utente non resta in sessione dopo il logout (SessionGuard lo
+        // considera non autenticato fino al logon successivo).
+        eone.ticket.context.ViewSessionContext.instance().setRequesterInfo(null);
         showLogonUI();
     }
 
@@ -190,6 +195,7 @@ public class OutestUI
                     case "RIASSEGNAZIONE_AMS": showRiassegnazione(false); break;
                     case "RIASSEGNAZIONE_DISPATCHER": showRiassegnazione(true); break;
                     case "PROMEMORIA_ADMIN": showPromemoriaAdmin(); break;
+                    case "AUDIT_LOG":   showAuditLog();        break;
                     default: System.err.println("[OutestUI] Scelta menu non gestita: " + choiceId);
                 }
             }
@@ -517,6 +523,17 @@ public class OutestUI
     private void showClienteConfig() {
         ClienteConfigUI ui = new ClienteConfigUI();
         ui.prepare(new ClienteConfigUI.IListener() {
+            @Override
+            public void reactOnBackToMenu() {
+                showMenuUI();
+            }
+        });
+        m_contentUI = ui;
+    }
+
+    private void showAuditLog() {
+        AuditLogUI ui = new AuditLogUI();
+        ui.prepare(new AuditLogUI.IListener() {
             @Override
             public void reactOnBackToMenu() {
                 showMenuUI();

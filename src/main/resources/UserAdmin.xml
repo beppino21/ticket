@@ -152,6 +152,19 @@
 </t:row>
 </t:pane>
 </t:row>
+<t:rowdistance id="ua_blk_d" height="12" rendered="#{d.UserAdminUI.showBlocco}" />
+<t:row id="ua_blk" coldistance="8" rendered="#{d.UserAdminUI.showBlocco}" >
+<t:coldistance id="ua_blk_cd" width="150" />
+<t:label id="ua_blk_val" background="#FFEBEE" font="weight:bold;color:#C62828" text="#{d.UserAdminUI.bloccoLabel}" />
+<t:button id="ua_blk_btn" actionListener="#{d.UserAdminUI.onSblocca}" text="Sblocca" width="90" />
+</t:row>
+<t:rowdistance id="ua_mfa_d" height="12" rendered="#{d.UserAdminUI.showMfaInfo}" />
+<t:row id="ua_mfa" coldistance="8" rendered="#{d.UserAdminUI.showMfaInfo}" >
+<t:label id="ua_mfa_lbl" labeltext="Verifica in due passaggi:" width="150" />
+<t:label id="ua_mfa_val" font="weight:bold" text="#{d.UserAdminUI.mfaStatoLabel}" width="220" />
+<t:button id="ua_mfa_btn" actionListener="#{d.UserAdminUI.onAzzeraMfa}" rendered="#{d.UserAdminUI.showAzzeraMfa}" text="Azzera MFA" width="110" />
+<t:button id="ua_mfa_rc_btn" actionListener="#{d.UserAdminUI.onRigeneraCodici}" rendered="#{d.UserAdminUI.showAzzeraMfa}" text="Rigenera codici" width="120" />
+</t:row>
 </t:splitpanesplit>
 </t:splitpane>
 </t:row>

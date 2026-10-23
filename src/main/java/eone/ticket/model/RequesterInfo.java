@@ -152,6 +152,14 @@ public class RequesterInfo implements Serializable {
     public boolean isPasswordNonScade()                  { return passwordNonScade; }
     public void setPasswordNonScade(boolean v)           { this.passwordNonScade = v; }
 
+    /**
+     * Codici di recupero MFA ancora validi, letti al logon (-1 = non
+     * rilevante: MFA non usata). Serve solo al banner di avviso nel menu.
+     */
+    private int codiciRecuperoRimasti = -1;
+    public int  getCodiciRecuperoRimasti()               { return codiciRecuperoRimasti; }
+    public void setCodiciRecuperoRimasti(int v)          { this.codiciRecuperoRimasti = v; }
+
     @Override
     public String toString() {
         return "RequesterInfo{reqid='" + reqid + "', nome='" + nome +

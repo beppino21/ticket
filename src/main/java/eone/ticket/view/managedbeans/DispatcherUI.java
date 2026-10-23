@@ -120,6 +120,9 @@ public class DispatcherUI extends WorkpageDispatchedPageBean implements Serializ
 
     public DispatcherUI(IWorkpageDispatcher dispatcher) {
         super(dispatcher);
+        // Secondo livello di difesa: pagina non apribile senza utente autorizzato (vedi SessionGuard)
+        eone.ticket.context.SessionGuard.richiediRuolo("Dispatcher", "DISPATCHER", "ADMIN");
+
     }
 
     public void prepare(IListener listener) {

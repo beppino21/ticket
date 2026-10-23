@@ -98,6 +98,12 @@ public class MenuUI extends PageBean implements Serializable {
     private boolean m_passwordWarningVisible = false;
     private String  m_passwordWarningMessage = "";
 
+    // Avviso codici di recupero MFA quasi esauriti (banner separato, senza pulsante)
+    private boolean m_codiciWarningVisible = false;
+    private String  m_codiciWarningMessage = "";
+    public boolean getCodiciWarningVisible() { return m_codiciWarningVisible; }
+    public String  getCodiciWarningMessage() { return m_codiciWarningMessage; }
+
     public boolean getPasswordWarningVisible() { return m_passwordWarningVisible; }
     public String  getPasswordWarningMessage() { return m_passwordWarningMessage; }
 
@@ -107,6 +113,14 @@ public class MenuUI extends PageBean implements Serializable {
 
         RequesterInfo info = ViewSessionContext.instance().getRequesterInfo();
         if (info == null) return; // caso legacy SAP senza RequesterInfo — nessuna policy da applicare
+
+        int codici = info.getCodiciRecuperoRimasti();
+        if (codici > 0 && codici <= eone.ticket.service.MfaService.SOGLIA_AVVISO_CODICI) {
+            m_codiciWarningVisible = true;
+            m_codiciWarningMessage = (codici == 1 ? "Ti resta 1 codice di recupero" : "Ti restano " + codici + " codici di recupero")
+                + " per la verifica in due passaggi. Quando li avrai usati tutti, al primo accesso con l'app te ne verranno "
+                + "proposti di nuovi. Se hai perso quelli che hai, chiedi all'amministratore di rigenerarli.";
+        }
 
         if (info.isPasswordScaduta()) {
             m_passwordWarningVisible = true;
@@ -129,8 +143,10 @@ public class MenuUI extends PageBean implements Serializable {
     private void apriPopupCambioPassword() {
         ViewSessionContext ctx = ViewSessionContext.instance();
         final ChangePasswordUI cpUI = new ChangePasswordUI();
+        RequesterInfo infoSessione = ctx.getRequesterInfo();
         cpUI.prepare(
             ctx.getUsername() != null ? ctx.getUsername() : "",
+            infoSessione != null ? infoSessione.getKunnr() : null,
             new ChangePasswordUI.IListener() {
                 @Override
                 public void reactOnPasswordChanged() {
@@ -245,7 +261,10 @@ public class MenuUI extends PageBean implements Serializable {
     // COSTRUTTORE / INIT
     // =========================
 
-    public MenuUI() {}
+    public MenuUI() {
+        // Secondo livello di difesa: pagina non apribile senza utente autorizzato (vedi SessionGuard)
+        eone.ticket.context.SessionGuard.richiediUtente("Menu");
+    }
 
     public void prepare(IListener listener) {
         m_listener = listener;
@@ -367,6 +386,15 @@ public class MenuUI extends PageBean implements Serializable {
                 "CLIENTE_CONFIG",
                 "Clienti abilitati",
                 "Gestisci quali clienti sono attivi sulla nuova procedura",
+                true));
+        }
+
+        // Registro attività (audit log): solo ADMIN, sola lettura.
+        if (isAdmin) {
+            m_items.getItems().add(new MenuItemInfo(
+                "AUDIT_LOG",
+                "Registro attività",
+                "Consulta accessi, modifiche utenti/configurazione e movimenti allegati (sola lettura)",
                 true));
         }
 

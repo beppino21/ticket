@@ -57,6 +57,11 @@ public class RiassegnazioneUI extends PageBean implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
+    public RiassegnazioneUI() {
+        // Secondo livello di difesa: pagina non apribile senza utente autorizzato (vedi SessionGuard)
+        eone.ticket.context.SessionGuard.richiediUtente("Riassegnazione");
+    }
+
     public interface IListener extends Serializable {
         void reactOnBackToMenu();
     }

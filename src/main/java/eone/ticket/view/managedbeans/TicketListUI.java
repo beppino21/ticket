@@ -392,6 +392,9 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
 
     public TicketListUI(IWorkpageDispatcher dispatcher) {
         super(dispatcher);
+        // Secondo livello di difesa: pagina non apribile senza utente autorizzato (vedi SessionGuard)
+        eone.ticket.context.SessionGuard.richiediUtente("TicketList");
+
         this.ticketService = new SAPTicketService();
     }
 

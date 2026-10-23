@@ -52,6 +52,17 @@
   "META-INF/services/javax.servlet.ServletContainerInitializer_template".
   -->
     
+  <!-- ********** SICUREZZA ************************************************ -->
+  <!-- Intestazioni HTTP di sicurezza su tutte le risposte — vedi
+       eone.ticket.web.SecurityHeadersFilter (disattivabile da config.properties). -->
+  <filter>
+    <filter-name>SecurityHeadersFilter</filter-name>
+    <filter-class>eone.ticket.web.SecurityHeadersFilter</filter-class>
+  </filter>
+  <filter-mapping>
+    <filter-name>SecurityHeadersFilter</filter-name>
+    <url-pattern>/*</url-pattern>
+  </filter-mapping>
   <!-- ********** SESSION MANAGEMENT *************************************** -->
   <!--
   Changing from COOKIE to URL is possible - but must also be done in system.xml!

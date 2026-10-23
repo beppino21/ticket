@@ -22,6 +22,8 @@ import eone.ticket.model.RequesterInfo;
 import eone.ticket.model.TicketAttachment;
 import eone.ticket.model.TicketComment;
 import eone.ticket.service.AttachmentLimits;
+import eone.ticket.service.AttachmentValidator;
+import eone.ticket.service.AuditService;
 import eone.ticket.service.CommentService;
 import eone.ticket.service.MailService;
 import eone.ticket.service.RequesterService;
@@ -186,7 +188,10 @@ public class CommentUI extends PageBean implements Serializable {
         private String nn(String s) { return s != null ? s : ""; }
     }
 
-    public CommentUI() {}
+    public CommentUI() {
+        // Secondo livello di difesa: pagina non apribile senza utente autorizzato (vedi SessionGuard)
+        eone.ticket.context.SessionGuard.richiediUtente("CommentDialog");
+    }
 
     /** Mantenuto per compatibilità — apre senza dati per le notifiche (usare la versione estesa) */
     public void init(String tickt) {
@@ -370,6 +375,13 @@ public class CommentUI extends PageBean implements Serializable {
         }
 
         ViewSessionContext ctx = ViewSessionContext.instance();
+        // Controllo lato server, oltre alla combobox: il DISPATCHER può
+        // impostare solo stati lato Assistenza (ASS_*).
+        if (isDispatcher(ctx) && !m_newCommentStato.startsWith("ASS_")) {
+            Statusbar.outputWarning("Stato non consentito per il ruolo DISPATCHER");
+            m_newCommentStato = null;
+            return;
+        }
         String kunnr = ctx.getKunnr();
         String autoreTipo = ctx.isClienteOReferente()
             ? TicketComment.TIPO_CLIENTE : TicketComment.TIPO_ASSISTENZA;
@@ -384,6 +396,12 @@ public class CommentUI extends PageBean implements Serializable {
 
         try {
             commentService.saveComment(comment, m_pendingAttachments);
+            AuditService.log(AuditService.COMMENTO_INSERITO, AuditService.ESITO_OK, m_currentTickt,
+                             "stato=" + m_newCommentStato + " allegati=" + m_pendingAttachments.size());
+            for (TicketAttachment pa : m_pendingAttachments) {
+                AuditService.log(AuditService.ALLEGATO_CARICATO, AuditService.ESITO_OK, m_currentTickt,
+                                 pa.getFilename() + " (" + pa.getFileSize() + " byte)");
+            }
 
             // Notifica email a cliente + AMS assegnato (esclude l'autore stesso)
             inviaNotifiche(comment, m_pendingAttachments);
@@ -435,10 +453,15 @@ public class CommentUI extends PageBean implements Serializable {
         return ctx.isClienteOReferente() || isAdminOrUnknown(ctx);
     }
 
-    /** True se la combobox ASSISTENZA va mostrata: utente AMS oppure ADMIN (vede tutto) */
+    /** True se la combobox ASSISTENZA va mostrata: utente AMS o DISPATCHER, oppure ADMIN (vede tutto) */
     public boolean getIsAssistenza() {
         ViewSessionContext ctx = ViewSessionContext.instance();
-        return ctx.isAms() || isAdminOrUnknown(ctx);
+        return ctx.isAms() || isDispatcher(ctx) || isAdminOrUnknown(ctx);
+    }
+
+    /** Il DISPATCHER è un AMS smistatore: lato Assistenza, stessi stati dell'AMS. */
+    private boolean isDispatcher(ViewSessionContext ctx) {
+        return "DISPATCHER".equalsIgnoreCase(ctx.getRuolo() != null ? ctx.getRuolo().trim() : null);
     }
 
     /**
@@ -447,13 +470,16 @@ public class CommentUI extends PageBean implements Serializable {
      * combobox che lasciare l'utente senza alcuna opzione di stato
      * selezionabile). REFERENTE_CLI è escluso dal fallback: è un ruolo noto,
      * mappato sul lato CLIENTE — includerlo qui gli mostrava per errore
-     * anche la combobox degli stati lato Assistenza.
+     * anche la combobox degli stati lato Assistenza. Lo stesso vale per
+     * DISPATCHER, ruolo noto mappato sul lato ASSISTENZA: prima ricadeva
+     * qui e vedeva anche gli stati lato Cliente.
      */
     private boolean isAdminOrUnknown(ViewSessionContext ctx) {
         String ruolo = ctx.getRuolo();
         if (ruolo == null || ruolo.trim().isEmpty()) return true;
         String r = ruolo.trim().toUpperCase();
-        return "ADMIN".equals(r) || (!"CLIENTE".equals(r) && !"AMS".equals(r) && !"REFERENTE_CLI".equals(r));
+        return "ADMIN".equals(r) || (!"CLIENTE".equals(r) && !"AMS".equals(r) && !"REFERENTE_CLI".equals(r)
+                                     && !"DISPATCHER".equals(r));
     }
 
     public void onFileUpload(ActionEvent ae) {
@@ -480,6 +506,15 @@ public class CommentUI extends PageBean implements Serializable {
                     + AttachmentLimits.formatMB(AttachmentLimits.MAX_TOTAL_BYTES) + " per questo commento.");
                 continue;
             }
+
+            AttachmentValidator.Esito esito = AttachmentValidator.valida(filename, data);
+            if (!esito.isOk()) {
+                Statusbar.outputError("File \"" + filename + "\" non accettato: " + esito.errore + ".");
+                AuditService.log(AuditService.ALLEGATO_RIFIUTATO, AuditService.ESITO_FAIL, m_currentTickt,
+                                 esito.nomePulito + " (" + data.length + " byte): " + esito.errore);
+                continue;
+            }
+            filename = esito.nomePulito;
 
             TicketAttachment a = new TicketAttachment();
             a.setFilename(filename);
@@ -682,6 +717,8 @@ public class CommentUI extends PageBean implements Serializable {
                 a.getMimeType() != null ? a.getMimeType() : "application/octet-stream",
                 a.getFileData()
             );
+            AuditService.log(AuditService.ALLEGATO_SCARICATO, AuditService.ESITO_OK, m_currentTickt,
+                             a.getFilename() + " (id " + a.getId() + ", " + a.getFileSize() + " byte)");
             m_downloadTrigger.trigger();
         } catch (Exception e) {
             Statusbar.outputError("Errore download allegato: " + e.getMessage());
@@ -760,7 +797,7 @@ public class CommentUI extends PageBean implements Serializable {
     /** Visibile a CLIENTE/REFERENTE_CLI (possono modificarlo) e ad AMS (sola lettura — vede chi è il referente ma non può cambiarlo). */
     public boolean getMostraSezioneReferente() {
         ViewSessionContext ctx = ViewSessionContext.instance();
-        return ctx.isClienteOReferente() || ctx.isAms() || isAdminOrUnknown(ctx);
+        return ctx.isClienteOReferente() || ctx.isAms() || isDispatcher(ctx) || isAdminOrUnknown(ctx);
     }
     public String  getDownloadUrl()     { return m_downloadUrl; }
 
