@@ -119,6 +119,8 @@ CREATE TABLE IF NOT EXISTS ticket_user (
 );
 
 CREATE INDEX IF NOT EXISTS idx_user_kunnr_reqid ON ticket_user(kunnr, reqid);
+-- Username univoci senza distinzione di maiuscole/minuscole (login case-insensitive, script 15)
+CREATE UNIQUE INDEX IF NOT EXISTS ux_ticket_user_id_user_lower ON ticket_user (LOWER(id_user));
 
 -- Frequenza personale del promemoria (in giorni): 1 = ogni giorno feriale (default), N = al massimo ogni N giorni, 0 = mai
 ALTER TABLE ticket_user ADD COLUMN IF NOT EXISTS promemoria_ogni_giorni INTEGER NOT NULL DEFAULT 1;

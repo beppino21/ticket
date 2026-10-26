@@ -1,0 +1,6 @@
+<system>
+    <riscstarter>
+        <allowstart page="/Outest.xml"/>
+    </riscstarter>
+    <sessionmanagement type="COOKIE"/>
+</system>

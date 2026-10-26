@@ -81,6 +81,27 @@ public class UserAdminService {
     // =========================
 
     /**
+     * Gli username non distinguono maiuscole e minuscole (vedi
+     * RequesterService.authenticate): rifiuta un nuovo username uguale a uno
+     * esistente a meno delle maiuscole, con un messaggio comprensibile.
+     * L'indice univoco ux_ticket_user_id_user_lower lo garantisce comunque
+     * anche a livello di database.
+     */
+    private void verificaUsernameLibero(String idUser) throws SQLException {
+        String sql = "SELECT id_user FROM ticket_user WHERE LOWER(id_user) = LOWER(?)";
+        try (Connection con = DBConfig.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, idUser);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    throw new SQLException("esiste già l'utente '" + rs.getString("id_user")
+                        + "' (gli username non distinguono maiuscole e minuscole)");
+                }
+            }
+        }
+    }
+
+    /**
      * Crea un nuovo utente AMS o DISPATCHER. La password iniziale viene
      * impostata "già scaduta" (password_impostata_il nel passato oltre la
      * soglia) così l'utente è forzato a cambiarla al primo accesso — stesso
@@ -88,6 +109,7 @@ public class UserAdminService {
      */
     public void createAmsUser(String idUser, String nome, String email, String ruolo,
                                String passwordIniziale) throws SQLException {
+        verificaUsernameLibero(idUser);
         String hash = BCrypt.hashpw(passwordIniziale, BCrypt.gensalt(12));
         String sql = "INSERT INTO ticket_user " +
                      "(id_user, kunnr, reqid, nome, email, password_hash, ruolo, vede_tutti, attivo, " +
@@ -111,6 +133,7 @@ public class UserAdminService {
      */
     public void createRichiedente(String idUser, String kunnr, String reqid, String nome,
                                    String email, String passwordIniziale) throws SQLException {
+        verificaUsernameLibero(idUser);
         String hash = BCrypt.hashpw(passwordIniziale, BCrypt.gensalt(12));
         String sql = "INSERT INTO ticket_user " +
                      "(id_user, kunnr, reqid, nome, email, password_hash, ruolo, vede_tutti, attivo, " +
@@ -138,6 +161,7 @@ public class UserAdminService {
      */
     public void createReferente(String idUser, String kunnr, String reqidRichiedente, String nome,
                                  String email, String passwordIniziale) throws SQLException {
+        verificaUsernameLibero(idUser);
         String hash = BCrypt.hashpw(passwordIniziale, BCrypt.gensalt(12));
         String sql = "INSERT INTO ticket_user " +
                      "(id_user, kunnr, reqid, reqid_richiedente, nome, email, password_hash, ruolo, vede_tutti, attivo, " +

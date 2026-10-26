@@ -94,7 +94,14 @@ public class RequesterService {
     /**
      * Verifica credenziali di accesso contro ticket_user.
      *
-     * @param reqid    username inserito dall'utente
+     * Lo username NON distingue maiuscole e minuscole ("MRossi" = "mrossi"):
+     * la ricerca usa LOWER(id_user), garantito univoco dall'indice
+     * ux_ticket_user_id_user_lower (script 15_username_case_insensitive.sql).
+     * Da qui in poi si usa SEMPRE l'id_user come è scritto nel database
+     * (blocco tentativi, sessione, MFA, registro attività), mai quello digitato.
+     * La password invece resta sensibile a maiuscole e minuscole.
+     *
+     * @param id_user  username inserito dall'utente
      * @param password password in chiaro inserita dall'utente
      * @return RequesterInfo popolato se autenticazione OK, null se KO
      * @throws SQLException in caso di errore DB (non credential failure)
@@ -103,30 +110,30 @@ public class RequesterService {
         if (id_user == null || id_user.trim().isEmpty()) return null;
         if (password == null || password.isEmpty())  return null;
 
-        // Utente bloccato per troppi tentativi: si rifiuta senza nemmeno
-        // verificare la password (altrimenti il blocco non fermerebbe i
-        // tentativi). Vale per logon e cambio password.
-        if (loginGuard.isBloccato(id_user.trim())) {
-            System.out.println("[RequesterService] Utente temporaneamente bloccato: " + id_user);
-            return null;
-        }
-
         String sql = "SELECT id_user, kunnr, reqid, nome, email, password_hash, ruolo, vede_tutti, attivo, gestisce_referenti, reqid_richiedente, password_impostata_il, password_scadenza_giorni, password_non_scade " +
                      "FROM ticket_user " +
-                     "WHERE id_user = ? AND attivo = TRUE";
+                     "WHERE LOWER(id_user) = LOWER(?) AND attivo = TRUE";
 
         try (Connection con = DBConfig.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
-
-        	System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
-        	System.out.println(id_user.trim());
-        	System.out.println("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
 
             ps.setString(1, id_user.trim());
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) {
                     System.out.println("[RequesterService] Utente non trovato o non attivo: " + id_user);
+                    return null;
+                }
+
+                // Forma canonica dello username, come memorizzata nel database
+                String idCanonico = rs.getString("id_user");
+
+                // Utente bloccato per troppi tentativi: si rifiuta senza nemmeno
+                // verificare la password (altrimenti il blocco non fermerebbe i
+                // tentativi). Vale per logon e cambio password. Si usa l'id
+                // canonico, così "mrossi" e "MRossi" condividono lo stesso contatore.
+                if (loginGuard.isBloccato(idCanonico)) {
+                    System.out.println("[RequesterService] Utente temporaneamente bloccato: " + idCanonico);
                     return null;
                 }
 
@@ -148,8 +155,8 @@ public class RequesterService {
                 }
 
                 if (!ok) {
-                    System.out.println("[RequesterService] Password errata per: " + id_user);
-                    loginGuard.registraFallimento(id_user.trim());
+                    System.out.println("[RequesterService] Password errata per: " + idCanonico);
+                    loginGuard.registraFallimento(idCanonico);
                     return null;
                 }
 
@@ -346,7 +353,7 @@ public class RequesterService {
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setString(1, newHash);
-            ps.setString(2, reqid.trim());
+            ps.setString(2, info.getId_user());   // id canonico letto dal DB, non quello digitato
             int rows = ps.executeUpdate();
 
             if (rows == 1) {
