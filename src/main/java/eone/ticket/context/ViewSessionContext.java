@@ -62,6 +62,16 @@ public class ViewSessionContext {
     public void setRequesterInfo(RequesterInfo info) { this.requesterInfo = info; }
 
     // =========================================================
+    // Sessione unica per utente (vedi SessioneUnicaService)
+    // =========================================================
+
+    /** Identificativo della sessione assegnato al logon; null se non loggato. */
+    private String tokenSessione;
+
+    public String getTokenSessione()          { return tokenSessione; }
+    public void setTokenSessione(String v)    { this.tokenSessione = v; }
+
+    // =========================================================
     // CONVENIENCE — evitano null-check sparsi nel codice
     // =========================================================
 

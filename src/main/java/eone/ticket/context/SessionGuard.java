@@ -5,6 +5,7 @@ import java.util.function.Predicate;
 
 import eone.ticket.model.RequesterInfo;
 import eone.ticket.service.AuditService;
+import eone.ticket.service.SessioneUnicaService;
 
 /**
  * Secondo livello di difesa sulle pagine: ogni page bean protetto chiama
@@ -39,12 +40,18 @@ public final class SessionGuard {
     /** Utente autenticato che soddisfa una condizione specifica. */
     public static void richiedi(String pagina, String requisito, Predicate<RequesterInfo> condizione) {
         RequesterInfo info = null;
+        String token = null;
         try {
-            info = ViewSessionContext.instance().getRequesterInfo();
+            ViewSessionContext ctx = ViewSessionContext.instance();
+            info  = ctx.getRequesterInfo();
+            token = ctx.getTokenSessione();
         } catch (Throwable t) {
             // nessuna sessione di dialogo: trattato come non autenticato
         }
-        boolean ok = info != null && condizione.test(info);
+        // Sessione sostituita da un accesso successivo dello stesso utente
+        // (SessioneUnicaService): da qui non si aprono più pagine.
+        boolean sessioneValida = info != null && SessioneUnicaService.isValida(info.getId_user(), token);
+        boolean ok = sessioneValida && condizione.test(info);
         // Traccia sempre il controllo (poche righe: solo alla creazione delle pagine)
         System.out.println("[SessionGuard] controllo " + pagina + ": utente="
             + (info != null ? info.getId_user() + " ruolo=" + info.getRuolo() : "nessuno")
@@ -52,7 +59,8 @@ public final class SessionGuard {
         if (ok) return;
 
         String motivo = info == null ? "nessun utente autenticato in sessione"
-                                     : "utente " + info.getId_user() + " (ruolo " + info.getRuolo() + ") senza " + requisito;
+                      : !sessioneValida ? "sessione sostituita da un accesso successivo dello stesso utente"
+                      : "utente " + info.getId_user() + " (ruolo " + info.getRuolo() + ") senza " + requisito;
         AuditService.log(info != null ? info.getId_user() : null,
                          info != null ? info.getKunnr() : null,
                          info != null ? info.getRuolo() : null,

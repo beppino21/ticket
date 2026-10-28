@@ -76,7 +76,94 @@ public class OutestUI
     @Override
     public String getRootExpressionUsedInPage() { return "#{d.OutestUI}"; }
 
-    public IPageBean getContentUI() { return m_contentUI; }
+    /**
+     * Pagina mostrata dentro Outest.xml (rowpagebeaninclude). CaptainCasa
+     * rilegge questa proprietà a ogni interazione dell'utente: è il punto in
+     * cui una sessione sostituita da un accesso successivo dello stesso
+     * utente (SessioneUnicaService) viene riportata alla pagina di logon.
+     */
+    public IPageBean getContentUI() {
+        if (m_tokenSessione != null
+                && !eone.ticket.service.SessioneUnicaService.isValida(m_utenteSessione, m_tokenSessione)) {
+            sessioneSostituita();
+        }
+        return m_contentUI;
+    }
+
+    // =========================================================
+    // SESSIONE UNICA PER UTENTE
+    // =========================================================
+
+    private String  m_utenteSessione;      // id_user della sessione corrente (dopo il logon)
+    private String  m_tokenSessione;       // identificativo assegnato da SessioneUnicaService
+    private boolean m_chiusuraRegistrata;  // reattore di chiusura già registrato per questa sessione di dialogo
+
+    private static final String MSG_SESSIONE_SOSTITUITA =
+        "Sessione chiusa: è stato effettuato un accesso con il tuo utente da un'altra postazione o finestra.";
+
+    /** Logon riuscito: questa diventa l'unica sessione valida dell'utente. */
+    private void avviaSessioneUnica(UserSessionData userData) {
+        eone.ticket.model.RequesterInfo info = userData.getRequesterInfo();
+        m_utenteSessione = userData.getUsername();
+        m_tokenSessione  = eone.ticket.service.SessioneUnicaService.registra(m_utenteSessione,
+                               info != null ? info.getKunnr() : null, info != null ? info.getRuolo() : null);
+        ViewSessionContext.instance().setTokenSessione(m_tokenSessione);
+        if (!m_chiusuraRegistrata) {
+            try {
+                // Chiusura della sessione di dialogo (scheda chiusa, timeout):
+                // si libera la voce nel registro, se è ancora la nostra.
+                HttpSessionAccess.addDialogSessionClosedReactorForCurrentSession(new RilascioSessione(this));
+                m_chiusuraRegistrata = true;
+            } catch (Throwable t) {
+                System.err.println("[OutestUI] Impossibile registrare la chiusura sessione: " + t.getMessage());
+            }
+        }
+    }
+
+    /** Logout o uscita volontaria: libera la voce nel registro. */
+    private void terminaSessioneUnica() {
+        eone.ticket.service.SessioneUnicaService.rilascia(m_utenteSessione, m_tokenSessione);
+        m_utenteSessione = null;
+        m_tokenSessione  = null;
+        try { ViewSessionContext.instance().setTokenSessione(null); } catch (Throwable t) { /* nessuna sessione */ }
+    }
+
+    /**
+     * Un accesso successivo con lo stesso utente ha sostituito questa
+     * sessione: si torna al logon senza registrare un LOGOUT (l'evento
+     * SESSIONE_SOSTITUITA è già stato registrato dal nuovo accesso).
+     */
+    private void sessioneSostituita() {
+        System.out.println("[OutestUI] Sessione di " + m_utenteSessione + " sostituita da un accesso successivo: ritorno al logon");
+        m_utenteSessione = null;
+        m_tokenSessione  = null;
+        confermaUscita(false);
+        m_userData = null;
+        m_menuUI   = null;
+        try {
+            ViewSessionContext ctx = ViewSessionContext.instance();
+            ctx.setRequesterInfo(null);
+            ctx.setTokenSessione(null);
+        } catch (Throwable t) { /* nessuna sessione */ }
+        showLogonUI();
+        // Messaggio sulla pagina di logon stessa: qui siamo spesso fuori da
+        // un'azione (rilettura della pagina), dove la barra di stato non appare.
+        if (m_contentUI instanceof LogonUI) {
+            ((LogonUI) m_contentUI).setAvviso(MSG_SESSIONE_SOSTITUITA);
+        }
+    }
+
+    /** Reattore alla chiusura della sessione di dialogo (serializzabile con la sessione). */
+    private static class RilascioSessione
+            implements org.eclnt.jsfserver.util.ISessionAbstractionListener, Serializable {
+        private static final long serialVersionUID = 1L;
+        private final OutestUI m_outest;
+        RilascioSessione(OutestUI outest) { m_outest = outest; }
+        @Override
+        public void reactOnClosed() {
+            eone.ticket.service.SessioneUnicaService.rilascia(m_outest.m_utenteSessione, m_outest.m_tokenSessione);
+        }
+    }
 
     // =========================================================
     // LOGON
@@ -90,6 +177,7 @@ public class OutestUI
             public void reactOnLogon(UserSessionData userData) {
                 System.out.println("[OutestUI] reactOnLogon — utente: " + userData.getUtente());
                 m_userData = userData;
+                avviaSessioneUnica(userData);   // prima delle pagine: SessionGuard verifica la sessione
                 showRealUI();
                 confermaUscita(true);
             }
@@ -125,6 +213,7 @@ public class OutestUI
         confermaUscita(false);
         eone.ticket.service.AuditService.log(eone.ticket.service.AuditService.LOGOUT,
             eone.ticket.service.AuditService.ESITO_OK, null, null);
+        terminaSessioneUnica();
         m_userData = null;
         m_menuUI   = null;
         // L'utente non resta in sessione dopo il logout (SessionGuard lo
@@ -198,6 +287,13 @@ public class OutestUI
             @Override
             public void reactOnMenuChoice(String choiceId) {
                 System.out.println("[OutestUI] reactOnMenuChoice — " + choiceId);
+                // Sessione già sostituita da un altro accesso: niente nuova
+                // pagina (eviterebbe solo un "Accesso negato"), si torna al logon.
+                if (m_tokenSessione != null
+                        && !eone.ticket.service.SessioneUnicaService.isValida(m_utenteSessione, m_tokenSessione)) {
+                    sessioneSostituita();
+                    return;
+                }
                 switch (choiceId) {
                     case "TICKET_LIST": showTicketList(false); break;
                     case "REFERENTE_LIST": showReferenteList(false); break;
@@ -224,6 +320,7 @@ public class OutestUI
                 // separatamente dalla scadenza naturale della sessione HTTP,
                 // es. invalidazione di ViewSessionContext / audit log.
                 confermaUscita(false);   // uscita voluta: nessuna domanda del browser
+                terminaSessioneUnica();
                 m_clientCloseTrigger.trigger();
             }
 

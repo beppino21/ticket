@@ -44,6 +44,7 @@ public final class AuditService {
     public static final String MFA_AZZERATA          = "MFA_AZZERATA";
     public static final String UTENTE_SBLOCCATO      = "UTENTE_SBLOCCATO";
     public static final String ACCESSO_NEGATO        = "ACCESSO_NEGATO";
+    public static final String SESSIONE_SOSTITUITA   = "SESSIONE_SOSTITUITA";
     public static final String MFA_CODICI_GENERATI   = "MFA_CODICI_GENERATI";
     public static final String MFA_RECUPERO_USATO    = "MFA_RECUPERO_USATO";
     public static final String MFA_CODICI_REVOCATI   = "MFA_CODICI_REVOCATI";
@@ -166,7 +167,7 @@ public final class AuditService {
     /** Tutti i codici evento, per la combobox di filtro. */
     public static String[] codiciEvento() {
         return new String[] {
-            LOGIN_OK, LOGIN_FAIL, LOGIN_BLOCCATO, UTENTE_SBLOCCATO, ACCESSO_NEGATO, LOGOUT, MFA_ATTIVATA, MFA_FAIL, MFA_AZZERATA,
+            LOGIN_OK, LOGIN_FAIL, LOGIN_BLOCCATO, UTENTE_SBLOCCATO, ACCESSO_NEGATO, SESSIONE_SOSTITUITA, LOGOUT, MFA_ATTIVATA, MFA_FAIL, MFA_AZZERATA,
             MFA_CODICI_GENERATI, MFA_RECUPERO_USATO, MFA_CODICI_REVOCATI,
             PASSWORD_CAMBIATA, PASSWORD_CAMBIO_FAIL, PASSWORD_RESET,
             UTENTE_CREATO, UTENTE_MODIFICATO, UTENTE_ELIMINATO,

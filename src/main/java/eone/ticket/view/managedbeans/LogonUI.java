@@ -140,6 +140,22 @@ public class LogonUI extends PageBean implements Serializable {
     public void setUserName(String v)    { this.m_userName = v; }
 
     // =========================================================
+    // AVVISO SULLA PAGINA DI LOGON
+    // =========================================================
+
+    /**
+     * Messaggio mostrato sopra i campi di logon (es. sessione chiusa per un
+     * accesso da un'altra postazione). Impostato da OutestUI quando riporta
+     * l'utente al logon fuori da un'azione, dove la barra di stato non
+     * verrebbe mostrata. Si cancella al primo tentativo di logon.
+     */
+    private String m_avviso;
+
+    public void    setAvviso(String v)    { this.m_avviso = v; }
+    public String  getAvviso()            { return m_avviso; }
+    public boolean isAvvisoPresente()     { return m_avviso != null && !m_avviso.isEmpty() && isStepPassword(); }
+
+    // =========================================================
     // DOCUMENTAZIONE (PDF)
     // =========================================================
 
@@ -157,6 +173,7 @@ public class LogonUI extends PageBean implements Serializable {
     // =========================================================
 
     public void onLogonAction(ActionEvent event) {
+        m_avviso = null;
         try {
             System.out.println("[LogonUI] onLogonAction — user: " + m_userName);
 
