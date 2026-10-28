@@ -91,9 +91,25 @@ public class OutestUI
                 System.out.println("[OutestUI] reactOnLogon — utente: " + userData.getUtente());
                 m_userData = userData;
                 showRealUI();
+                confermaUscita(true);
             }
         });
         m_contentUI = ui;
+    }
+
+    /**
+     * Attiva/disattiva la richiesta di conferma del browser ("Vuoi lasciare
+     * il sito?") quando l'utente preme Indietro, Aggiorna (F5) o chiude la
+     * scheda. Attiva solo mentre l'utente è dentro l'applicazione: non sulla
+     * pagina di logon, non dopo Logout o Esci. Il testo del messaggio è
+     * quello standard del browser e non è personalizzabile.
+     */
+    private void confermaUscita(boolean attiva) {
+        try {
+            org.eclnt.jsfserver.defaultscreens.Client.instance().setConfirmexit(attiva);
+        } catch (Throwable t) {
+            System.err.println("[OutestUI] Impossibile impostare confirmexit=" + attiva + ": " + t.getMessage());
+        }
     }
 
     /**
@@ -106,6 +122,7 @@ public class OutestUI
      */
     private void logout() {
         System.out.println("[OutestUI] logout() — ripresento LogonUI");
+        confermaUscita(false);
         eone.ticket.service.AuditService.log(eone.ticket.service.AuditService.LOGOUT,
             eone.ticket.service.AuditService.ESITO_OK, null, null);
         m_userData = null;
@@ -206,6 +223,7 @@ public class OutestUI
                 // TODO: eventuale logout applicativo esplicito, se necessario
                 // separatamente dalla scadenza naturale della sessione HTTP,
                 // es. invalidazione di ViewSessionContext / audit log.
+                confermaUscita(false);   // uscita voluta: nessuna domanda del browser
                 m_clientCloseTrigger.trigger();
             }
 
