@@ -40,13 +40,17 @@ public class CommentService {
      * (non hanno un backend SAP da sollecitare). Usato dal sollecito di
      * chiusura per capire in che stato "logico" si trova ogni ticket, senza
      * dover rileggere l'intera cronologia commenti di ognuno.
+     *
+     * I messaggi solo informativi (CLI_INFO / ASS_INFO) sono esclusi: non
+     * cambiano lo stato del ticket, che resta quello del commento precedente.
+     * Vale per sollecito di chiusura, promemoria quotidiano e visibilità.
      */
     public List<TicketComment> getLatestStatusPerTicket() throws SQLException {
         List<TicketComment> list = new ArrayList<>();
         String sql = "SELECT DISTINCT ON (tickt) id, tickt, kunnr, autore_tipo, autore_id, testo, " +
                      "stato_ticket, created_at " +
                      "FROM ticket_comment " +
-                     "WHERE tickt NOT LIKE 'DRAFT-%' " +
+                     "WHERE tickt NOT LIKE 'DRAFT-%' AND " + TicketComment.SQL_ESCLUDI_INFO + " " +
                      "ORDER BY tickt, created_at DESC";
         try (Connection con = DBConfig.getConnection();
              PreparedStatement ps = con.prepareStatement(sql);

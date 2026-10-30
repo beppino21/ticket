@@ -100,11 +100,13 @@
 <t:comboboxitem id="c_fsc_d" text="Richiesta chiusura ticket" value="CLI_RICHIESTA_CHIUSURA" />
 <t:comboboxitem id="c_fsc_f" text="Richiesta cancellazione ticket" value="CLI_RICHIESTA_CANCELLAZIONE" />
 <t:comboboxitem id="c_fsc_e" text="Ticket risolto" value="CLI_RISOLTO" />
+<t:comboboxitem id="c_fsc_i" text="Informazione per il Servizio Assistenza" value="CLI_INFO" />
 </t:combobox>
 <t:combobox id="c_form_stato_ass" flush="true" rendered="#{d.CommentUI.isAssistenza}" value="#{d.CommentUI.newCommentStato}" width="280" >
 <t:comboboxitem id="c_fsa_a" />
 <t:comboboxitem id="c_fsa_b" text="Attesa attività Cliente" value="ASS_ATTESA_CLIENTE" />
 <t:comboboxitem id="c_fsa_c" text="Sollecito Attività Cliente" value="ASS_SOLLECITO_CLIENTE" />
+<t:comboboxitem id="c_fsa_i" text="Informazione per il Cliente" value="ASS_INFO" />
 </t:combobox>
 </t:row>
 <t:rowdistance id="c_form_dist2" height="6" />

@@ -67,6 +67,18 @@ public class EnrichmentService {
             ticktList.size()
         ) + " ORDER BY tickt, created_at DESC";
 
+        // Query 3: ultimo commento CHE DEFINISCE LO STATO — esclusi i messaggi
+        // solo informativi (CLI_INFO / ASS_INFO). Data e testo dell'ultimo
+        // commento restano quelli della query 2 (l'attività più recente, anche
+        // se informativa); lo stato mostrato in lista viene da qui.
+        String sqlLastStato = buildInClause(
+            "SELECT DISTINCT ON (tickt) " +
+            "       tickt, stato_ticket " +
+            "FROM ticket_comment " +
+            "WHERE " + TicketComment.SQL_ESCLUDI_INFO + " AND tickt IN (",
+            ticktList.size()
+        ) + " ORDER BY tickt, created_at DESC";
+
 
         try (Connection con = DBConfig.getConnection()) {
 
@@ -105,6 +117,26 @@ public class EnrichmentService {
                                 t.setEncUltimaDataSort(formatTimestampSort(dt));
                             }
                             t.setEncUltimoTesto(truncate(rs.getString("testo"), TESTO_MAX_LEN));
+                        }
+                    }
+                }
+            }
+
+            // Stato: dall'ultimo commento non informativo (sovrascrive quello
+            // impostato sopra se l'ultimo commento era solo un'informazione)
+            try (PreparedStatement ps = con.prepareStatement(sqlLastStato)) {
+                for (int i = 0; i < ticktList.size(); i++) ps.setString(i + 1, ticktList.get(i));
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        Ticket t = ticketMap.get(rs.getString("tickt"));
+                        if (t != null) {
+                            String statoCode = rs.getString("stato_ticket");
+                            TicketComment tmp = new TicketComment();
+                            tmp.setStatoTicket(statoCode);
+                            t.setEncUltimoStato(statoCode);
+                            t.setEncUltimoStatoLabel(tmp.getStatoTicketLabel());
+                            t.setEncUltimoStatoColor(tmp.getStatoColor());
+                            t.setEncUltimoStatoTextColor(tmp.getStatoTextColor());
                         }
                     }
                 }

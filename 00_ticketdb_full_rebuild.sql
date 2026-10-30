@@ -202,6 +202,12 @@ COMMENT ON TABLE ticket_stato_rstat IS 'Transcodifica stati ticket SAP (rstat) -
 -- | CLI_ATTESA_ASSISTENZA      | Attesa attività Assistenza        | Cliente                | Giallo   | #FBC02D   |
 -- | ASS_SOLLECITO_CLIENTE      | Sollecito Attività Cliente        | Assistenza             | Arancio  | #FB8C00   |
 -- | CLI_SOLLECITO_ASSISTENZA   | Sollecito attività Assistenza     | Cliente                | Rosso    | #E53935   |
+-- | CLI_INFO                   | Informazione per il Servizio Assistenza | Cliente          | Grigio   | #ECEFF1   |
+-- | ASS_INFO                   | Informazione per il Cliente       | Assistenza             | Grigio   | #ECEFF1   |
+--
+-- CLI_INFO e ASS_INFO sono messaggi SOLO INFORMATIVI: non cambiano lo
+-- stato del ticket. Sono esclusi dal calcolo dell'ultimo stato (lista
+-- ticket, promemoria, sollecito chiusura) — vedi TicketComment.SQL_ESCLUDI_INFO.
 
 -- Nessuna riga da inserire: sono costanti Java in TicketComment.java,
 -- non dati di parametrizzazione a DB.

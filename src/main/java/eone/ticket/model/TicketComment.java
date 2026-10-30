@@ -37,6 +37,21 @@ public class TicketComment implements Serializable {
     public static final String STATO_ASS_SOLLECITO_CLIENTE = "ASS_SOLLECITO_CLIENTE";
     public static final String STATO_ASS_CONCLUSO          = "ASS_CONCLUSO";
 
+    // Messaggi solo informativi — NON cambiano lo stato del ticket.
+    // Restano nella cronologia e generano la notifica alla controparte, ma
+    // sono esclusi dal calcolo dell'"ultimo stato" (lista ticket, promemoria,
+    // sollecito chiusura): il ticket mantiene lo stato del commento precedente.
+    public static final String STATO_CLI_INFO = "CLI_INFO";   // dal cliente al Servizio Assistenza
+    public static final String STATO_ASS_INFO = "ASS_INFO";   // dall'Assistenza al cliente
+
+    /** Condizione SQL che esclude i messaggi informativi dal calcolo dell'ultimo stato. */
+    public static final String SQL_ESCLUDI_INFO = "stato_ticket NOT IN ('CLI_INFO', 'ASS_INFO')";
+
+    /** True se lo stato indica un messaggio solo informativo. */
+    public static boolean isInformativo(String stato) {
+        return STATO_CLI_INFO.equals(stato) || STATO_ASS_INFO.equals(stato);
+    }
+
     private long          id;
     private String        tickt;
     private String        kunnr;
@@ -117,6 +132,8 @@ public class TicketComment implements Serializable {
             case STATO_ASS_ATTESA_CLIENTE:         return "Attesa attività Cliente";
             case STATO_ASS_SOLLECITO_CLIENTE:      return "Sollecito attività Cliente";
             case STATO_ASS_CONCLUSO:               return "Ticket concluso";
+            case STATO_CLI_INFO:                   return "Informazione per il Servizio Assistenza";
+            case STATO_ASS_INFO:                   return "Informazione per il Cliente";
             default:                               return statoTicket;
         }
     }
@@ -138,6 +155,8 @@ public class TicketComment implements Serializable {
             case STATO_CLI_ATTESA_ASSISTENZA:      return "#FFF9C4"; // giallo pastello
             case STATO_ASS_SOLLECITO_CLIENTE:      return "#FFE0B2"; // arancione pastello
             case STATO_CLI_SOLLECITO_ASSISTENZA:   return "#FFCDD2"; // rosso pastello
+            case STATO_CLI_INFO:
+            case STATO_ASS_INFO:                   return "#ECEFF1"; // grigio neutro: nessuna azione richiesta
             default:                               return "#EEEEEE";
         }
     }
@@ -154,6 +173,8 @@ public class TicketComment implements Serializable {
             case STATO_CLI_ATTESA_ASSISTENZA:      return "#5D4000";
             case STATO_ASS_SOLLECITO_CLIENTE:      return "#7A3800";
             case STATO_CLI_SOLLECITO_ASSISTENZA:   return "#7B1515";
+            case STATO_CLI_INFO:
+            case STATO_ASS_INFO:                   return "#37474F";
             default:                               return "#333333";
         }
     }
