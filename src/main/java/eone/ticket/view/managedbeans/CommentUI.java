@@ -233,9 +233,22 @@ public class CommentUI extends PageBean implements Serializable {
             m_reqidReferenteNuovo   = m_reqidReferenteAttuale;
             m_notificaRichiedenteNuovo = referenteService.getNotificaRichiedente(m_currentTickt);
 
+            ViewSessionContext ctx = ViewSessionContext.instance();
+            // DISPATCHER e ADMIN possono correggere il referente di qualunque ticket e
+            // scelgono tra tutti i richiedenti/referenti del cliente (la lista ristretta
+            // al richiedente del ticket non basta se è proprio il richiedente a essere sbagliato).
+            boolean correttore = isDispatcherOrAdmin(ctx);
+
             if (m_currentKunnr != null && !m_currentKunnr.trim().isEmpty()) {
-                for (RequesterInfo r : requesterService.getEligibiliReferente(m_currentKunnr, m_currentReqid)) {
-                    m_referenteVVB.addValidValue(r.getReqid(), r.getNomeOReqid());
+                List<RequesterInfo> candidati = correttore
+                    ? requesterService.getReferentiSelezionabiliPerKunnr(m_currentKunnr)
+                    : requesterService.getEligibiliReferente(m_currentKunnr, m_currentReqid);
+                for (RequesterInfo r : candidati) {
+                    String etichetta = r.getNomeOReqid();
+                    if (correttore) {
+                        etichetta += "REFERENTE_CLI".equalsIgnoreCase(r.getRuolo()) ? " (referente)" : " (richiedente)";
+                    }
+                    m_referenteVVB.addValidValue(r.getReqid(), etichetta);
                     // Il referente salvato in ticket_referente può avere una forma diversa dalla
                     // chiave della combobox ("1" vs "0001"): allineo alla chiave della combobox,
                     // altrimenti il valore non viene riconosciuto e compare il codice grezzo.
@@ -247,17 +260,18 @@ public class CommentUI extends PageBean implements Serializable {
                 }
             }
 
-            ViewSessionContext ctx = ViewSessionContext.instance();
             if (ctx.isClienteOReferente()) {
                 m_puoModificareReferente = referenteService.canModificareReferente(
                     m_currentTickt, m_currentReqid, ctx.getRichiedente());
+            } else if (correttore) {
+                m_puoModificareReferente = true;
             }
         } catch (Exception e) {
             System.err.println("[CommentUI] Errore caricamento referente: " + e.getMessage());
         }
     }
 
-    /** Riassegna il referente del ticket — solo richiedente o referente attuale. */
+    /** Riassegna il referente del ticket — richiedente, referente attuale, oppure DISPATCHER/ADMIN (correzione). */
     /**
      * True se il referente scelto o la spunta "notifica" differiscono da
      * quanto risulta effettivamente salvato — usato sia per decidere se
@@ -303,6 +317,14 @@ public class CommentUI extends PageBean implements Serializable {
             referenteService.setReferente(m_currentTickt, m_currentKunnr, reqidNuovo, ctx.getUsername(), m_notificaRichiedenteNuovo);
             m_reqidReferenteAttuale = reqidNuovo;
             Statusbar.outputSuccess("Referente aggiornato");
+            if (referenteCambiato) {
+                // Registro attività (ticket_audit_log + file AUDIT): chi, quando, da quale referente a quale;
+                // si distingue la correzione fatta dall'Assistenza (DISPATCHER/ADMIN) dal cambio fatto dal cliente.
+                AuditService.log(AuditService.REFERENTE_MODIFICATO, AuditService.ESITO_OK, m_currentTickt,
+                    "da=" + (reqidVecchio != null ? reqidVecchio : "-") + " a=" + reqidNuovo +
+                    " notificaRichiedente=" + m_notificaRichiedenteNuovo +
+                    (isDispatcherOrAdmin(ctx) ? " (correzione " + ctx.getRuolo() + ")" : ""));
+            }
             m_chiusuraWaitingConfirm = false; // eventuale richiesta di conferma in corso non ha più senso
 
             // Le mail di cambio referente hanno senso solo se il referente
@@ -457,6 +479,12 @@ public class CommentUI extends PageBean implements Serializable {
     public boolean getIsAssistenza() {
         ViewSessionContext ctx = ViewSessionContext.instance();
         return ctx.isAms() || isDispatcher(ctx) || isAdminOrUnknown(ctx);
+    }
+
+    /** DISPATCHER e ADMIN (esatti — non il fallback "ruolo sconosciuto"): possono correggere il referente di un ticket. */
+    private boolean isDispatcherOrAdmin(ViewSessionContext ctx) {
+        String r = ctx.getRuolo() != null ? ctx.getRuolo().trim().toUpperCase() : "";
+        return "DISPATCHER".equals(r) || "ADMIN".equals(r);
     }
 
     /** Il DISPATCHER è un AMS smistatore: lato Assistenza, stessi stati dell'AMS. */

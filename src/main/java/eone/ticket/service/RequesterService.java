@@ -300,6 +300,33 @@ public class RequesterService {
         return list;
     }
 
+    /**
+     * Per DISPATCHER e ADMIN (correzione del referente di un ticket): TUTTI i
+     * CLIENTE (richiedenti) e REFERENTE_CLI attivi dello stesso kunnr, non solo
+     * quelli legati al richiedente del ticket — se il richiedente registrato è
+     * quello sbagliato, la persona giusta non sarebbe nella lista ristretta di
+     * getEligibiliReferente(). Per i ruoli lato cliente resta quest'ultima.
+     */
+    public List<RequesterInfo> getReferentiSelezionabiliPerKunnr(String kunnr) throws SQLException {
+        List<RequesterInfo> list = new ArrayList<>();
+        if (kunnr == null || kunnr.trim().isEmpty()) return list;
+
+        String sql = "SELECT id_user, kunnr, reqid, nome, email, password_hash, ruolo, vede_tutti, attivo, gestisce_referenti, reqid_richiedente, password_impostata_il, password_scadenza_giorni, password_non_scade " +
+                     "FROM ticket_user " +
+                     "WHERE LPAD(kunnr, 10, '0') = LPAD(?, 10, '0') AND attivo = TRUE " +
+                     "AND ruolo IN ('CLIENTE', 'REFERENTE_CLI') " +
+                     "ORDER BY nome";
+
+        try (Connection con = DBConfig.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, kunnr.trim());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) list.add(mapRow(rs));
+            }
+        }
+        return list;
+    }
+
     /** Mapping comune ResultSet -> RequesterInfo, riusato da authenticate/getById/getByKunnrReqid */
     private RequesterInfo mapRow(ResultSet rs) throws SQLException {
         RequesterInfo info = new RequesterInfo();

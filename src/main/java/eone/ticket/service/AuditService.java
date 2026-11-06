@@ -58,6 +58,7 @@ public final class AuditService {
     public static final String CLIENTE_CONFIG_RIMOSSO   = "CLIENTE_CONFIG_RIMOSSO";
     public static final String COMMENTO_INSERITO     = "COMMENTO_INSERITO";
     public static final String TICKET_APERTO         = "TICKET_APERTO";
+    public static final String REFERENTE_MODIFICATO  = "REFERENTE_MODIFICATO";
     public static final String ALLEGATO_CARICATO     = "ALLEGATO_CARICATO";
     public static final String ALLEGATO_RIFIUTATO    = "ALLEGATO_RIFIUTATO";
     public static final String ALLEGATO_SCARICATO    = "ALLEGATO_SCARICATO";
@@ -172,7 +173,7 @@ public final class AuditService {
             PASSWORD_CAMBIATA, PASSWORD_CAMBIO_FAIL, PASSWORD_RESET,
             UTENTE_CREATO, UTENTE_MODIFICATO, UTENTE_ELIMINATO,
             CLIENTE_CONFIG_SALVATO, CLIENTE_CONFIG_RIMOSSO,
-            TICKET_APERTO, COMMENTO_INSERITO,
+            TICKET_APERTO, REFERENTE_MODIFICATO, COMMENTO_INSERITO,
             ALLEGATO_CARICATO, ALLEGATO_RIFIUTATO, ALLEGATO_SCARICATO
         };
     }
