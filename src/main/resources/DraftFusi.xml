@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8"?>
+<t:layoutdefinition xmlns:t="http://www.captaincasa.com/controllibrary/t" >
+
+<t:beanprocessing id="g_1" beanbinding="#{d.TicketListUI}" />
+<t:beanprocessing id="g_1b" beanbinding="#{d.CommentUI}" rendered="#{d.TicketListUI.commentsPanelVisible}" />
+<t:rowtitlebar id="g_2" text="#{d.TicketListUI.pageTitle}" />
+<t:rowheader id="g_3" >
+<t:button id="g_17m" actionListener="#{d.TicketListUI.backToMenu}" text="« Menu" width="80" />
+<t:coldistance id="g_3cd" width="100%" />
+<t:button id="g_18" actionListener="#{d.TicketListUI.refreshTickets}" text="Aggiorna" width="80" />
+<t:coldistance id="g_3cd2" width="8" />
+<t:button id="g_19" actionListener="#{d.TicketListUI.logout}" text="Logout" width="80" />
+</t:rowheader>
+<t:rowdistance id="g_20" height="10" />
+<t:rowbodypane id="g_30" >
+<t:row id="g_31" >
+<t:label id="g_32" font="size:12;#{d.TicketListUI.hasError ? &#39;color:#ff0000;weight:bold&#39; : &#39;color:#00aa00;weight:bold&#39;}" text="#{d.TicketListUI.statusMessage}" />
+</t:row>
+<t:rowdistance id="g_33" height="10" />
+<t:row id="g_split_row" >
+<t:splitpane id="g_split" dividerlocation="#{d.TicketListUI.commentsPanelVisible ? &#39;30%&#39; : &#39;100%&#39;}" height="100%" orientation="horizontal" width="100%" >
+<t:splitpanesplit id="g_left" >
+<t:pane id="g_41" height="100%" width="100%" >
+<t:row id="g_42" >
+<t:coldistance id="g_43" width="100%" />
+<t:link id="g_44" actionListener="#{d.TicketListUI.gridTickets.onEditColumnDetails}" text="Colonne..." />
+<t:coldistance id="g_45" />
+<t:link id="g_46" actionListener="#{d.TicketListUI.gridTickets.onOpenGridExportFunctions}" text="Export" />
+<t:coldistance id="g_47" />
+<t:link id="g_48" actionListener="#{d.TicketListUI.onResetColFilters}" text="Reset filtri colonna" />
+</t:row>
+<t:row id="g_50" >
+<t:fixgrid id="g_51" height="100%" objectbinding="#{d.TicketListUI.gridTickets}" persistid="DRAFT_FUSI_GRID" sbvisibleamount="30" width="100%" >
+<t:gridheader id="g_h0" rendered="true" rowheight="30" >
+<t:field id="g_hd" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterDraft}" />
+<t:field id="g_h60" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterTickt}" />
+<t:field id="g_h64" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterRstat}" />
+<t:label id="g_hnota" background="#C0C0C0" />
+<t:label id="g_htd" background="#C0C0C0" />
+<t:field id="g_h62" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterTitle}" />
+<t:label id="g_hdd" background="#C0C0C0" />
+<t:label id="g_hdf" background="#C0C0C0" />
+<t:label id="g_hgs" background="#C0C0C0" />
+<t:field id="g_h66" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterRprio}" />
+<t:field id="g_h68" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterErdat}" />
+<t:field id="g_h70" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterKunnr}" />
+<t:field id="g_h72" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterReqidNome}" />
+<t:field id="g_h73b" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterReferenteNome}" />
+<t:field id="g_h80" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterAmusr}" />
+<t:field id="g_h82" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterRefer}" />
+<t:field id="g_h86" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterEncUltimoStato}" />
+<t:label id="g_h84" background="#C0C0C0" />
+<t:label id="g_h_giorni" background="#C0C0C0" />
+<t:label id="g_h_vita" background="#C0C0C0" />
+<t:field id="g_h74" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterCateg}" />
+<t:field id="g_h76" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterPrdct}" />
+<t:field id="g_h78" actionListener="#{d.TicketListUI.onColFilter}" background="#b4c6e7" flush="true" flushtimer="800" text="#{d.TicketListUI.colFilterModul}" />
+</t:gridheader>
+<t:gridcol id="g_dr" sortreference=".{draftOrdinamento}" text="DRAFT" width="90" >
+<t:label id="g_dr_l" align="right!" stylevariant="ccbig" text=".{draftLabel}" />
+</t:gridcol>
+<t:gridcol id="g_60" sortreference=".{ticktOrdinamento}" text="Ticket" width="100" >
+<t:label id="g_61" align="right!" background=".{ticketCellBackground}" stylevariant="ccbig" text=".{tickt}" />
+</t:gridcol>
+<t:gridcol id="g_64" text="Stato SAP" width="180" >
+<t:label id="g_65" background=".{encRstatColor}" font="size:11;weight:bold;color:.{encRstatTextColor}" text=".{encRstatLabel}" />
+</t:gridcol>
+<t:gridcol id="g_nota" text="Nota" width="260" >
+<t:label id="g_nota_l" background=".{notaBackground}" font="size:11" text=".{nota}" />
+</t:gridcol>
+<t:gridcol id="g_td" text="Oggetto DRAFT" width="240" >
+<t:label id="g_td_l" text=".{titoloDraft}" />
+</t:gridcol>
+<t:gridcol id="g_62" text="Oggetto ticket" width="240" >
+<t:label id="g_63" text=".{title}" />
+</t:gridcol>
+<t:gridcol id="g_dd" sortenabled="true" text="Data DRAFT" width="88" sortvalue=".{dataDraftSort}" >
+<t:label id="g_dd_l" text=".{dataDraft}" />
+</t:gridcol>
+<t:gridcol id="g_df" sortenabled="true" text="Fusione il" width="88" sortvalue=".{dataFusioneSort}" >
+<t:label id="g_df_l" text=".{dataFusione}" />
+</t:gridcol>
+<t:gridcol id="g_gs" sortenabled="true" text="Gg smist." width="70" sortvalue=".{giorniSmistamentoLabel}" >
+<t:label id="g_gs_l" font="size:11;weight:bold" text=".{giorniSmistamentoLabel}" />
+</t:gridcol>
+<t:gridcol id="g_66" text="Priorità" width="75" >
+<t:label id="g_67" stylevariant="ccbig" text=".{rprio}" />
+</t:gridcol>
+<t:gridcol id="g_68" text="Data Inserimento" width="88" >
+<t:label id="g_93" text=".{erdat}" timezone="UTC" />
+</t:gridcol>
+<t:gridcol id="g_70" text="Cliente" width="85" >
+<t:label id="g_71" text=".{kunnr}" />
+</t:gridcol>
+<t:gridcol id="g_72" text="Richiedente" width="180" >
+<t:label id="g_73" background=".{reqidCellBackground}" text=".{reqidNome}" />
+</t:gridcol>
+<t:gridcol id="g_72b" text="Ref. Cliente" width="180" >
+<t:label id="g_73b" text=".{referenteNome}" />
+</t:gridcol>
+<t:gridcol id="g_80" text="AMS" width="90" >
+<t:label id="g_81" background=".{amusrCellBackground}" text=".{amusr}" />
+</t:gridcol>
+<t:gridcol id="g_82" text="Ref. SAP" width="90" >
+<t:label id="g_83" text=".{refer}" />
+</t:gridcol>
+<t:gridcol id="g_86" text="Stato commento" width="170" >
+<t:label id="g_87" background=".{encUltimoStatoColor}" font="size:11;weight:bold;color:.{encUltimoStatoTextColor}" text=".{encUltimoStatoLabel}" />
+</t:gridcol>
+<t:gridcol id="g_84" sortenabled="true" text="Commenti" width="130" sortvalue=".{encUltimaDataSort}" >
+<t:button id="g_85" actionListener=".{onOpenComments}" background="#AAAAAA" font="size:11;weight:bold;color:#FFFFFF" text=".{commentiLabel}" width="120" />
+</t:gridcol>
+<t:gridcol id="g_giorni" sortenabled="true" text="Giorni" width="60" sortvalue=".{giorniLabel}" >
+<t:label id="g_giorni_lbl" background=".{giorniBackground}" font="size:11;weight:bold" text=".{giorniLabel}" />
+</t:gridcol>
+<t:gridcol id="g_vita" sortenabled="true" text="Vita" width="55" sortvalue=".{giorniVitaLabel}" >
+<t:label id="g_vita_lbl" font="size:11;weight:bold" text=".{giorniVitaLabel}" />
+</t:gridcol>
+<t:gridcol id="g_74" text="Categoria" width="90" >
+<t:label id="g_75" text=".{categ}" />
+</t:gridcol>
+<t:gridcol id="g_76" text="Prodotto" width="90" >
+<t:label id="g_77" text=".{prdct}" />
+</t:gridcol>
+<t:gridcol id="g_78" text="Modulo" width="90" >
+<t:label id="g_79" text=".{modul}" />
+</t:gridcol>
+</t:fixgrid>
+</t:row>
+<t:row id="g_90" >
+<t:label id="g_91" font="weight:bold" text="Totale DRAFT: #{d.TicketListUI.ticketCount}" />
+</t:row>
+</t:pane>
+</t:splitpanesplit>
+<t:splitpanesplit id="g_right" >
+<t:rowpagebeaninclude id="g_comments_panel" pagebeanbinding="#{d.TicketListUI.commentUI}" rendered="#{d.TicketListUI.commentsPanelVisible}" shownullcontent="true" />
+</t:splitpanesplit>
+</t:splitpane>
+</t:row>
+</t:rowbodypane>
+
+</t:layoutdefinition>

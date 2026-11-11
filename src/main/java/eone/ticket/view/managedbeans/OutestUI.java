@@ -302,6 +302,8 @@ public class OutestUI
                     case "DISPATCHER":  showDispatcher();      break;
                     case "CLIENTE_CONFIG": showClienteConfig(); break;
                     case "ARCHIVIO":    showTicketList(true);  break;
+                    case "DRAFT_FUSI_ATTIVI":   showDraftFusi(false); break;
+                    case "DRAFT_FUSI_CONCLUSI": showDraftFusi(true);  break;
                     case "SUBSTITUTION": showSubstitution();   break;
                     case "USER_ADMIN":  showUserAdmin();       break;
                     case "REFERENTI_ADMIN": showReferentiAdmin(); break;
@@ -722,6 +724,31 @@ public class OutestUI
         if (selectTicket != null && !selectTicket.trim().isEmpty()) {
             ui.selectAndOpenTicket(selectTicket.trim());
         }
+        m_contentUI = ui;
+    }
+
+    /**
+     * "Ricerca DRAFT in elaborazione / conclusi" — stessa lista dei ticket ma con una riga
+     * per DRAFT convertito (vedi TicketListUI.initDraftFusi). Non aggiorna il riepilogo
+     * del Menu: i ticket sono già contati dalla lista operativa.
+     */
+    private void showDraftFusi(boolean conclusi) {
+        TicketListUI ui = new TicketListUI(getOwningDispatcher());
+        ui.prepare(new TicketListUI.IListener() {
+            @Override
+            public void reactOnBackToMenu() {
+                showMenuUI();
+            }
+            @Override
+            public void reactOnSummaryUpdated(eone.ticket.model.TicketSummary summary) {
+                // Nessun aggiornamento: vedi javadoc.
+            }
+            @Override
+            public void reactOnLogoutRequest() {
+                logout();
+            }
+        });
+        ui.initDraftFusi(conclusi);
         m_contentUI = ui;
     }
 

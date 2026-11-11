@@ -180,6 +180,48 @@ public class TicketDraftService {
     }
 
     // =========================
+    // DRAFT FUSI (MERGED) — per la vista "DRAFT convertiti"
+    // =========================
+
+    /** Condizione comune: solo i DRAFT davvero fusi, con il numero del ticket SAP valorizzato. */
+    private static final String SOLO_FUSI = "stato = 'MERGED' AND tickt_sap IS NOT NULL AND tickt_sap <> ''";
+
+    /** Tutti i DRAFT fusi di un cliente (kunnr) — per CLIENTE con visibilità "vede tutti". */
+    public List<TicketDraft> getMergedByKunnr(String kunnr) throws SQLException {
+        String sql = "SELECT " + COLONNE + " FROM ticket_draft " +
+                     "WHERE kunnr = ? AND " + SOLO_FUSI + " ORDER BY updated_at DESC, id DESC";
+        return queryList(sql, kunnr);
+    }
+
+    /** I DRAFT fusi di uno o più richiedenti (kunnr+reqid) — proprio reqid più quelli dei sostituiti. */
+    public List<TicketDraft> getMergedByRequesters(String kunnr, List<String> reqids) throws SQLException {
+        if (reqids == null || reqids.isEmpty()) return new ArrayList<>();
+        StringBuilder placeholders = new StringBuilder();
+        for (int i = 0; i < reqids.size(); i++) {
+            if (i > 0) placeholders.append(",");
+            placeholders.append("?");
+        }
+        String sql = "SELECT " + COLONNE + " FROM ticket_draft " +
+                     "WHERE kunnr = ? AND reqid IN (" + placeholders + ") AND " + SOLO_FUSI +
+                     " ORDER BY updated_at DESC, id DESC";
+        List<String> params = new ArrayList<>();
+        params.add(kunnr);
+        params.addAll(reqids);
+        return queryList(sql, params.toArray(new String[0]));
+    }
+
+    /** Tutti i DRAFT fusi di tutti i clienti — per ADMIN. */
+    public List<TicketDraft> getAllMerged() throws SQLException {
+        String sql = "SELECT " + COLONNE + " FROM ticket_draft " +
+                     "WHERE " + SOLO_FUSI + " ORDER BY updated_at DESC, id DESC";
+        try (Connection con = DBConfig.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            return mapRows(rs);
+        }
+    }
+
+    // =========================
     // SOSPENSIONE DRAFT ("parcheggio")
     // =========================
 
@@ -365,13 +407,34 @@ public class TicketDraftService {
                                        " commenti da " + draftKey + " a " + ticktSap);
                 }
 
-                // Step 3: migra il referente_cli assegnato al draft
-                try (PreparedStatement ps = con.prepareStatement(sqlMigrateReferente)) {
+                // Step 3: migra il referente_cli assegnato al draft.
+                // ticket_referente ha PK = tickt: se il ticket SAP ha GIÀ un referente
+                // (es. fusione precedente di un altro DRAFT nello stesso ticket, o referente
+                // poi modificato da richiedente/DISPATCHER) l'UPDATE violerebbe la chiave.
+                // In quel caso il referente esistente del ticket prevale e la riga del
+                // DRAFT viene scartata (il DISPATCHER ne è avvisato prima, vedi
+                // checkMergeWarnings).
+                boolean ticketHaGiaReferente = false;
+                try (PreparedStatement ps = con.prepareStatement("SELECT 1 FROM ticket_referente WHERE tickt = ?")) {
                     ps.setString(1, ticktSap.trim());
-                    ps.setString(2, draftKey);
-                    int referenteMigrato = ps.executeUpdate();
-                    System.out.println("[TicketDraftService] Referente migrato (" + referenteMigrato +
-                                       " riga) da " + draftKey + " a " + ticktSap);
+                    try (ResultSet rs = ps.executeQuery()) { ticketHaGiaReferente = rs.next(); }
+                }
+                if (ticketHaGiaReferente) {
+                    try (PreparedStatement ps = con.prepareStatement("DELETE FROM ticket_referente WHERE tickt = ?")) {
+                        ps.setString(1, draftKey);
+                        int scartato = ps.executeUpdate();
+                        System.out.println("[TicketDraftService] Il ticket " + ticktSap + " ha già un referente: " +
+                                           "mantenuto quello esistente, scartato quello di " + draftKey +
+                                           " (" + scartato + " riga)");
+                    }
+                } else {
+                    try (PreparedStatement ps = con.prepareStatement(sqlMigrateReferente)) {
+                        ps.setString(1, ticktSap.trim());
+                        ps.setString(2, draftKey);
+                        int referenteMigrato = ps.executeUpdate();
+                        System.out.println("[TicketDraftService] Referente migrato (" + referenteMigrato +
+                                           " riga) da " + draftKey + " a " + ticktSap);
+                    }
                 }
 
                 con.commit();
@@ -466,6 +529,31 @@ public class TicketDraftService {
                          " commento/i — i commenti del DRAFT si aggiungeranno a quelli esistenti.");
         }
 
+        // 1a. Referente cliente già presente sul ticket SAP (es. altro DRAFT già fuso lì):
+        // quello esistente prevale; se il DRAFT ne aveva uno diverso, il DISPATCHER lo deve sapere.
+        try {
+            String refDraft = null, refTicket = null;
+            String sqlRef = "SELECT tickt, reqid_referente FROM ticket_referente WHERE tickt IN (?, ?)";
+            try (Connection con = DBConfig.getConnection();
+                 PreparedStatement ps = con.prepareStatement(sqlRef)) {
+                ps.setString(1, TicketDraft.toDraftTickt(draftId));
+                ps.setString(2, ticktSap.trim());
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        if (TicketDraft.toDraftTickt(draftId).equals(rs.getString("tickt"))) refDraft = rs.getString("reqid_referente");
+                        else refTicket = rs.getString("reqid_referente");
+                    }
+                }
+            }
+            if (refTicket != null && refDraft != null && !IdNormalizer.sameReqid(refDraft, refTicket)) {
+                warnings.add("⚠ Il ticket SAP " + ticktSap + " ha già come referente cliente " + refTicket +
+                             ": resterà quello. Il referente indicato nel DRAFT (" + refDraft + ") verrà scartato" +
+                             " (si può cambiare dal dettaglio del ticket).");
+            }
+        } catch (Exception e) {
+            System.err.println("[TicketDraftService] Controllo referente in fusione non riuscito (ignorato): " + e.getMessage());
+        }
+
         // Legge il ticket SAP per i controlli 2 e 3
         eone.ticket.model.Ticket ticketSap = null;
         try {
@@ -488,6 +576,21 @@ public class TicketDraftService {
             throw new TicketSapNotFoundException(
                 "Il ticket SAP " + ticktSap + " non è stato trovato nel sistema. " +
                 "Verificare che il numero sia corretto.");
+        }
+
+        // 1b. BLOCCO: il ticket SAP deve essere dello stesso cliente (Kunnr) del DRAFT.
+        // Fondere tra clienti diversi sposterebbe commenti e allegati di un cliente
+        // sotto un ticket di un altro (violazione dell'isolamento multi-tenant):
+        // non è un'anomalia "sorpassabile con conferma" ma un errore.
+        if (draft != null) {
+            String kDraft = ClienteConfigService.normalizeKunnr(draft.getKunnr());
+            String kSap   = ClienteConfigService.normalizeKunnr(ticketSap.getKunnr());
+            if (!kDraft.isEmpty() && !kSap.isEmpty() && !kDraft.equals(kSap)) {
+                throw new TicketMergeBloccataException(
+                    "Fusione NON consentita: il DRAFT-" + draftId + " appartiene al cliente " + kDraft +
+                    " mentre il ticket SAP " + ticktSap + " appartiene al cliente " + kSap +
+                    ". Non si possono fondere ticket di clienti diversi: verificare il numero del ticket SAP.");
+            }
         }
 
         // 2. Richiedente diverso

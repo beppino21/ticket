@@ -437,6 +437,22 @@ public class MenuUI extends PageBean implements Serializable {
             "Consulta i ticket chiusi o risolti sul backend SAP",
             true));
 
+        // Ricerca DRAFT convertiti: CLIENTE (propri DRAFT, più quelli dei sostituiti)
+        // e ADMIN (tutti). Una riga per DRAFT fuso, col ticket SAP in cui è
+        // confluito — utile per ritrovare "che fine ha fatto" il proprio DRAFT.
+        if (isCliente || isAdmin) {
+            m_items.getItems().add(new MenuItemInfo(
+                "DRAFT_FUSI_ATTIVI",
+                "Ricerca DRAFT in elaborazione",
+                "Trova in quale ticket sono stati convertiti i DRAFT, per i ticket ancora aperti",
+                true));
+            m_items.getItems().add(new MenuItemInfo(
+                "DRAFT_FUSI_CONCLUSI",
+                "Ricerca DRAFT conclusi",
+                "Trova in quale ticket sono stati convertiti i DRAFT, per i ticket chiusi o risolti",
+                true));
+        }
+
         // Sostituzione temporanea: per CLIENTE e AMS, i ruoli la cui
         // visibilità sui ticket è legata alla propria identità (reqid/amusr)
         // — non ha senso per DISPATCHER/ADMIN che già vedono tutto.

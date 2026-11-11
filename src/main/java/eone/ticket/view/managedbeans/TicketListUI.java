@@ -73,6 +73,17 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
     /** True quando la lista è aperta in modalità "Ticket come Referente" (solo AMS). */
     private boolean m_modoReferente;
 
+    /**
+     * True quando la lista è aperta in modalità "DRAFT convertiti" (CLIENTE e ADMIN):
+     * una riga per DRAFT fuso (MERGED), con accanto i dati del ticket SAP in cui è
+     * stato convertito. m_archivio decide quale metà si vede: false = ticket ancora
+     * in elaborazione, true = ticket conclusi (CLO/RES/CAN/REF). In questa modalità
+     * la pagina è /DraftFusi.xml (vedi getPageName()).
+     */
+    private boolean m_modoDraftFusi;
+    private String  m_colFilterDraft = "";
+    private List<DraftFusoRow> m_righeDraftFusi = new ArrayList<>();
+
     private FIXGRIDListBinding<GridTicketItem> m_gridTickets = new FIXGRIDListBinding<>();
 
     private String  m_filterKunnr;
@@ -387,6 +398,97 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
     }
 
     // =========================
+    // DRAFT CONVERTITI — riga e item di griglia
+    // =========================
+
+    /** Una riga della vista "DRAFT convertiti": un DRAFT fuso + il ticket SAP in cui è confluito. */
+    public static class DraftFusoRow implements Serializable {
+        private static final long serialVersionUID = 1L;
+        private TicketDraft draft;
+        private Ticket      ticket;          // ticket reale (apribile) o copia "ridotta" (non apribile)
+        private boolean     apribile;        // false: l'utente non può aprirlo (ticket di altro titolare / non trovato)
+        private String      nota = "";       // testo della colonna "Nota"
+        private String      notaTipo = "";   // "" | "INFO" | "AVVISO" — colore della colonna Nota
+        private String      messaggioNegato = ""; // mostrato al doppio click se !apribile
+    }
+
+    /**
+     * Item di griglia per la vista "DRAFT convertiti": come GridTicketItem, più le colonne
+     * del DRAFT, e con il controllo di accesso sul doppio click / bottone Commenti.
+     */
+    public class GridDraftFusoItem extends GridTicketItem {
+        private static final long serialVersionUID = 1L;
+        private final DraftFusoRow row;
+
+        public GridDraftFusoItem(DraftFusoRow row) {
+            super(row.ticket);
+            this.row = row;
+        }
+
+        private String s(String x) { return x != null ? x : ""; }
+
+        public String getDraftLabel()        { return TicketDraft.toDraftTickt(row.draft.getId()); }
+        public Long   getDraftOrdinamento()  { return row.draft.getId(); }
+        public String getTitoloDraft()       { return s(row.draft.getTitolo()); }
+        public String getDataDraft() {
+            return row.draft.getCreatedAt() == null ? "" :
+                row.draft.getCreatedAt().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+        }
+        /** Data di fusione: per un DRAFT MERGED updated_at viene scritto solo da mergeDraft(). */
+        public String getDataFusione() {
+            return row.draft.getUpdatedAt() == null ? "" :
+                row.draft.getUpdatedAt().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+        }
+        /** Chiavi di ordinamento yyyyMMdd (le date mostrate sono dd/MM/yyyy: ordinerebbero male come testo). */
+        public String getDataDraftSort() {
+            return row.draft.getCreatedAt() == null ? "" :
+                row.draft.getCreatedAt().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
+        }
+        public String getDataFusioneSort() {
+            return row.draft.getUpdatedAt() == null ? "" :
+                row.draft.getUpdatedAt().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
+        }
+        /** Giorni tra la creazione del DRAFT e la fusione (quanto ha impiegato lo smistamento). */
+        public String getGiorniSmistamentoLabel() {
+            if (row.draft.getCreatedAt() == null || row.draft.getUpdatedAt() == null) return "";
+            long g = java.time.temporal.ChronoUnit.DAYS.between(
+                row.draft.getCreatedAt().toLocalDate(), row.draft.getUpdatedAt().toLocalDate());
+            return String.format("%04d", Math.max(0, Math.min(g, 9999)));
+        }
+        public String getNota() { return row.nota; }
+        public String getNotaBackground() {
+            if ("AVVISO".equals(row.notaTipo)) return "#FFE0B2"; // arancio pallido
+            if ("INFO".equals(row.notaTipo))   return "#E3F2FD"; // azzurro pallido
+            return "#FFFFFF";
+        }
+        /** Arancio pallido sulla cella "Ticket" se l'utente non può aprire quel ticket. */
+        public String getTicketCellBackground() { return row.apribile ? "#FFFFFF" : "#FFE0B2"; }
+
+        // Per i ticket non apribili la copia "ridotta" non ha commenti né date di attività:
+        // niente Giorni/Vita (sarebbero calcolati sulla sola data di creazione, fuorvianti).
+        @Override public String getGiorniLabel()           { return row.apribile ? super.getGiorniLabel() : ""; }
+        @Override public String getGiorniBackground()      { return row.apribile ? super.getGiorniBackground() : ""; }
+        @Override public String getGiorniVitaLabel()       { return row.apribile ? super.getGiorniVitaLabel() : ""; }
+        @Override public String getGiorniVitaBackground()  { return row.apribile ? super.getGiorniVitaBackground() : ""; }
+
+        private boolean consentiApertura() {
+            if (row.apribile) return true;
+            Statusbar.outputWarning(row.messaggioNegato);
+            return false;
+        }
+
+        @Override public void onRowExecute() {
+            if (!consentiApertura()) return;
+            super.onRowExecute();
+        }
+
+        @Override public void onOpenComments(ActionEvent ae) {
+            if (!consentiApertura()) return;
+            super.onOpenComments(ae);
+        }
+    }
+
+    // =========================
     // COSTRUTTORE / INIT
     // =========================
 
@@ -428,7 +530,10 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
     }
 
     /** Usato da "Aggiorna" — ricarica preservando la modalità corrente (archivio/referente). */
-    public void init() { init(m_archivio, m_modoReferente); }
+    public void init() {
+        if (m_modoDraftFusi) { initDraftFusi(m_archivio); return; }
+        init(m_archivio, m_modoReferente);
+    }
 
     public void init(boolean archivio) {
         init(archivio, false);
@@ -558,6 +663,263 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
             System.err.println("[TicketListUI] Errore caricamento sostituzioni attive: " + e.getMessage());
         }
     }
+
+    // =========================
+    // DRAFT CONVERTITI (vista dedicata: CLIENTE e ADMIN)
+    // =========================
+
+    private static boolean isConcluso(String rstat) {
+        return "CLO".equals(rstat) || "RES".equals(rstat) || "CAN".equals(rstat) || "REF".equals(rstat);
+    }
+
+    /**
+     * Carica la vista "DRAFT convertiti": una riga per ogni DRAFT fuso nel perimetro
+     * dell'utente, con i dati del ticket SAP in cui è stato convertito.
+     *
+     * @param conclusi false = ticket ancora in elaborazione; true = ticket conclusi
+     *                 (CLO/RES/CAN/REF, stessa regola di "Ticket conclusi").
+     *
+     * Perimetro: CLIENTE = propri DRAFT + quelli dei colleghi sostituiti (o tutto il
+     * cliente con visibilità "vede tutti"); ADMIN = tutti. Il ticket si ricerca PER
+     * NUMERO tra i ticket SAP dell'intero cliente (non solo quelli del proprio reqid):
+     * il dispatcher può aver fuso il DRAFT in un ticket con altro richiedente.
+     *
+     * NON si applica la regola "ticket solo-SAP nascosti" (VisibilitaTicketService): un
+     * ticket nato da un DRAFT ha per definizione già i commenti migrati dal DRAFT.
+     */
+    public void initDraftFusi(boolean conclusi) {
+        m_modoDraftFusi  = true;
+        m_modoReferente  = false;
+        m_archivio       = conclusi;
+        ViewSessionContext ctx = ViewSessionContext.instance();
+        boolean isAdmin   = "ADMIN".equalsIgnoreCase(ctx.getRuolo());
+        String kunnr      = ctx.getKunnr();
+        boolean isCliente = ctx.isCliente() && kunnr != null && !kunnr.isEmpty();
+        m_righeDraftFusi  = new ArrayList<>();
+        m_gridTickets.getItems().clear();
+        ticketsEnriched   = new ArrayList<>();
+        tickets           = new ArrayList<>();
+        if (!isAdmin && !isCliente) {
+            setError("Funzione disponibile solo per richiedenti (CLIENTE) e amministratori.");
+            return;
+        }
+        caricaSostituzioniAttive(ctx);
+
+        try {
+            // 1) DRAFT fusi del perimetro
+            boolean vedeTutti = "ALL".equalsIgnoreCase(ctx.getOwnAll());
+            String proprioReqid = ctx.getRichiedente();
+            List<TicketDraft> fusi;
+            if (isAdmin) {
+                fusi = draftService.getAllMerged();
+            } else if (vedeTutti) {
+                fusi = draftService.getMergedByKunnr(kunnr);
+            } else {
+                List<String> reqids = new ArrayList<>(m_reqidSostituitiAttivi);
+                if (proprioReqid != null && !proprioReqid.trim().isEmpty()) reqids.add(proprioReqid);
+                fusi = draftService.getMergedByRequesters(kunnr, reqids);
+            }
+
+            // 2) ticket SAP: l'intero cliente (CLIENTE) o tutti i clienti abilitati (ADMIN)
+            List<Ticket> sap;
+            if (fusi.isEmpty()) {
+                sap = new ArrayList<>();
+            } else {
+                TicketResponse resp = isAdmin
+                    ? ticketService.getTickets(null, null, null, null, null, "ne:CLO")
+                    : ticketService.getTickets(kunnr, null, null, null, null, "ne:CLO");
+                if (!resp.isSuccess()) { setError("Errore SAP: " + resp.getErrorMessage()); return; }
+                sap = isAdmin ? filtraClientiAbilitati(resp.getTickets()) : resp.getTickets();
+            }
+            java.util.Map<String, Ticket> perNumero = new java.util.HashMap<>();
+            for (Ticket t : sap) perNumero.put(IdNormalizer.normalize(t.getTickt()), t);
+
+            // 3) più DRAFT fusi nello stesso ticket (N:1) — per la colonna Nota
+            java.util.Map<String, List<Long>> draftPerTicket = new java.util.HashMap<>();
+            for (TicketDraft d : fusi) {
+                draftPerTicket.computeIfAbsent(IdNormalizer.normalize(d.getTicktSap()), k -> new ArrayList<>()).add(d.getId());
+            }
+
+            // 4) riferimenti del ticket (per sapere se l'utente ne è il referente)
+            java.util.Map<String, String> referentePerTickt = new java.util.HashMap<>();
+            try {
+                List<String> tickts = new ArrayList<>();
+                for (Ticket t : sap) if (t.getTickt() != null && !t.getTickt().isEmpty()) tickts.add(t.getTickt());
+                referentePerTickt = referenteService.getReferentiBulk(tickts);
+            } catch (Exception e) {
+                System.err.println("[TicketListUI] DRAFT fusi — errore lettura referenti: " + e.getMessage());
+            }
+
+            // 5) selezione e classificazione delle righe
+            List<DraftFusoRow> righe = new ArrayList<>();
+            java.util.LinkedHashMap<String, Ticket> reali = new java.util.LinkedHashMap<>();
+            for (TicketDraft d : fusi) {
+                String num = IdNormalizer.normalize(d.getTicktSap());
+                Ticket t = perNumero.get(num);
+                DraftFusoRow r = new DraftFusoRow();
+                r.draft = d;
+
+                if (t == null) {
+                    // Ticket non trovato (cancellato, o non raggiungibile): non si sa se sia
+                    // concluso, quindi lo si mostra tra quelli "in elaborazione" per non perderlo.
+                    if (conclusi) continue;
+                    Ticket v = new Ticket();
+                    v.setTickt(d.getTicktSap());
+                    v.setTitle(d.getTitolo());
+                    v.setRstat("");
+                    v.setKunnr(stripLeadingZeros(d.getKunnr()));
+                    v.setReqid(d.getReqid());
+                    v.setEncNomeRichiedente(nomeRichiedenteDraft(d));
+                    v.setEncRstatLabel("Ticket non trovato");
+                    v.setEncRstatColor("#9E9E9E");
+                    v.setEncRstatTextColor("#FFFFFF");
+                    r.ticket = v;
+                    r.apribile = false;
+                    r.nota = "⚠ Ticket SAP n. " + d.getTicktSap() + " non trovato";
+                    r.notaTipo = "AVVISO";
+                    r.messaggioNegato = "Il ticket SAP n. " + d.getTicktSap() + " in cui è stato fuso il " +
+                        TicketDraft.toDraftTickt(d.getId()) + " non è stato trovato: impossibile aprirlo.";
+                    righe.add(r);
+                    continue;
+                }
+
+                if (isConcluso(t.getRstat()) != conclusi) continue;
+
+                String kDraft = ClienteConfigService.normalizeKunnr(d.getKunnr());
+                String kSap   = ClienteConfigService.normalizeKunnr(t.getKunnr());
+                boolean altroCliente = !kDraft.isEmpty() && !kSap.isEmpty() && !kDraft.equals(kSap);
+
+                boolean apribile;
+                if (isAdmin || vedeTutti) {
+                    apribile = true;
+                } else {
+                    String rif = referentePerTickt.get(t.getTickt());
+                    apribile = IdNormalizer.sameReqid(t.getReqid(), proprioReqid)
+                            || IdNormalizer.containsReqid(m_reqidSostituitiAttivi, t.getReqid())
+                            || (rif != null && IdNormalizer.sameReqid(rif, proprioReqid));
+                }
+                if (altroCliente && !isAdmin) apribile = false; // non deve succedere (la fusione ora è bloccata)
+
+                r.ticket = t;
+                r.apribile = apribile;
+                reali.put(num, t);
+
+                // Colonna Nota: priorità all'avviso; altrimenti l'info sulla fusione N:1
+                List<Long> stessiTicket = draftPerTicket.get(num);
+                if (altroCliente) {
+                    r.nota = "⚠ ANOMALIA: il ticket appartiene a un altro cliente (" + kSap + ")";
+                    r.notaTipo = "AVVISO";
+                    r.messaggioNegato = "Il ticket " + t.getTickt() + " in cui è stato fuso il " +
+                        TicketDraft.toDraftTickt(d.getId()) + " appartiene a un altro cliente: contattare l'assistenza.";
+                } else if (!apribile) {
+                    // il nome si completa dopo l'arricchimento (vedi sotto)
+                    r.notaTipo = "AVVISO";
+                } else if (stessiTicket != null && stessiTicket.size() > 1) {
+                    StringBuilder sb = new StringBuilder("Ticket comune anche a ");
+                    boolean primo = true;
+                    for (Long altro : stessiTicket) {
+                        if (altro.longValue() == d.getId()) continue;
+                        if (!primo) sb.append(", ");
+                        sb.append(TicketDraft.toDraftTickt(altro.longValue()));
+                        primo = false;
+                    }
+                    r.nota = sb.toString();
+                    r.notaTipo = "INFO";
+                }
+                righe.add(r);
+            }
+
+            // 6) arricchimento (commenti, stati, nomi) dei ticket reali mostrati
+            List<Ticket> daArricchire = new ArrayList<>(reali.values());
+            enrichmentService.enrichTickets(daArricchire);
+            arricchisciNomeReferente(daArricchire);
+
+            // 7) i ticket NON apribili: copia ridotta (nessun dato dell'altrui ticket oltre a
+            //    numero, stato SAP, titolare e data) + nota/messaggio con il nome del titolare
+            for (DraftFusoRow r : righe) {
+                if (r.apribile || r.ticket == null || !reali.containsValue(r.ticket)) continue;
+                Ticket t = r.ticket;
+                String titolare = (t.getEncNomeRichiedente() != null && !t.getEncNomeRichiedente().isEmpty())
+                    ? t.getEncNomeRichiedente() : nn(t.getReqid());
+                Ticket lite = new Ticket();
+                lite.setTickt(t.getTickt());
+                lite.setTitle(r.draft.getTitolo());          // il titolo del PROPRIO DRAFT, non quello dell'altrui ticket
+                lite.setRstat(t.getRstat());
+                lite.setErdat(t.getErdat());
+                lite.setKunnr(t.getKunnr());
+                lite.setReqid(t.getReqid());
+                lite.setEncNomeRichiedente(titolare);
+                lite.setEncRstatLabel(t.getEncRstatLabel());
+                lite.setEncRstatColor(t.getEncRstatColor());
+                lite.setEncRstatTextColor(t.getEncRstatTextColor());
+                r.ticket = lite;
+                if (r.nota.isEmpty()) {
+                    r.nota = "⚠ Ticket intestato a " + titolare;
+                    r.messaggioNegato = "Il " + TicketDraft.toDraftTickt(r.draft.getId()) + " è stato fuso nel ticket " +
+                        t.getTickt() + ", intestato a " + titolare +
+                        ": solo il titolare del ticket può aprirlo.";
+                }
+            }
+
+            // ticketsEnriched = solo i ticket realmente apribili (serve a refreshAfterCommentPopup)
+            ticketsEnriched = new ArrayList<>();
+            for (DraftFusoRow r : righe) if (r.apribile && reali.containsValue(r.ticket) && !ticketsEnriched.contains(r.ticket)) ticketsEnriched.add(r.ticket);
+            m_righeDraftFusi = righe;
+            tickets = new ArrayList<>(reali.values());
+
+            rebuildGridDraftFusi();
+            m_hasError   = false;
+            m_hasTickets = !righe.isEmpty();
+            m_statusMessage = "Trovati " + righe.size() + " DRAFT convertiti in ticket " +
+                              (conclusi ? "conclusi" : "in elaborazione");
+            Statusbar.outputSuccess(m_statusMessage);
+        } catch (Exception e) {
+            setError("Eccezione: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /** Ricostruisce la griglia "DRAFT convertiti" applicando i filtri colonna correnti. */
+    private void rebuildGridDraftFusi() {
+        m_gridTickets.getItems().clear();
+        for (DraftFusoRow r : m_righeDraftFusi) {
+            Ticket t = r.ticket;
+            if (!matches(TicketDraft.toDraftTickt(r.draft.getId()), m_colFilterDraft)) continue;
+            if (!matches(t.getTickt(), m_colFilterTickt)) continue;
+            if (!matches(t.getTitle(), m_colFilterTitle)) continue;
+            if (!matches(t.getEncRstatLabel(), m_colFilterRstat) && !matches(t.getRstat(), m_colFilterRstat)) continue;
+            if (!matches(t.getRprio(), m_colFilterRprio)) continue;
+            if (!matches(t.getErdat(), m_colFilterErdat)) continue;
+            if (!matches(t.getKunnr(), m_colFilterKunnr)) continue;
+            if (!matches(t.getEncNomeRichiedente(), m_colFilterReqidNome)) continue;
+            if (!matches(t.getEncNomeReferente(), m_colFilterReferenteNome)) continue;
+            if (!matches(t.getCateg(), m_colFilterCateg)) continue;
+            if (!matches(t.getPrdct(), m_colFilterPrdct)) continue;
+            if (!matches(t.getModul(), m_colFilterModul)) continue;
+            if (!matches(t.getAmusr(), m_colFilterAmusr)) continue;
+            if (!matches(t.getRefer(), m_colFilterRefer)) continue;
+            if (!matches(t.getEncUltimoStato(), m_colFilterEncUltimoStato)) continue;
+            m_gridTickets.getItems().add(new GridDraftFusoItem(r));
+        }
+    }
+
+    /** "REQID — Nome" del richiedente di un DRAFT (solo REQID se il nome non si risolve). */
+    private String nomeRichiedenteDraft(TicketDraft d) {
+        String reqid = d.getReqid() != null ? d.getReqid() : "";
+        try {
+            if (d.getKunnr() != null && d.getReqid() != null) {
+                RequesterInfo info = requesterService.getByKunnrReqid(d.getKunnr(), d.getReqid());
+                if (info != null && info.getNome() != null && !info.getNome().trim().isEmpty()) {
+                    return reqid + " — " + info.getNome().trim();
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[TicketListUI] Errore risoluzione nome richiedente DRAFT: " + e.getMessage());
+        }
+        return reqid;
+    }
+
+    private static String nn(String s) { return s != null ? s : ""; }
 
     // =========================
     // PANNELLO COMMENTI INLINE
@@ -1220,6 +1582,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
      * sulla lista già arricchita — nessuna nuova chiamata SAP/DB.
      */
     private void rebuildGridWithColFilters() {
+        if (m_modoDraftFusi) { rebuildGridDraftFusi(); return; }
         m_gridTickets.getItems().clear();
 
         // DRAFT in cima — sempre, applicando gli stessi filtri colonna
@@ -1273,6 +1636,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
         m_colFilterKunnr = m_colFilterReqidNome = m_colFilterReferenteNome = "";
         m_colFilterCateg = m_colFilterPrdct = m_colFilterModul = m_colFilterAmusr = m_colFilterRefer = "";
         m_colFilterEncUltimoStato = "";
+        m_colFilterDraft = "";
         rebuildGridWithColFilters();
     }
 
@@ -1532,7 +1896,7 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
     // GETTERS / SETTERS
     // =========================
 
-    @Override public String getPageName()                 { return "/TicketList.xml"; }
+    @Override public String getPageName()                 { return m_modoDraftFusi ? "/DraftFusi.xml" : "/TicketList.xml"; }
     @Override public String getRootExpressionUsedInPage() { return "#{d.TicketListUI}"; }
 
     public CommentUI getCommentUI()            { return m_commentUI; }
@@ -1591,5 +1955,16 @@ public class TicketListUI extends WorkpageDispatchedPageBean implements Serializ
     public Boolean getEnableTicketDetail()      { return m_enableTicketDetail; }
     public void setEnableTicketDetail(Boolean v){ this.m_enableTicketDetail = v; }
 
-    public int getTicketCount()                 { return tickets != null ? tickets.size() : 0; }
+    public int getTicketCount() {
+        if (m_modoDraftFusi) return m_righeDraftFusi != null ? m_righeDraftFusi.size() : 0;
+        return tickets != null ? tickets.size() : 0;
+    }
+
+    /** Titolo della vista "DRAFT convertiti" (pagina /DraftFusi.xml). */
+    public String getPageTitle() {
+        return m_archivio ? "Ricerca DRAFT conclusi" : "Ricerca DRAFT in elaborazione";
+    }
+
+    public String getColFilterDraft()           { return m_colFilterDraft; }
+    public void setColFilterDraft(String v)     { this.m_colFilterDraft = v; }
 }
